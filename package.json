@@ -1,0 +1,14 @@
+{
+  "name": "qianchuan-ai-dashboard",
+  "version": "1.1.0",
+  "private": true,
+  "description": "Qianchuan AI dashboard local runtime",
+  "scripts": {
+    "live-screen": "node live-screen-agent.js",
+    "live-screen:login": "node live-screen-agent.js --login",
+    "test:live-screen": "node live-screen-agent.test.js"
+  },
+  "dependencies": {
+    "puppeteer-core": "^24.23.0"
+  }
+}

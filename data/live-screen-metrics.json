@@ -1,0 +1,121 @@
+{
+  "status": "partial",
+  "live": true,
+  "syncedAt": "2026-11-01T13:02:39.862Z",
+  "source": "puppeteer-core",
+  "sourceLabel": "千川直播大屏 · 无头 Chrome 抓取",
+  "pageUrl": "https://qianchuan.jinritemai.com/board-next?live_room_id=7701192872432700202&anchorId=77732238866&aavid=1744479430946824&fromModule=uni_promotion_v2",
+  "pageTitle": "直播大屏",
+  "room": {
+    "id": "7701192872432700202"
+  },
+  "metrics": {
+    "spend": 3697.6,
+    "gmv": 1512,
+    "orders": 9,
+    "orderCost": 410.84,
+    "roi": 0.41,
+    "watchCount": 954,
+    "productClicks": 240,
+    "gpm": 1341.61,
+    "exposure": 29836,
+    "online": 0
+  },
+  "matches": {
+    "spend": {
+      "evidence": "整体消耗(元) 3,697.60",
+      "confidence": 94
+    },
+    "gmv": {
+      "evidence": "净成交金额(元) 1,512.00",
+      "confidence": 94
+    },
+    "orders": {
+      "evidence": "整体成交订单数 9",
+      "confidence": 94
+    },
+    "orderCost": {
+      "evidence": "整体成交订单成本(元) 410.84",
+      "confidence": 94
+    },
+    "roi": {
+      "evidence": "净成交ROI 0.41",
+      "confidence": 94
+    },
+    "watchCount": {
+      "evidence": "直播间整体观看人数 954",
+      "confidence": 94
+    },
+    "productClicks": {
+      "evidence": "商品点击次数 240",
+      "confidence": 94
+    },
+    "gpm": {
+      "evidence": "GPM(元) 1,341.61",
+      "confidence": 94
+    },
+    "exposure": {
+      "evidence": "直播间整体曝光次数 29,836",
+      "confidence": 94
+    },
+    "online": {
+      "evidence": "实时在线人数 0",
+      "confidence": 94
+    }
+  },
+  "missingMetrics": [
+    "peakOnline"
+  ],
+  "tradeMetrics": {
+    "spend": 3697.6,
+    "gmv": 1512,
+    "orders": 9,
+    "orderCost": 410.84,
+    "roi": 0.41
+  },
+  "missingTradeMetrics": [],
+  "behaviorMetrics": {
+    "watchCount": 954,
+    "productClicks": 240,
+    "gpm": 1341.61,
+    "online": 0
+  },
+  "missingBehaviorMetrics": [
+    "peakOnline"
+  ],
+  "flows": [
+    {
+      "key": "ecom_other",
+      "label": "其他",
+      "value": 44.44,
+      "unit": "percent",
+      "evidence": "成交渠道构成 观看次数 成交金额 其他44.44% 短视频及图文引流44.44% 头条西瓜11.11% 个人主页&店铺&橱窗0% 搜索0% 直播间核心漏斗 直播间整体曝光次数 29,836 直播间观看次数 1,127 商品点击次数 240 成交订单数 9 直播实时评论 直播画面 暂无评论"
+    },
+    {
+      "key": "video_to_live",
+      "label": "短视频及图文引流",
+      "value": 44.44,
+      "unit": "percent",
+      "evidence": "成交渠道构成 观看次数 成交金额 其他44.44% 短视频及图文引流44.44% 头条西瓜11.11% 个人主页&店铺&橱窗0% 搜索0% 直播间核心漏斗 直播间整体曝光次数 29,836 直播间观看次数 1,127 商品点击次数 240 成交订单数 9 直播实时评论 直播画面 暂无评论"
+    },
+    {
+      "key": "touxi_saas",
+      "label": "头条西瓜",
+      "value": 11.11,
+      "unit": "percent",
+      "evidence": "成交渠道构成 观看次数 成交金额 其他44.44% 短视频及图文引流44.44% 头条西瓜11.11% 个人主页&店铺&橱窗0% 搜索0% 直播间核心漏斗 直播间整体曝光次数 29,836 直播间观看次数 1,127 商品点击次数 240 成交订单数 9 直播实时评论 直播画面 暂无评论"
+    }
+  ],
+  "error": "",
+  "metricUnchangedSeconds": 40,
+  "browser": {
+    "executablePath": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+    "profile": "D:\\ai投放产品\\我的坚果云\\AI投放工具\\data\\chrome-profile",
+    "headless": true
+  },
+  "heartbeatAt": "2026-11-01T13:02:43.298Z",
+  "pid": 34964,
+  "accountId": "fashion",
+  "intervalSeconds": 10,
+  "heartbeatOnly": true
+}

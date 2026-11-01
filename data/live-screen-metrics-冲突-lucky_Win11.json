@@ -1,0 +1,23 @@
+{
+  "heartbeatAt": "2026-10-23T21:43:37.465Z",
+  "pid": 8952,
+  "accountId": "fashion",
+  "intervalSeconds": 10,
+  "status": "error",
+  "live": false,
+  "syncedAt": "2026-10-23T21:43:37.465Z",
+  "source": "puppeteer-core",
+  "sourceLabel": "千川直播大屏 · 无头 Chrome 抓取",
+  "pageUrl": "null/",
+  "room": {
+    "id": "7698576510591994665"
+  },
+  "metrics": {},
+  "missingMetrics": [
+    "watchCount",
+    "productClicks",
+    "peakOnline",
+    "gpm"
+  ],
+  "error": "Attempted to use detached Frame '9F4951D9689ED1C3FD67F8D03D33BC6B'."
+}

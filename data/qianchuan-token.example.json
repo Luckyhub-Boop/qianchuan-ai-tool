@@ -1,0 +1,5 @@
+﻿{
+  "accessToken": "请勿提交真实 token；也可改用环境变量 QIANCHUAN_ACCESS_TOKEN",
+  "refreshToken": "可选",
+  "expiresAt": "2026-10-20T00:00:00+08:00"
+}

@@ -1,0 +1,20 @@
+# 浏览器登录态和临时文件，太大了不上传
+.edge-profile*/
+.tmp-edge-*/
+.tmp-doc-edge/
+chrome-profile/
+
+# 内置运行时
+runtime/
+
+# 日志和锁文件
+*.log
+*.lock
+
+# Python缓存
+__pycache__/
+*.pyc
+
+# 临时文件
+*.tmp
+.tmp-*.py

@@ -1,0 +1,7 @@
+{
+  "enabled": false,
+  "url": "https://open.oceanengine.com/qianchuan/mcp?API_KEY=YOUR_API_KEY",
+  "timeoutSeconds": 20,
+  "cacheSeconds": 5,
+  "rawVerified": false
+}

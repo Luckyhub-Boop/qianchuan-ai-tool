@@ -1,0 +1,61 @@
+{
+  "days": {
+    "2026-10-23": {
+      "7699708384056068905": [
+        {
+          "t": 1792763524824,
+          "syncedAt": "2026-10-24T15:55:24+08:00",
+          "sourceAt": "2026-10-23T13:52:04.824Z",
+          "spend": 6817.68,
+          "gmv": 4200.0,
+          "orders": 29.0,
+          "roi": 0.62,
+          "watch": 1857.0,
+          "exposure": 73846.0,
+          "watchOneMinute": null,
+          "productClicks": 499.0,
+          "peakOnline": 7.0,
+          "gpm": 2093.68,
+          "online": 5.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": 2.5147,
+          "flowItems": [
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 51.72,
+              "unit": "percent"
+            },
+            {
+              "key": "general_search",
+              "label": "搜索",
+              "value": 20.69,
+              "unit": "percent"
+            },
+            {
+              "key": "homepage_hot",
+              "label": "直播推荐",
+              "value": 10.34,
+              "unit": "percent"
+            },
+            {
+              "key": "ecom_other",
+              "label": "其他",
+              "value": 10.34,
+              "unit": "percent"
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 6.9,
+              "unit": "percent"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "version": 1,
+  "updatedAt": "2026-10-24T15:55:24+08:00"
+}

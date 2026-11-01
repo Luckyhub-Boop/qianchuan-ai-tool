@@ -1,0 +1,9 @@
+{
+  "appId": "巨量开放平台应用 App ID",
+  "appSecret": "巨量开放平台应用 App Secret",
+  "redirectUri": "在应用后台登记过的完整回调地址",
+  "scope": "",
+  "authorizeUrl": "https://open.oceanengine.com/audit/oauth.html",
+  "accessTokenUrl": "https://ad.oceanengine.com/open_api/oauth2/access_token/",
+  "refreshTokenUrl": "https://ad.oceanengine.com/open_api/oauth2/refresh_token/"
+}

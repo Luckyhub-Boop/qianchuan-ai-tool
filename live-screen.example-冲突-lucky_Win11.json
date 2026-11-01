@@ -1,0 +1,122 @@
+{
+  "enabled": true,
+  "loginUrl": "https://business.oceanengine.com/ebp/account-manage/ecp/bidding/universe/account?ebpid=1855365007750474&uuid=6f018086-b594-462c-8733-5c8f75c443a1",
+  "pageUrl": "",
+  "accountId": "fashion",
+  "intervalSeconds": 10,
+  "headless": true,
+  "executablePath": "",
+  "userDataDir": "data/chrome-profile",
+  "serverUrl": "http://127.0.0.1:8765",
+  "viewport": {
+    "width": 1600,
+    "height": 1000,
+    "deviceScaleFactor": 1
+  },
+  "captureStream": true,
+  "metrics": {
+    "watchCount": {
+      "labels": [
+        "累计观看人数",
+        "累计观看",
+        "观看人数"
+      ],
+      "selector": ""
+    },
+    "productClicks": {
+      "labels": [
+        "商品点击次数",
+        "商品点击",
+        "点击次数"
+      ],
+      "selector": ""
+    },
+    "peakOnline": {
+      "labels": [
+        "峰值在线人数",
+        "最高在线人数",
+        "峰值在线",
+        "最高在线"
+      ],
+      "selector": ""
+    },
+    "gpm": {
+      "labels": [
+        "GPM",
+        "千次观看成交金额",
+        "千次观看成交"
+      ],
+      "selector": ""
+    },
+    "spend": {
+      "labels": [
+        "整体消耗",
+        "广告消耗",
+        "实时消耗",
+        "消耗"
+      ],
+      "selector": ""
+    },
+    "gmv": {
+      "labels": [
+        "整体成交金额",
+        "累计成交金额",
+        "直播间成交金额",
+        "成交金额"
+      ],
+      "excludeLabels": [
+        "GPM",
+        "千次观看"
+      ],
+      "selector": ""
+    },
+    "orders": {
+      "labels": [
+        "整体成交订单数",
+        "整体成单数",
+        "成交订单数",
+        "成交订单",
+        "成交单量"
+      ],
+      "excludeLabels": [
+        "成本",
+        "率"
+      ],
+      "selector": ""
+    },
+    "orderCost": {
+      "labels": [
+        "整体成交订单成本",
+        "成交订单成本",
+        "订单成本",
+        "转化成本"
+      ],
+      "selector": ""
+    },
+    "roi": {
+      "labels": [
+        "整体支付ROI",
+        "整体ROI",
+        "支付ROI",
+        "ROI"
+      ],
+      "selector": ""
+    },
+    "online": {
+      "labels": [
+        "当前在线人数",
+        "实时在线人数",
+        "在线人数"
+      ],
+      "selector": ""
+    },
+    "watchOneMinute": {
+      "labels": [
+        "观看满1分钟人数",
+        "观看满 1 分钟人数",
+        "1分钟观看人数"
+      ],
+      "selector": ""
+    }
+  }
+}

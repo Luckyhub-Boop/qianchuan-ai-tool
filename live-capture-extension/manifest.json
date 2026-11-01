@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "千川直播画面采集器",
+  "version": "1.0.0",
+  "description": "从已登录的千川直播大屏读取当前场次签名 FLV 地址，并同步到本机诊断页。",
+  "minimum_chrome_version": "111",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://qianchuan.jinritemai.com/*",
+    "http://127.0.0.1/*",
+    "http://localhost/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://qianchuan.jinritemai.com/*"
+      ],
+      "js": [
+        "inject.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://qianchuan.jinritemai.com/*"
+      ],
+      "js": [
+        "bridge.js"
+      ],
+      "run_at": "document_start",
+      "world": "ISOLATED"
+    }
+  ],
+  "options_page": "options.html",
+  "action": {
+    "default_title": "千川直播画面采集器"
+  }
+}

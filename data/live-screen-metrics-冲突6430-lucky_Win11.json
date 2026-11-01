@@ -1,0 +1,26 @@
+{
+  "status": "config_required",
+  "live": false,
+  "syncedAt": "2026-10-27T03:40:26.834Z",
+  "source": "puppeteer-core",
+  "sourceLabel": "等待配置直播大屏",
+  "metrics": {},
+  "missingMetrics": [
+    "spend",
+    "gmv",
+    "orders",
+    "orderCost",
+    "roi",
+    "watchCount",
+    "productClicks",
+    "peakOnline",
+    "gpm",
+    "online"
+  ],
+  "error": "首次使用请运行 login-live-screen.bat，登录并打开直播大屏",
+  "heartbeatAt": "2026-10-27T03:40:32.071Z",
+  "pid": 11612,
+  "accountId": "fashion",
+  "intervalSeconds": 10,
+  "heartbeatOnly": true
+}

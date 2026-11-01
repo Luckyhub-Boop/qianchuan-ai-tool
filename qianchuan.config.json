@@ -1,0 +1,302 @@
+{
+  "api": {
+    "baseUrl": "https://api.oceanengine.com",
+    "reportEndpoint": "/open_api/v1.0/qianchuan/report/uni_promotion/get/",
+    "method": "GET",
+    "timeoutSeconds": 30,
+    "pageSize": 100,
+    "maxPages": 20,
+    "requestIntervalSeconds": 0.25,
+    "extraParams": {},
+    "fields": [
+      "stat_cost",
+      "pay_order_amount",
+      "pay_order_count"
+    ],
+    "fieldMap": {
+      "date": [
+        "stat_date",
+        "date",
+        "time"
+      ],
+      "spend": [
+        "stat_cost",
+        "cost",
+        "spend"
+      ],
+      "gmv": [
+        "pay_order_amount",
+        "gmv",
+        "user_pay_amount"
+      ],
+      "orders": [
+        "pay_order_count",
+        "order_count",
+        "orders"
+      ],
+      "viewers": [
+        "live_watch_count",
+        "watch_count",
+        "viewers"
+      ]
+    },
+    "listKeys": [
+      "list",
+      "rows",
+      "data"
+    ],
+    "advertiserListEndpoint": "",
+    "discoverAccounts": false
+  },
+  "campaigns": {
+    "enabled": true,
+    "listEndpoint": "/open_api/v1.0/qianchuan/uni_promotion/list/",
+    "reportEndpoint": "",
+    "materialsEndpoint": "/open_api/v1.0/qianchuan/uni_promotion/ad/material/get/",
+    "marketingGoal": "LIVE_PROM_GOODS",
+    "adlabScene": "UNI_PROJECT",
+    "historyDays": 30,
+    "materialPlanLimit": 20,
+    "materialType": "VIDEO",
+    "pageSize": 100,
+    "maxPages": 20,
+    "fields": [
+      "stat_cost",
+      "total_pay_order_gmv_for_roi2",
+      "total_pay_order_count_for_roi2",
+      "total_prepay_and_pay_order_roi2",
+      "total_cost_per_pay_order_for_roi2"
+    ],
+    "materialFields": [
+      "stat_cost_for_roi2",
+      "total_pay_order_gmv_for_roi2",
+      "total_pay_order_count_for_roi2",
+      "total_prepay_and_pay_order_roi2",
+      "total_cost_per_pay_order_for_roi2",
+      "live_show_count_for_roi2_v2",
+      "live_watch_count_for_roi2_v2",
+      "live_cvr_rate_for_roi2_v2",
+      "live_convert_rate_for_roi2_v2",
+      "video_play_finish_rate_for_roi2_v2",
+      "video_avg_watch_duration_for_roi2"
+    ],
+    "liveRoomFields": [
+      "stat_cost_for_roi2",
+      "total_pay_order_gmv_for_roi2",
+      "total_pay_order_count_for_roi2",
+      "total_prepay_and_pay_order_roi2",
+      "total_cost_per_pay_order_for_roi2",
+      "live_show_count_exclude_video_for_roi2",
+      "live_watch_count_exclude_video_for_roi2",
+      "live_cvr_rate_exclude_video_for_roi2",
+      "live_convert_rate_exclude_video_for_roi2"
+    ],
+    "filtering": {},
+    "campaignIdFilterKey": "campaign_ids",
+    "moneyDivisor": 100000,
+    "extraParams": {},
+    "fieldMap": {
+      "campaignId": [
+        "ad_info.id",
+        "campaign_id",
+        "id"
+      ],
+      "campaignName": [
+        "ad_info.name",
+        "campaign_name",
+        "name"
+      ],
+      "status": [
+        "ad_info.status",
+        "status",
+        "opt_status",
+        "campaign_status"
+      ],
+      "date": [
+        "stat_date",
+        "stat_datetime",
+        "date",
+        "time"
+      ],
+      "spend": [
+        "stats_info.stat_cost",
+        "stat_cost",
+        "cost",
+        "spend"
+      ],
+      "gmv": [
+        "stats_info.total_pay_order_gmv_for_roi2",
+        "pay_order_amount",
+        "gmv",
+        "user_pay_amount"
+      ],
+      "orders": [
+        "stats_info.total_pay_order_count_for_roi2",
+        "pay_order_count",
+        "order_count",
+        "orders"
+      ],
+      "materialId": [
+        "material_id",
+        "creative_id",
+        "ad_id",
+        "id"
+      ],
+      "materialName": [
+        "material_name",
+        "creative_name",
+        "ad_name",
+        "name"
+      ],
+      "materialType": [
+        "material_type",
+        "type",
+        "creative_material_mode"
+      ],
+      "impressions": [
+        "live_show_count_for_roi2_v2",
+        "show_cnt",
+        "impressions"
+      ],
+      "clicks": [
+        "live_watch_count_for_roi2_v2",
+        "click_cnt",
+        "clicks"
+      ],
+      "ctr": [
+        "live_cvr_rate_for_roi2_v2",
+        "ctr"
+      ],
+      "completionRate": [
+        "video_play_finish_rate_for_roi2_v2",
+        "play_over_rate",
+        "completion_rate"
+      ],
+      "dwellTime": [
+        "video_avg_watch_duration_for_roi2",
+        "average_watch_duration",
+        "dwell_time"
+      ]
+    },
+    "statusMap": {
+      "CREATE": "新建",
+      "DRAFT": "草稿",
+      "PRE_ONLINE": "预上线",
+      "DELIVERY_OK": "投放中",
+      "DISABLE": "已暂停",
+      "DELETE": "已删除",
+      "DELETED": "已删除",
+      "AUDIT": "审核中",
+      "REAUDIT": "审核中",
+      "FROZEN": "已终止",
+      "TIME_DONE": "已完成",
+      "NO_SCHEDULE": "未排期",
+      "LIVE_ROOM_OFF": "直播间未开播",
+      "OFFLINE_AUDIT": "审核不通过",
+      "OFFLINE_BALANCE": "余额不足",
+      "OFFLINE_BUDGET": "预算不足",
+      "ENABLE": "投放中",
+      "OFFLINE": "已下线",
+      "SYSTEM_DISABLE": "系统暂停",
+      "ROI2_DISABLE": "ROI目标暂停"
+    },
+    "materialHistoryDays": 116,
+    "materialStartDate": "2026-07-01",
+    "materialEndOffsetDays": 1,
+    "materialCacheSeconds": 150,
+    "materialSyncIntervalSeconds": 180,
+    "materialReconcileSeconds": 10800,
+    "materialMaxPages": 50,
+    "materialReportEndpoint": "/open_api/v1.0/qianchuan/report/uni_promotion/data/get/",
+    "videoLibraryEndpoint": "/open_api/v1.0/qianchuan/video/get/",
+    "videoLibraryPageSize": 100,
+    "videoLibraryMaxPages": 100,
+    "materialReportSmartBidTypes": [
+      "0",
+      "7"
+    ],
+    "materialReportEcpAppIds": [
+      "1"
+    ],
+    "materialReportPageSize": 200,
+    "materialReportMaxPages": 100
+  },
+  "sync": {
+    "intervalSeconds": 10,
+    "reportCacheSeconds": 120,
+    "awemeCacheSeconds": 120,
+    "realtimeCacheSeconds": 5,
+    "fullSyncIntervalSeconds": 180,
+    "includeToday": true
+  },
+  "live": {
+    "enabled": true,
+    "roomListEndpoint": "/open_api/v1.0/qianchuan/today_live/room/get/",
+    "flowEndpoint": "/open_api/v1.0/qianchuan/today_live/room/flow_performance/get/",
+    "userEndpoint": "/open_api/v1.0/qianchuan/today_live/room/user/get/",
+    "productEndpoint": "/open_api/v1.0/qianchuan/today_live/room/product_list/get/",
+    "cacheSeconds": 10,
+    "moneyDivisor": 100000,
+    "streamUrl": "",
+    "streamType": "auto",
+    "streamSource": "",
+    "roomFields": [
+      "stat_cost",
+      "total_live_watch_cnt",
+      "live_watch_one_minute_count",
+      "luban_live_pay_order_count",
+      "live_pay_order_count_alias",
+      "luban_live_pay_order_gmv",
+      "live_pay_order_gmv_alias",
+      "live_pay_order_gmv_roi",
+      "ad_live_prepay_and_pay_order_gmv_roi",
+      "ecp_convert_rate",
+      "live_click_product_count_alias",
+      "total_live_comment_cnt",
+      "room_delivery",
+      "total_live_follow_cnt"
+    ],
+    "flowSources": [
+      "AllEcomFlowSource",
+      "AllEcomGmvSource"
+    ]
+  },
+  "accounts": [
+    {
+      "id": "fashion",
+      "advertiserId": "1744479430946824",
+      "name": "TT-申坤-赵镭老师(店播)-小学数学-自运营",
+      "handle": "赵镭精讲小数基本功",
+      "avatar": "赵",
+      "color": "#0b7a58",
+      "awemeIds": [
+        "2904261216450640",
+        "7534976849169040442",
+        "7665361622538945585",
+        "7637818476896437305"
+      ],
+      "awemeAccounts": [
+        {
+          "id": "7665361622538945585",
+          "name": "赵镭拆解小数基本功"
+        },
+        {
+          "id": "7534976849169040442",
+          "name": "赵镭通解小数基本功"
+        },
+        {
+          "id": "2904261216450640",
+          "name": "赵镭精讲小数基本功"
+        },
+        {
+          "id": "7637818476896437305",
+          "name": "赵镭图解小数基本功"
+        },
+        {
+          "id": "21334542186",
+          "name": "赵镭小数基本功"
+        }
+      ]
+    }
+  ]
+}
