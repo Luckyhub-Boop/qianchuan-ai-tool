@@ -536144,12 +536144,1299 @@
               "unit": "percent"
             }
           ]
+        },
+        {
+          "t": 1793538159862,
+          "syncedAt": "2026-11-01T21:02:40+08:00",
+          "sourceAt": "2026-11-01T13:02:39.862Z",
+          "spend": 3697.6,
+          "gmv": 1512.0,
+          "orders": 9.0,
+          "roi": 0.41,
+          "watch": 954.0,
+          "exposure": 29836.0,
+          "watchOneMinute": null,
+          "productClicks": 240.0,
+          "peakOnline": null,
+          "gpm": 1341.61,
+          "online": 0.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "ecom_other",
+              "label": "其他",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 11.11,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "t": 1793538169871,
+          "syncedAt": "2026-11-01T21:02:50+08:00",
+          "sourceAt": "2026-11-01T13:02:49.871Z",
+          "spend": 3697.6,
+          "gmv": 1512.0,
+          "orders": 9.0,
+          "roi": 0.41,
+          "watch": 954.0,
+          "exposure": 29836.0,
+          "watchOneMinute": null,
+          "productClicks": 240.0,
+          "peakOnline": null,
+          "gpm": 1341.61,
+          "online": 0.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "ecom_other",
+              "label": "其他",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 11.11,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "t": 1793538179878,
+          "syncedAt": "2026-11-01T21:03:00+08:00",
+          "sourceAt": "2026-11-01T13:02:59.878Z",
+          "spend": 3697.6,
+          "gmv": 1512.0,
+          "orders": 9.0,
+          "roi": 0.41,
+          "watch": 954.0,
+          "exposure": 29836.0,
+          "watchOneMinute": null,
+          "productClicks": 240.0,
+          "peakOnline": null,
+          "gpm": 1341.61,
+          "online": 0.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "ecom_other",
+              "label": "其他",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 11.11,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "t": 1793538189886,
+          "syncedAt": "2026-11-01T21:03:20+08:00",
+          "sourceAt": "2026-11-01T13:03:09.886Z",
+          "spend": 3697.6,
+          "gmv": 1512.0,
+          "orders": 9.0,
+          "roi": 0.41,
+          "watch": 954.0,
+          "exposure": 29836.0,
+          "watchOneMinute": null,
+          "productClicks": 240.0,
+          "peakOnline": null,
+          "gpm": 1341.61,
+          "online": 0.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "ecom_other",
+              "label": "其他",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 11.11,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "t": 1793538209892,
+          "syncedAt": "2026-11-01T21:03:30+08:00",
+          "sourceAt": "2026-11-01T13:03:29.892Z",
+          "spend": 3697.6,
+          "gmv": 1512.0,
+          "orders": 9.0,
+          "roi": 0.41,
+          "watch": 954.0,
+          "exposure": 29836.0,
+          "watchOneMinute": null,
+          "productClicks": 240.0,
+          "peakOnline": null,
+          "gpm": 1341.61,
+          "online": 0.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "ecom_other",
+              "label": "其他",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 11.11,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "t": 1793538219906,
+          "syncedAt": "2026-11-01T21:03:40+08:00",
+          "sourceAt": "2026-11-01T13:03:39.906Z",
+          "spend": 3697.6,
+          "gmv": 1512.0,
+          "orders": 9.0,
+          "roi": 0.41,
+          "watch": 954.0,
+          "exposure": 29836.0,
+          "watchOneMinute": null,
+          "productClicks": 240.0,
+          "peakOnline": null,
+          "gpm": 1341.61,
+          "online": 0.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "ecom_other",
+              "label": "其他",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 11.11,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "t": 1793538229914,
+          "syncedAt": "2026-11-01T21:03:50+08:00",
+          "sourceAt": "2026-11-01T13:03:49.914Z",
+          "spend": 3697.6,
+          "gmv": 1512.0,
+          "orders": 9.0,
+          "roi": 0.41,
+          "watch": 954.0,
+          "exposure": 29836.0,
+          "watchOneMinute": null,
+          "productClicks": 240.0,
+          "peakOnline": null,
+          "gpm": 1341.61,
+          "online": 0.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "ecom_other",
+              "label": "其他",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 11.11,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "t": 1793538239920,
+          "syncedAt": "2026-11-01T21:04:00+08:00",
+          "sourceAt": "2026-11-01T13:03:59.920Z",
+          "spend": 3697.6,
+          "gmv": 1512.0,
+          "orders": 9.0,
+          "roi": 0.41,
+          "watch": 954.0,
+          "exposure": 29836.0,
+          "watchOneMinute": null,
+          "productClicks": 240.0,
+          "peakOnline": null,
+          "gpm": 1341.61,
+          "online": 0.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "ecom_other",
+              "label": "其他",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 11.11,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "t": 1793538249934,
+          "syncedAt": "2026-11-01T21:04:10+08:00",
+          "sourceAt": "2026-11-01T13:04:09.934Z",
+          "spend": 3697.6,
+          "gmv": 1512.0,
+          "orders": 9.0,
+          "roi": 0.41,
+          "watch": 954.0,
+          "exposure": 29836.0,
+          "watchOneMinute": null,
+          "productClicks": 240.0,
+          "peakOnline": null,
+          "gpm": 1341.61,
+          "online": 0.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "ecom_other",
+              "label": "其他",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 11.11,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "t": 1793538259946,
+          "syncedAt": "2026-11-01T21:04:20+08:00",
+          "sourceAt": "2026-11-01T13:04:19.946Z",
+          "spend": 3697.6,
+          "gmv": 1512.0,
+          "orders": 9.0,
+          "roi": 0.41,
+          "watch": 954.0,
+          "exposure": 29836.0,
+          "watchOneMinute": null,
+          "productClicks": 240.0,
+          "peakOnline": null,
+          "gpm": 1341.61,
+          "online": 0.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "ecom_other",
+              "label": "其他",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 11.11,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "t": 1793538269953,
+          "syncedAt": "2026-11-01T21:04:30+08:00",
+          "sourceAt": "2026-11-01T13:04:29.953Z",
+          "spend": 3697.6,
+          "gmv": 1512.0,
+          "orders": 9.0,
+          "roi": 0.41,
+          "watch": 954.0,
+          "exposure": 29836.0,
+          "watchOneMinute": null,
+          "productClicks": 240.0,
+          "peakOnline": null,
+          "gpm": 1341.61,
+          "online": 0.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "ecom_other",
+              "label": "其他",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 11.11,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "t": 1793538279955,
+          "syncedAt": "2026-11-01T21:04:40+08:00",
+          "sourceAt": "2026-11-01T13:04:39.955Z",
+          "spend": 3697.6,
+          "gmv": 1512.0,
+          "orders": 9.0,
+          "roi": 0.41,
+          "watch": 954.0,
+          "exposure": 29836.0,
+          "watchOneMinute": null,
+          "productClicks": 240.0,
+          "peakOnline": null,
+          "gpm": 1341.61,
+          "online": 0.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "ecom_other",
+              "label": "其他",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 11.11,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "t": 1793538289960,
+          "syncedAt": "2026-11-01T21:04:50+08:00",
+          "sourceAt": "2026-11-01T13:04:49.960Z",
+          "spend": 3697.6,
+          "gmv": 1512.0,
+          "orders": 9.0,
+          "roi": 0.41,
+          "watch": 954.0,
+          "exposure": 29836.0,
+          "watchOneMinute": null,
+          "productClicks": 240.0,
+          "peakOnline": null,
+          "gpm": 1341.61,
+          "online": 0.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "ecom_other",
+              "label": "其他",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 11.11,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "t": 1793538299969,
+          "syncedAt": "2026-11-01T21:05:00+08:00",
+          "sourceAt": "2026-11-01T13:04:59.969Z",
+          "spend": 3697.6,
+          "gmv": 1512.0,
+          "orders": 9.0,
+          "roi": 0.41,
+          "watch": 954.0,
+          "exposure": 29836.0,
+          "watchOneMinute": null,
+          "productClicks": 240.0,
+          "peakOnline": null,
+          "gpm": 1341.61,
+          "online": 0.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "ecom_other",
+              "label": "其他",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 11.11,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "t": 1793538309971,
+          "syncedAt": "2026-11-01T21:05:10+08:00",
+          "sourceAt": "2026-11-01T13:05:09.971Z",
+          "spend": 3697.6,
+          "gmv": 1512.0,
+          "orders": 9.0,
+          "roi": 0.41,
+          "watch": 954.0,
+          "exposure": 29836.0,
+          "watchOneMinute": null,
+          "productClicks": 240.0,
+          "peakOnline": null,
+          "gpm": 1341.61,
+          "online": 0.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "ecom_other",
+              "label": "其他",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 11.11,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "t": 1793538319971,
+          "syncedAt": "2026-11-01T21:05:30+08:00",
+          "sourceAt": "2026-11-01T13:05:19.971Z",
+          "spend": 3697.6,
+          "gmv": 1512.0,
+          "orders": 9.0,
+          "roi": 0.41,
+          "watch": 954.0,
+          "exposure": 29836.0,
+          "watchOneMinute": null,
+          "productClicks": 240.0,
+          "peakOnline": null,
+          "gpm": 1341.61,
+          "online": 0.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "ecom_other",
+              "label": "其他",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 11.11,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "t": 1793538339988,
+          "syncedAt": "2026-11-01T21:05:40+08:00",
+          "sourceAt": "2026-11-01T13:05:39.988Z",
+          "spend": 3697.6,
+          "gmv": 1512.0,
+          "orders": 9.0,
+          "roi": 0.41,
+          "watch": 954.0,
+          "exposure": 29836.0,
+          "watchOneMinute": null,
+          "productClicks": 240.0,
+          "peakOnline": null,
+          "gpm": 1341.61,
+          "online": 0.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "ecom_other",
+              "label": "其他",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 11.11,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "t": 1793538349996,
+          "syncedAt": "2026-11-01T21:05:50+08:00",
+          "sourceAt": "2026-11-01T13:05:49.996Z",
+          "spend": 3697.6,
+          "gmv": 1512.0,
+          "orders": 9.0,
+          "roi": 0.41,
+          "watch": 954.0,
+          "exposure": 29836.0,
+          "watchOneMinute": null,
+          "productClicks": 240.0,
+          "peakOnline": null,
+          "gpm": 1341.61,
+          "online": 0.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "ecom_other",
+              "label": "其他",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 11.11,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "t": 1793538360011,
+          "syncedAt": "2026-11-01T21:06:00+08:00",
+          "sourceAt": "2026-11-01T13:06:00.011Z",
+          "spend": 3697.6,
+          "gmv": 1512.0,
+          "orders": 9.0,
+          "roi": 0.41,
+          "watch": 954.0,
+          "exposure": 29836.0,
+          "watchOneMinute": null,
+          "productClicks": 240.0,
+          "peakOnline": null,
+          "gpm": 1341.61,
+          "online": 0.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "ecom_other",
+              "label": "其他",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 11.11,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "t": 1793538370020,
+          "syncedAt": "2026-11-01T21:06:10+08:00",
+          "sourceAt": "2026-11-01T13:06:10.020Z",
+          "spend": 3697.6,
+          "gmv": 1512.0,
+          "orders": 9.0,
+          "roi": 0.41,
+          "watch": 954.0,
+          "exposure": 29836.0,
+          "watchOneMinute": null,
+          "productClicks": 240.0,
+          "peakOnline": null,
+          "gpm": 1341.61,
+          "online": 0.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "ecom_other",
+              "label": "其他",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 11.11,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "t": 1793538380029,
+          "syncedAt": "2026-11-01T21:06:20+08:00",
+          "sourceAt": "2026-11-01T13:06:20.029Z",
+          "spend": 3697.6,
+          "gmv": 1512.0,
+          "orders": 9.0,
+          "roi": 0.41,
+          "watch": 954.0,
+          "exposure": 29836.0,
+          "watchOneMinute": null,
+          "productClicks": 240.0,
+          "peakOnline": null,
+          "gpm": 1341.61,
+          "online": 0.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "ecom_other",
+              "label": "其他",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 11.11,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "t": 1793538390040,
+          "syncedAt": "2026-11-01T21:06:30+08:00",
+          "sourceAt": "2026-11-01T13:06:30.040Z",
+          "spend": 3697.6,
+          "gmv": 1512.0,
+          "orders": 9.0,
+          "roi": 0.41,
+          "watch": 954.0,
+          "exposure": 29836.0,
+          "watchOneMinute": null,
+          "productClicks": 240.0,
+          "peakOnline": null,
+          "gpm": 1341.61,
+          "online": 0.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "ecom_other",
+              "label": "其他",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 11.11,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "t": 1793538400049,
+          "syncedAt": "2026-11-01T21:06:40+08:00",
+          "sourceAt": "2026-11-01T13:06:40.049Z",
+          "spend": 3697.6,
+          "gmv": 1512.0,
+          "orders": 9.0,
+          "roi": 0.41,
+          "watch": 954.0,
+          "exposure": 29836.0,
+          "watchOneMinute": null,
+          "productClicks": 240.0,
+          "peakOnline": null,
+          "gpm": 1341.61,
+          "online": 0.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "ecom_other",
+              "label": "其他",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 11.11,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "t": 1793538410061,
+          "syncedAt": "2026-11-01T21:07:00+08:00",
+          "sourceAt": "2026-11-01T13:06:50.061Z",
+          "spend": 3697.6,
+          "gmv": 1512.0,
+          "orders": 9.0,
+          "roi": 0.41,
+          "watch": 954.0,
+          "exposure": 29836.0,
+          "watchOneMinute": null,
+          "productClicks": 240.0,
+          "peakOnline": null,
+          "gpm": 1341.61,
+          "online": 0.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "ecom_other",
+              "label": "其他",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 11.11,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "t": 1793538420074,
+          "syncedAt": "2026-11-01T21:07:10+08:00",
+          "sourceAt": "2026-11-01T13:07:00.074Z",
+          "spend": 3697.6,
+          "gmv": 1512.0,
+          "orders": 9.0,
+          "roi": 0.41,
+          "watch": 954.0,
+          "exposure": 29836.0,
+          "watchOneMinute": null,
+          "productClicks": 240.0,
+          "peakOnline": null,
+          "gpm": 1341.61,
+          "online": 0.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "ecom_other",
+              "label": "其他",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 11.11,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "t": 1793538440095,
+          "syncedAt": "2026-11-01T21:07:20+08:00",
+          "sourceAt": "2026-11-01T13:07:20.095Z",
+          "spend": 3697.6,
+          "gmv": 1512.0,
+          "orders": 9.0,
+          "roi": 0.41,
+          "watch": 954.0,
+          "exposure": 29836.0,
+          "watchOneMinute": null,
+          "productClicks": 240.0,
+          "peakOnline": null,
+          "gpm": 1341.61,
+          "online": 0.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "ecom_other",
+              "label": "其他",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 11.11,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "t": 1793538450097,
+          "syncedAt": "2026-11-01T21:07:40+08:00",
+          "sourceAt": "2026-11-01T13:07:30.097Z",
+          "spend": 3697.6,
+          "gmv": 1512.0,
+          "orders": 9.0,
+          "roi": 0.41,
+          "watch": 954.0,
+          "exposure": 29836.0,
+          "watchOneMinute": null,
+          "productClicks": 240.0,
+          "peakOnline": null,
+          "gpm": 1341.61,
+          "online": 0.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "ecom_other",
+              "label": "其他",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 11.11,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "t": 1793538463013,
+          "syncedAt": "2026-11-01T21:07:50+08:00",
+          "sourceAt": "2026-11-01T13:07:43.013Z",
+          "spend": 3697.6,
+          "gmv": 1512.0,
+          "orders": 9.0,
+          "roi": 0.41,
+          "watch": 954.0,
+          "exposure": 29836.0,
+          "watchOneMinute": null,
+          "productClicks": 240.0,
+          "peakOnline": null,
+          "gpm": 1341.61,
+          "online": 0.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "ecom_other",
+              "label": "其他",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 11.11,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "t": 1793538470115,
+          "syncedAt": "2026-11-01T21:08:00+08:00",
+          "sourceAt": "2026-11-01T13:07:50.115Z",
+          "spend": 3697.6,
+          "gmv": 1512.0,
+          "orders": 9.0,
+          "roi": 0.41,
+          "watch": 954.0,
+          "exposure": 29836.0,
+          "watchOneMinute": null,
+          "productClicks": 240.0,
+          "peakOnline": null,
+          "gpm": 1341.61,
+          "online": 0.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "ecom_other",
+              "label": "其他",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 11.11,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "t": 1793538480127,
+          "syncedAt": "2026-11-01T21:08:10+08:00",
+          "sourceAt": "2026-11-01T13:08:00.127Z",
+          "spend": 3697.6,
+          "gmv": 1512.0,
+          "orders": 9.0,
+          "roi": 0.41,
+          "watch": 954.0,
+          "exposure": 29836.0,
+          "watchOneMinute": null,
+          "productClicks": 240.0,
+          "peakOnline": null,
+          "gpm": 1341.61,
+          "online": 0.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "ecom_other",
+              "label": "其他",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 11.11,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "t": 1793538490131,
+          "syncedAt": "2026-11-01T21:08:20+08:00",
+          "sourceAt": "2026-11-01T13:08:10.131Z",
+          "spend": 3697.6,
+          "gmv": 1512.0,
+          "orders": 9.0,
+          "roi": 0.41,
+          "watch": 954.0,
+          "exposure": 29836.0,
+          "watchOneMinute": null,
+          "productClicks": 240.0,
+          "peakOnline": null,
+          "gpm": 1341.61,
+          "online": 0.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "ecom_other",
+              "label": "其他",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 11.11,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "t": 1793538500146,
+          "syncedAt": "2026-11-01T21:08:30+08:00",
+          "sourceAt": "2026-11-01T13:08:20.146Z",
+          "spend": 3697.6,
+          "gmv": 1512.0,
+          "orders": 9.0,
+          "roi": 0.41,
+          "watch": 954.0,
+          "exposure": 29836.0,
+          "watchOneMinute": null,
+          "productClicks": 240.0,
+          "peakOnline": null,
+          "gpm": 1341.61,
+          "online": 0.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "ecom_other",
+              "label": "其他",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 11.11,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "t": 1793538510155,
+          "syncedAt": "2026-11-01T21:08:40+08:00",
+          "sourceAt": "2026-11-01T13:08:30.155Z",
+          "spend": 3697.6,
+          "gmv": 1512.0,
+          "orders": 9.0,
+          "roi": 0.41,
+          "watch": 954.0,
+          "exposure": 29836.0,
+          "watchOneMinute": null,
+          "productClicks": 240.0,
+          "peakOnline": null,
+          "gpm": 1341.61,
+          "online": 0.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "ecom_other",
+              "label": "其他",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 11.11,
+              "unit": "percent"
+            }
+          ]
         }
       ]
     }
   },
   "version": 1,
-  "updatedAt": "2026-11-01T21:02:30+08:00",
+  "updatedAt": "2026-11-01T21:08:40+08:00",
   "recoveryWarning": "历史文件不是有效对象",
   "recoveredFromBackupAt": "2026-10-28T11:46:35+08:00"
 }
