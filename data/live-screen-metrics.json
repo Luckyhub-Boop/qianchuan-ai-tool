@@ -1,7 +1,7 @@
 {
   "status": "partial",
   "live": true,
-  "syncedAt": "2026-11-01T13:08:50.177Z",
+  "syncedAt": "2026-11-01T13:09:00.186Z",
   "source": "puppeteer-core",
   "sourceLabel": "千川直播大屏 · 无头 Chrome 抓取",
   "pageUrl": "https://qianchuan.jinritemai.com/board-next?live_room_id=7701192872432700202&anchorId=77732238866&aavid=1744479430946824&fromModule=uni_promotion_v2",
@@ -107,13 +107,13 @@
     }
   ],
   "error": "",
-  "metricUnchangedSeconds": 110,
+  "metricUnchangedSeconds": 120,
   "browser": {
     "executablePath": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
     "profile": "D:\\ai投放产品\\我的坚果云\\AI投放工具\\data\\chrome-profile",
     "headless": true
   },
-  "heartbeatAt": "2026-11-01T13:08:58.892Z",
+  "heartbeatAt": "2026-11-01T13:09:03.901Z",
   "pid": 34964,
   "accountId": "fashion",
   "intervalSeconds": 10,

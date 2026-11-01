@@ -537431,12 +537431,51 @@
               "unit": "percent"
             }
           ]
+        },
+        {
+          "t": 1793538520169,
+          "syncedAt": "2026-11-01T21:08:50+08:00",
+          "sourceAt": "2026-11-01T13:08:40.169Z",
+          "spend": 3697.6,
+          "gmv": 1512.0,
+          "orders": 9.0,
+          "roi": 0.41,
+          "watch": 954.0,
+          "exposure": 29836.0,
+          "watchOneMinute": null,
+          "productClicks": 240.0,
+          "peakOnline": null,
+          "gpm": 1341.61,
+          "online": 0.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "ecom_other",
+              "label": "其他",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 44.44,
+              "unit": "percent"
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 11.11,
+              "unit": "percent"
+            }
+          ]
         }
       ]
     }
   },
   "version": 1,
-  "updatedAt": "2026-11-01T21:08:40+08:00",
+  "updatedAt": "2026-11-01T21:08:50+08:00",
   "recoveryWarning": "历史文件不是有效对象",
   "recoveredFromBackupAt": "2026-10-28T11:46:35+08:00"
 }
