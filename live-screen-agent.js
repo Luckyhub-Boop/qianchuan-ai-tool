@@ -5,9 +5,11 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const ROOT = __dirname;
+const EXTERNAL_ROOT = process.env.QIANCHUAN_EXTERNAL_ROOT || "D:\\AI投放产品";
 const DATA_DIR = path.join(ROOT, "data");
 const CONFIG_PATH = path.join(DATA_DIR, "live-screen.json");
 const STATE_PATH = path.join(DATA_DIR, "live-screen-metrics.json");
+const REFRESH_REQUEST_PATH = path.join(DATA_DIR, "live-screen-refresh.request.json");
 const SESSION_STATE_PATH = path.join(DATA_DIR, "live-screen-session.json");
 const AGENT_LOCK_PATH = path.join(DATA_DIR, "live-screen-agent.lock");
 const TAKEOVER_PATH = path.join(DATA_DIR, "live-screen-takeover.json");
@@ -31,6 +33,17 @@ const BROWSER_LAUNCH_ARGS = [
   "--lang=zh-CN"
 ];
 const SENSITIVE_QUERY_KEY = /(token|session|cookie|auth|secret|sign|api[_-]?key)/i;
+
+function resolveUserDataDir(userDataDir) {
+  const value = String(userDataDir || "");
+  if (value === "data/chrome-profile" || value === "data\\chrome-profile") {
+    return path.join(EXTERNAL_ROOT, "chrome-profile");
+  }
+  if (value === "data/buyin-chrome-profile" || value === "data\\buyin-chrome-profile") {
+    return path.join(EXTERNAL_ROOT, "buyin-chrome-profile");
+  }
+  return path.isAbsolute(value) ? value : path.resolve(ROOT, value);
+}
 const PROFILE_LOCK_FILES = [
   "SingletonLock",
   "SingletonSocket",
@@ -379,7 +392,66 @@ function writeJsonAtomic(filePath, value) {
   ensureDataDir();
   const tempPath = `${filePath}.${process.pid}.tmp`;
   fs.writeFileSync(tempPath, JSON.stringify(value, null, 2), "utf8");
-  fs.renameSync(tempPath, filePath);
+  let lastError = null;
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    try {
+      fs.renameSync(tempPath, filePath);
+      return;
+    } catch (error) {
+      lastError = error;
+      if (error?.code !== "EPERM" && error?.code !== "EACCES") throw error;
+      const deadline = Date.now() + 100 * (attempt + 1);
+      while (Date.now() < deadline) {
+        // Wait for the transient sync/antivirus lock to release.
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 40);
+      }
+    }
+  }
+  throw lastError;
+}
+
+function readRefreshRequest(filePath = REFRESH_REQUEST_PATH) {
+  const value = readJson(filePath, null);
+  const requestId = String(value?.requestId || "").trim();
+  if (!requestId) return null;
+  return {
+    requestId,
+    requestedAt: String(value.requestedAt || ""),
+    accountId: String(value.accountId || "")
+  };
+}
+
+function clearRefreshRequest(requestId, filePath = REFRESH_REQUEST_PATH) {
+  const current = readRefreshRequest(filePath);
+  if (!requestId || current?.requestId !== requestId) return false;
+  try {
+    fs.unlinkSync(filePath);
+    return true;
+  } catch (error) {
+    if (error?.code !== "ENOENT") {
+      log(`清理手动刷新请求失败: ${error.message}`);
+    }
+    return false;
+  }
+}
+
+function captureRequestFields(request, status) {
+  if (!request) return {};
+  return {
+    captureRequestId: request.requestId,
+    captureRequestedAt: request.requestedAt,
+    captureCompletedAt: nowIso(),
+    captureRequestStatus: status
+  };
+}
+
+async function waitForNextCycle(milliseconds, requestPath = REFRESH_REQUEST_PATH) {
+  const deadline = Date.now() + Math.max(0, milliseconds);
+  while (Date.now() < deadline) {
+    if (readRefreshRequest(requestPath)) return true;
+    await new Promise(resolve => setTimeout(resolve, Math.min(250, deadline - Date.now())));
+  }
+  return Boolean(readRefreshRequest(requestPath));
 }
 
 async function persistBrowserSession(page) {
@@ -453,6 +525,13 @@ function mergeConfig(base, override) {
   }
   result.viewport = { ...base.viewport, ...((override || {}).viewport || {}) };
   return result;
+}
+
+function mergePreparedConfig(runtimeConfig, persistedConfig) {
+  return {
+    ...runtimeConfig,
+    ...persistedConfig
+  };
 }
 
 function loadConfig() {
@@ -712,6 +791,206 @@ function extractFlows(snapshot) {
   };
 }
 
+function extractFlowBreakdown(payload) {
+  const rows = payload?.data?.StatsData?.Rows;
+  if (!Array.isArray(rows)) return null;
+  const trafficField = "total_live_watch_cnt_for_roi2";
+  const gmvField = "total_live_pay_amt_for_roi2";
+  const dimensionField = "combined_first_compass_entrance_code";
+  const byChannel = new Map();
+  for (const row of rows) {
+    const dimension = row?.Dimensions?.[dimensionField];
+    const metrics = row?.Metrics || {};
+    if (!dimension || !(trafficField in metrics) && !(gmvField in metrics)) continue;
+    const key = String(dimension.Value || dimension.ValueStr || "").trim();
+    const label = String(dimension.ValueStr || key).trim();
+    if (!key) continue;
+    const trafficCount = Number(metrics[trafficField]?.Value) || 0;
+    const gmv = Number(metrics[gmvField]?.Value) || 0;
+    const current = byChannel.get(key) || {
+      key,
+      label,
+      trafficCount: 0,
+      gmv: 0
+    };
+    current.trafficCount += trafficCount;
+    current.gmv += gmv;
+    byChannel.set(key, current);
+  }
+  if (!byChannel.size) return null;
+  const totalTraffic = Array.from(byChannel.values())
+    .reduce((total, item) => total + item.trafficCount, 0);
+  const totalGmv = Array.from(byChannel.values())
+    .reduce((total, item) => total + item.gmv, 0);
+  const items = Array.from(byChannel.values())
+    .map(item => ({
+      ...item,
+      trafficShare: totalTraffic > 0
+        ? Number((item.trafficCount / totalTraffic * 100).toFixed(4))
+        : null,
+      gmvShare: totalGmv > 0
+        ? Number((item.gmv / totalGmv * 100).toFixed(4))
+        : null,
+      gpm: item.trafficCount > 0
+        ? Number((item.gmv / item.trafficCount * 1000).toFixed(2))
+        : null,
+      unit: "percent"
+    }))
+    .sort((left, right) =>
+      (right.gmvShare ?? -1) - (left.gmvShare ?? -1)
+      || (right.trafficShare ?? -1) - (left.trafficShare ?? -1)
+    );
+  return {
+    source: "qianchuan_board_network",
+    sourceLabel: "千川/巨量百应直播大屏 · 渠道明细",
+    dimension: dimensionField,
+    totalTraffic,
+    totalGmv: Number(totalGmv.toFixed(2)),
+    items,
+    capturedAt: nowIso()
+  };
+}
+
+function installFlowBreakdownCapture(page) {
+  let latest = null;
+  const pending = [];
+  page.on("response", response => {
+    const url = response.url();
+    if (!/\/ad\/api\/data\/v1\/common\/statQuery(?:\?|$)/i.test(url)) return;
+    const contentType = String(response.headers()["content-type"] || "");
+    if (!contentType.includes("json")) return;
+    pending.push(
+      response.text().then(body => {
+        if (!body.includes("combined_first_compass_entrance_code")) return;
+        const parsed = extractFlowBreakdown(JSON.parse(body));
+        if (parsed?.items?.length) latest = parsed;
+      }).catch(() => {})
+    );
+  });
+  return {
+    get() {
+      return latest;
+    },
+    pending() {
+      return Promise.allSettled(pending);
+    }
+  };
+}
+
+function boardMetricNumber(metrics, key) {
+  if (!metrics || typeof metrics !== "object") return null;
+  const raw = metrics[key];
+  if (raw == null) return null;
+  let value = raw;
+  if (typeof raw === "object") {
+    value = raw.Value ?? raw.value ?? raw.ValueStr ?? raw.valueStr;
+  }
+  if (value == null || value === "") return null;
+  const number = Number(String(value).replace(/[,，\s]/g, ""));
+  return Number.isFinite(number) ? Number(number.toFixed(6)) : null;
+}
+
+function extractBoardFunnel(payload) {
+  const rows = payload?.data?.StatsData?.Rows;
+  if (!Array.isArray(rows) || !rows.length) return null;
+  const metrics = rows[0]?.Metrics || {};
+  const show = boardMetricNumber(metrics, "live_show_count_for_roi2");
+  const watch = boardMetricNumber(metrics, "live_watch_count_for_roi2");
+  const click = boardMetricNumber(metrics, "live_product_click_count_for_roi2");
+  const orders = boardMetricNumber(metrics, "total_pay_order_count_for_roi2");
+  const showToWatchRate = boardMetricNumber(metrics, "total_show_to_watch_rate_for_roi2");
+  const watchToClickRate = boardMetricNumber(metrics, "total_watch_to_product_click_rate_for_roi2");
+  const clickToPayRate = boardMetricNumber(metrics, "total_product_click_to_pay_rate_realtime_for_roi2");
+  const watchToPayRate = boardMetricNumber(metrics, "total_watch_to_pay_rate_realtime_for_roi2");
+  if ([show, watch, click, orders].every(value => value == null)) return null;
+  return {
+    source: "qianchuan_board_funnel_module",
+    sourceLabel: "千川直播大屏 · 直播间核心漏斗",
+    show,
+    watch,
+    click,
+    orders,
+    rates: {
+      showToWatch: showToWatchRate,
+      watchToClick: watchToClickRate,
+      clickToPay: clickToPayRate,
+      watchToPay: watchToPayRate
+    },
+    capturedAt: nowIso()
+  };
+}
+
+function extractBoardTrend(payload) {
+  const rows = payload?.data?.StatsData?.Rows;
+  if (!Array.isArray(rows) || !rows.length) return null;
+  const points = [];
+  for (const row of rows) {
+    const dimension = row?.Dimensions?.stat_time_5_minute;
+    const rawTime = dimension?.Value ?? dimension?.value ?? dimension?.ValueStr ?? dimension?.valueStr;
+    const timestamp = Number(rawTime);
+    if (!Number.isFinite(timestamp) || timestamp <= 0) continue;
+    const metrics = row?.Metrics || {};
+    points.push({
+      t: timestamp,
+      time: String(dimension?.ValueStr || dimension?.valueStr || "").trim(),
+      spend: boardMetricNumber(metrics, "stat_real_cost_for_roi2"),
+      gmv: boardMetricNumber(metrics, "total_order_settle_amount_realtime_for_roi2_1h")
+    });
+  }
+  if (!points.length) return null;
+  points.sort((left, right) => left.t - right.t);
+  return {
+    source: "qianchuan_board_total_trend",
+    sourceLabel: "千川直播大屏 · 趋势曲线（5 分钟）",
+    bucketMinutes: 5,
+    points,
+    capturedAt: nowIso()
+  };
+}
+
+function installBoardNetworkCapture(page) {
+  let funnel = null;
+  let trend = null;
+  const pending = [];
+  page.on("response", response => {
+    const url = response.url();
+    if (!/\/ad\/api\/data\/v1\/common\/statQuery(?:\?|$)/i.test(url)) return;
+    const contentType = String(response.headers()["content-type"] || "");
+    if (!contentType.includes("json")) return;
+    let requestFrom = "";
+    try {
+      requestFrom = new URL(url).searchParams.get("reqFrom") || "";
+    } catch (_) {
+      return;
+    }
+    pending.push(
+      response.text().then(body => {
+        let parsed = null;
+        try {
+          parsed = JSON.parse(body);
+        } catch (_) {
+          return;
+        }
+        if (requestFrom === "funnelModule") {
+          const next = extractBoardFunnel(parsed);
+          if (next) funnel = next;
+        } else if (requestFrom === "totalTrend") {
+          const next = extractBoardTrend(parsed);
+          if (next?.points?.length) trend = next;
+        }
+      }).catch(() => {})
+    );
+  });
+  return {
+    get() {
+      return { funnel, trend };
+    },
+    pending() {
+      return Promise.allSettled(pending);
+    }
+  };
+}
+
 function roomIdFromUrl(rawUrl) {
   try {
     const parsed = new URL(rawUrl);
@@ -806,7 +1085,7 @@ async function loadPuppeteer() {
 
 async function launchBrowser(puppeteer, config, headless) {
   const executablePath = resolveBrowser(config);
-  const userDataDir = path.resolve(ROOT, config.userDataDir || "data/chrome-profile");
+  const userDataDir = resolveUserDataDir(config.userDataDir || "data/chrome-profile");
   activeProfileDir = userDataDir;
   fs.mkdirSync(userDataDir, { recursive: true });
   const browser = await puppeteer.launch({
@@ -941,14 +1220,70 @@ async function discoverLiveRoomFromServer(config) {
   );
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const payload = await response.json();
+  return normalizeRoomDiscoveryPayload(payload);
+}
+
+function normalizeRoomDiscoveryPayload(payload) {
   const room = payload.room || {};
+  const errors = Array.isArray(payload.errors)
+    ? payload.errors.filter(item => item && typeof item === "object")
+    : [];
+  const roomId = String(payload.roomId || room.room_id || room.roomId || "");
+  const status = String(
+    payload.status
+    || (payload.live && roomId ? "live" : errors.length ? "discovery_error" : "not_live")
+  );
   return {
-    status: payload.live ? "直播中" : "",
-    roomId: String(payload.roomId || room.room_id || room.roomId || ""),
-    anchorId: String(room.anchor_id || ""),
+    live: Boolean(payload.live && roomId),
+    status,
+    statusLabel: String(payload.statusLabel || (status === "live" ? "直播中" : status === "not_live" ? "未开播" : "直播状态读取失败")),
+    discoveryComplete: payload.discoveryComplete !== false && (Boolean(payload.live) || errors.length === 0),
+    roomId,
+    awemeId: String(payload.awemeId || room.aweme_id || room.awemeId || ""),
+    awemeName: String(payload.awemeName || room.aweme_name || room.awemeName || ""),
+    anchorId: String(room.anchor_id || room.anchorId || ""),
     advertiserId: String(payload.advertiserId || ""),
-    source: payload.sourceLabel || "千川今日直播间 Open API"
+    officialLive: payload.officialLive && typeof payload.officialLive === "object"
+      ? payload.officialLive
+      : null,
+    checkedAccounts: Array.isArray(payload.checkedAccounts) ? payload.checkedAccounts : [],
+    errors,
+    source: payload.sourceLabel || "千川今日直播间 Open API",
+    syncedAt: payload.syncedAt || ""
   };
+}
+
+function buildInactiveScreenState(config, discovery, fallbackError = "") {
+  const errors = Array.isArray(discovery?.errors) ? discovery.errors : [];
+  const discoveryErrors = Array.from(new Set(
+    errors.map(item => String(item.message || "").trim()).filter(Boolean)
+  )).join("；");
+  const error = String(
+    fallbackError
+    || discoveryErrors
+    || (discovery?.status === "not_live" ? "" : "直播状态读取失败")
+  );
+  const notLive = discovery?.status === "not_live" && !error;
+  return {
+    status: notLive ? "not_live" : "discovery_error",
+    live: false,
+    syncedAt: nowIso(),
+    source: "puppeteer-core",
+    sourceLabel: notLive ? "未开播" : "直播状态读取失败",
+    pageUrl: "",
+    room: {},
+    metrics: {},
+    missingMetrics: METRIC_KEYS,
+    detectionStatus: discovery?.status || "discovery_error",
+    checkedAccounts: Array.isArray(discovery?.checkedAccounts)
+      ? discovery.checkedAccounts
+      : [],
+    error
+  };
+}
+
+function shouldResetStreamCapture(inactiveState) {
+  return inactiveState?.status === "not_live";
 }
 
 function buildLiveBoardUrl(room) {
@@ -1189,12 +1524,14 @@ function findStreamUrl(value, seen = new Set()) {
 }
 
 function installStreamCapture(page, config, getRoomId) {
-  if (!config.captureStream) return;
+  if (!config.captureStream) return { reset() {} };
   let lastUrl = "";
   let lastSentAt = 0;
   let latestStreamUrl = "";
   let publishing = false;
-  const publish = async (streamUrl, force = false) => {
+  let generation = 0;
+  const publish = async (streamUrl, force = false, expectedGeneration = generation) => {
+    if (expectedGeneration !== generation) return;
     const roomId = String(getRoomId() || "");
     if (!/^\d{8,}$/.test(roomId) || !streamUrl) return;
     const now = Date.now();
@@ -1226,9 +1563,10 @@ function installStreamCapture(page, config, getRoomId) {
   };
   page.on("response", response => {
     const url = response.url();
+    const responseGeneration = generation;
     if (/\.flv(?:\?|$)/i.test(url)) {
       latestStreamUrl = url;
-      publish(url).catch(() => {});
+      publish(url, false, responseGeneration).catch(() => {});
       return;
     }
     const contentType = String(response.headers()["content-type"] || "");
@@ -1239,7 +1577,7 @@ function installStreamCapture(page, config, getRoomId) {
         const streamUrl = findStreamUrl(JSON.parse(body));
         if (streamUrl) {
           latestStreamUrl = streamUrl;
-          return publish(streamUrl);
+          return publish(streamUrl, false, responseGeneration);
         }
       })
       .catch(() => {});
@@ -1248,6 +1586,14 @@ function installStreamCapture(page, config, getRoomId) {
     if (latestStreamUrl) publish(latestStreamUrl, true).catch(() => {});
   }, 20000);
   page.once("close", () => clearInterval(streamHeartbeat));
+  return {
+    reset() {
+      generation += 1;
+      latestStreamUrl = "";
+      lastUrl = "";
+      lastSentAt = 0;
+    }
+  };
 }
 
 async function runLogin(config) {
@@ -1370,36 +1716,27 @@ async function runLogin(config) {
   throw new Error("20 分钟内未检测到直播大屏：地址需包含 roomId，或页面出现累计观看/商品点击/峰值/GPM/消耗/成交中的至少 2 项");
 }
 
-async function prepareAutomaticLiveBoard(config) {
-  const room = await discoverLiveRoomFromServer(config);
+async function prepareAutomaticLiveBoard(config, discoveredRoom = null) {
+  const room = discoveredRoom?.roomId
+    ? discoveredRoom
+    : await discoverLiveRoomFromServer(config);
   if (!room.roomId) return null;
   const storedConfig = readJson(CONFIG_PATH, {});
-  let pageUrl = "";
-  if (
-    storedConfig.pageUrl &&
-    new URL(storedConfig.pageUrl).hostname === "qianchuan.jinritemai.com"
-  ) {
-    pageUrl = replaceRoomIdInUrl(storedConfig.pageUrl, room.roomId);
-  } else if (
-    storedConfig.pageUrl &&
-    new URL(storedConfig.pageUrl).hostname === "business.oceanengine.com" &&
-    new URL(storedConfig.pageUrl).pathname.endsWith("/data-analysis/live-analysis/detail")
-  ) {
-    pageUrl = replaceRoomIdInUrl(storedConfig.pageUrl, room.roomId);
-  } else {
-    pageUrl = buildLiveBoardEntryUrl(room);
-  }
+  const pageUrl = buildLiveBoardUrl({
+    ...room,
+    advertiserId: room.advertiserId || storedConfig.advertiserId || ""
+  });
   if (!pageUrl) return null;
-  const nextConfig = {
+  const persistedConfig = {
     ...storedConfig,
     enabled: true,
     autoLogin: true,
     pageUrl,
     autoPreparedAt: nowIso()
   };
-  writeJsonAtomic(CONFIG_PATH, nextConfig);
+  writeJsonAtomic(CONFIG_PATH, persistedConfig);
   log(`开机自动恢复直播大屏 room=${room.roomId}`);
-  return nextConfig;
+  return mergePreparedConfig(config, persistedConfig);
 }
 
 async function runAgent(config) {
@@ -1421,28 +1758,29 @@ async function runAgent(config) {
       await new Promise(resolve => setTimeout(resolve, 10000));
     }
   }
-  if (!config.pageUrl) {
-    log("缺少直播大屏地址，正在使用持久化 EBP 登录态自动恢复");
+  {
+    log("尚未确定当前直播大屏，等待四个账号中的直播场次");
     while (true) {
       const refreshed = loadConfig();
-      if (refreshed.enabled && refreshed.pageUrl) return runAgent(refreshed);
+      if (!refreshed.enabled) return runAgent(refreshed);
+      let discovery = null;
+      let discoveryError = "";
       try {
-        const prepared = await prepareAutomaticLiveBoard(refreshed);
-        if (prepared?.pageUrl) return runAgent(prepared);
+        discovery = await discoverLiveRoomFromServer(refreshed);
+        const prepared = await prepareAutomaticLiveBoard(refreshed, discovery);
+        if (prepared?.pageUrl) {
+          config = prepared;
+          break;
+        }
       } catch (error) {
-        log(`开机自动恢复暂不可用: ${error.message}`);
+        discoveryError = String(error.message || error);
+        log(`直播场次自动发现失败: ${discoveryError}`);
       }
-      writeState(config, {
-        status: "config_required",
-        live: false,
-        syncedAt: nowIso(),
-        source: "puppeteer-core",
-        sourceLabel: "正在自动恢复直播大屏",
-        metrics: {},
-        missingMetrics: METRIC_KEYS,
-        error: "正在使用已保存的 EBP 登录态自动恢复；如持续失败，再运行 login-live-screen.bat"
-      });
-      await new Promise(resolve => setTimeout(resolve, 10000));
+      const inactive = buildInactiveScreenState(refreshed, discovery, discoveryError);
+      writeState(config, inactive);
+      log(inactive.status === "not_live" ? "四个账号均未开播" : `直播状态读取失败: ${inactive.error}`);
+      const waitSeconds = Math.max(3, Number(refreshed.intervalSeconds || 10));
+      await new Promise(resolve => setTimeout(resolve, waitSeconds * 1000));
     }
   }
   if (isLegacyQianchuanUrl(config.pageUrl)) {
@@ -1514,12 +1852,17 @@ async function runAgent(config) {
   const page = await launched.browser.newPage();
   activePage = page;
   let currentRoomId = roomIdFromUrl(config.pageUrl);
-  installStreamCapture(page, config, () => currentRoomId || roomIdFromUrl(page.url()));
+  const streamCapture = installStreamCapture(
+    page,
+    config,
+    () => currentRoomId || roomIdFromUrl(page.url())
+  );
+  const flowBreakdownCapture = installFlowBreakdownCapture(page);
+  const boardNetworkCapture = installBoardNetworkCapture(page);
   await restoreBrowserSession(page, config.pageUrl);
   log(`采集器已启动 browser=${launched.executablePath} profile=${launched.userDataDir}`);
 
   let nextNavigationAt = 0;
-  let nextRoomDiscoveryAt = 0;
   const previousState = readJson(STATE_PATH, {});
   let lastUsableState = previousState?.live && previousState?.metrics
     ? previousState
@@ -1535,50 +1878,75 @@ async function runAgent(config) {
   let lastPageRefreshAt = Date.now();
   while (true) {
     const startedAt = Date.now();
+    const refreshRequest = readRefreshRequest();
+    if (refreshRequest) {
+      log(`收到手动刷新请求 ${refreshRequest.requestId}`);
+    }
     try {
       if (page.isClosed()) throw new Error("页面已关闭");
-      const configuredUrl = new URL(config.pageUrl);
-      if (
-        (
-          configuredUrl.hostname === "qianchuan.jinritemai.com" ||
-          (
-            configuredUrl.hostname === "business.oceanengine.com" &&
-            configuredUrl.pathname.endsWith("/data-analysis/live-analysis/detail")
-          )
-        ) &&
-        Date.now() >= nextRoomDiscoveryAt
-      ) {
-        try {
-          const currentRoom = await discoverLiveRoomFromServer(config);
-          if (currentRoom.roomId && currentRoom.roomId !== currentRoomId) {
-            const targetUrl = replaceRoomIdInUrl(config.pageUrl, currentRoom.roomId);
-            if (targetUrl) {
-              log(`发现当前直播场次 ${currentRoom.roomId}，切换到该场次`);
-              await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
-              config.pageUrl = targetUrl;
-              currentRoomId = currentRoom.roomId;
-              nextNavigationAt = 0;
-            }
-          }
-        } catch (error) {
-          log(`当前直播场次发现失败，继续使用保存的场次: ${error.message}`);
-        }
-        nextRoomDiscoveryAt = Date.now() + 120000;
+      let discovery = null;
+      let discoveryError = "";
+      try {
+        discovery = await discoverLiveRoomFromServer(config);
+      } catch (error) {
+        discoveryError = String(error.message || error);
       }
-      if (
-        configuredUrl.pathname.endsWith("/data-analysis/live-analysis/list") &&
-        page.url().includes("/data-analysis/live-analysis/list")
-      ) {
-        const room = await navigateEbPListToLiveBoard(page, config);
-        if (room?.roomId) currentRoomId = room.roomId;
-      } else if (
-        configuredUrl.pathname.endsWith("/data-analysis/live-analysis/list") &&
-        cycleCount > 0 &&
-        cycleCount % 6 === 0
-      ) {
-        await page.goto(config.pageUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
-        const room = await navigateEbPListToLiveBoard(page, config);
-        if (room?.roomId) currentRoomId = room.roomId;
+      if (!discovery?.roomId) {
+        const inactive = buildInactiveScreenState(config, discovery, discoveryError);
+        if (shouldResetStreamCapture(inactive)) {
+          streamCapture.reset();
+          currentRoomId = "";
+        } else {
+          // A single discovery timeout does not prove the current room or its
+          // already registered stream is gone. Keep the short-lived stream URL
+          // so its 20-second heartbeat can recover after the server/API returns.
+          currentRoomId = roomIdFromUrl(page.url()) || currentRoomId;
+        }
+        lastUsableState = null;
+        peakRoomId = "";
+        observedPeak = 0;
+        observedPeakAt = "";
+        lastLiveMetricSignature = "";
+        liveMetricsUnchangedSince = 0;
+        writeState(
+          config,
+          {
+            ...inactive,
+            ...captureRequestFields(refreshRequest, inactive.status)
+          }
+        );
+        if (refreshRequest) clearRefreshRequest(refreshRequest.requestId);
+        log(inactive.status === "not_live" ? "四个账号均未开播" : `直播状态读取失败: ${inactive.error}`);
+        cycleCount += 1;
+        const interval = Math.max(3000, Number(config.intervalSeconds || 10) * 1000);
+        await new Promise(resolve => setTimeout(resolve, Math.max(500, interval - (Date.now() - startedAt))));
+        continue;
+      }
+      const targetUrl = buildLiveBoardUrl({
+        ...discovery,
+        advertiserId: discovery.advertiserId || config.advertiserId || ""
+      });
+      const pageRoomId = roomIdFromUrl(page.url());
+      if (!targetUrl || pageRoomId !== discovery.roomId) {
+        streamCapture.reset();
+        currentRoomId = discovery.roomId;
+        log(
+          `检测到直播账号 ${discovery.awemeName || discovery.awemeId || "-"}，` +
+          `打开直播大屏 room=${discovery.roomId}`
+        );
+        await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
+        config.pageUrl = targetUrl;
+        const storedConfig = readJson(CONFIG_PATH, {});
+        writeJsonAtomic(CONFIG_PATH, {
+          ...storedConfig,
+          pageUrl: targetUrl,
+          lastDetectedRoomAt: nowIso(),
+          lastDetectedAwemeId: discovery.awemeId || "",
+          lastDetectedAwemeName: discovery.awemeName || ""
+        });
+        nextNavigationAt = 0;
+      } else {
+        currentRoomId = discovery.roomId;
       }
       if (Date.now() >= nextNavigationAt) {
         const currentUrl = page.url();
@@ -1586,8 +1954,21 @@ async function runAgent(config) {
           await page.goto(config.pageUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
         }
       }
-      currentRoomId = roomIdFromUrl(page.url()) || currentRoomId;
+      currentRoomId = roomIdFromUrl(page.url()) || discovery.roomId || currentRoomId;
       let result = await scrape(page, config);
+      await flowBreakdownCapture.pending();
+      await boardNetworkCapture.pending();
+      const flowBreakdown = flowBreakdownCapture.get();
+      const boardNetwork = boardNetworkCapture.get();
+      if (flowBreakdown?.items?.length) {
+        result.flowBreakdown = flowBreakdown;
+        result.flows = flowBreakdown.items.map(item => ({
+          ...item,
+          value: item.trafficShare
+        }));
+      }
+      if (boardNetwork?.funnel) result.funnel = boardNetwork.funnel;
+      if (boardNetwork?.trend?.points?.length) result.trend = boardNetwork.trend;
       if (
         result.status === "login_required" &&
         Date.now() >= nextSsoRecoveryAt
@@ -1598,6 +1979,21 @@ async function runAgent(config) {
           if (recoveredRoom?.roomId) {
             currentRoomId = recoveredRoom.roomId;
             result = await scrape(page, config);
+            await flowBreakdownCapture.pending();
+            await boardNetworkCapture.pending();
+            const recoveredFlowBreakdown = flowBreakdownCapture.get();
+            const recoveredBoardNetwork = boardNetworkCapture.get();
+            if (recoveredFlowBreakdown?.items?.length) {
+              result.flowBreakdown = recoveredFlowBreakdown;
+              result.flows = recoveredFlowBreakdown.items.map(item => ({
+                ...item,
+                value: item.trafficShare
+              }));
+            }
+            if (recoveredBoardNetwork?.funnel) result.funnel = recoveredBoardNetwork.funnel;
+            if (recoveredBoardNetwork?.trend?.points?.length) {
+              result.trend = recoveredBoardNetwork.trend;
+            }
             log(
               `登录页跳转已触发 EBP 单点恢复 room=${currentRoomId} status=${result.status}`
             );
@@ -1606,7 +2002,15 @@ async function runAgent(config) {
           log(`EBP 单点恢复失败: ${error.message}`);
         }
       }
-      result.room = { ...(result.room || {}), id: currentRoomId || result.room?.id || "" };
+      result.room = {
+        ...(result.room || {}),
+        id: currentRoomId || result.room?.id || "",
+        awemeId: discovery.awemeId || result.room?.awemeId || "",
+        awemeName: discovery.awemeName || result.room?.awemeName || ""
+      };
+      result.detectionStatus = discovery.status;
+      result.officialLive = discovery.officialLive || null;
+      result.checkedAccounts = discovery.checkedAccounts;
       const liveMetricSignature = result.live
         ? METRIC_KEYS.map(key => String(result.metrics?.[key] ?? "")).join("|")
         : "";
@@ -1679,7 +2083,13 @@ async function runAgent(config) {
       if (result.status === "no_metrics") nextNavigationAt = Date.now() + 30000;
       if (Object.keys(result.metrics || {}).length) {
         lastUsableState = result;
-        writeState(config, result);
+        writeState(
+          config,
+          {
+            ...result,
+            ...captureRequestFields(refreshRequest, result.status)
+          }
+        );
         if (Date.now() >= nextSessionPersistAt) {
           await persistBrowserSession(page);
           nextSessionPersistAt = Date.now() + 60000;
@@ -1688,11 +2098,19 @@ async function runAgent(config) {
         writeState(config, {
           ...lastUsableState,
           status: "stale",
-          staleWarning: "EBP 本轮未返回完整指标，保留上一次有效值"
+          staleWarning: "EBP 本轮未返回完整指标，保留上一次有效值",
+          ...captureRequestFields(refreshRequest, "stale")
         });
       } else {
-        writeState(config, result);
+        writeState(
+          config,
+          {
+            ...result,
+            ...captureRequestFields(refreshRequest, result.status)
+          }
+        );
       }
+      if (refreshRequest) clearRefreshRequest(refreshRequest.requestId);
       log(
         `抓取 ${result.status} room=${currentRoomId || "-"} ` +
         `missing=${result.missingMetrics.join(",") || "-"}`
@@ -1710,7 +2128,8 @@ async function runAgent(config) {
         writeState(config, {
           ...lastUsableState,
           status: "stale",
-          staleWarning: errorMessage
+          staleWarning: errorMessage,
+          ...captureRequestFields(refreshRequest, "stale")
         });
       } else {
         writeState(config, {
@@ -1723,9 +2142,11 @@ async function runAgent(config) {
           room: currentRoomId ? { id: currentRoomId } : {},
           metrics: {},
           missingMetrics: METRIC_KEYS,
-          error: errorMessage
+          error: errorMessage,
+          ...captureRequestFields(refreshRequest, "error")
         });
       }
+      if (refreshRequest) clearRefreshRequest(refreshRequest.requestId);
       log(`抓取失败: ${error.message}`);
       if (/Target closed|Session closed|Browser closed|页面已关闭|Protocol error/.test(String(error.message))) {
         throw error;
@@ -1733,7 +2154,7 @@ async function runAgent(config) {
     }
     const interval = Math.max(3000, Number(config.intervalSeconds || 10) * 1000);
     const remaining = Math.max(500, interval - (Date.now() - startedAt));
-    await new Promise(resolve => setTimeout(resolve, remaining));
+    await waitForNextCycle(remaining);
   }
 }
 
@@ -1741,7 +2162,7 @@ async function main() {
   ensureDataDir();
   const config = loadConfig();
   const loginMode = process.argv.includes("--login");
-  const userDataDir = path.resolve(ROOT, config.userDataDir || "data/chrome-profile");
+  const userDataDir = resolveUserDataDir(config.userDataDir || "data/chrome-profile");
   let lock = acquireAgentLock({ mode: loginMode ? "login" : "agent", userDataDir });
   if (!lock.acquired && loginMode) {
     const owner = lock.owner || {};
@@ -1832,6 +2253,7 @@ module.exports = {
   cleanupBrowserProfileState,
   extractMetrics,
   extractFlows,
+  extractFlowBreakdown,
   findStreamUrl,
   hasLiveScreenEvidence,
   inspectPage,
@@ -1841,6 +2263,7 @@ module.exports = {
   isLiveScreenPage,
   liveScreenMetricSignalCount,
   loginRequired,
+  mergePreparedConfig,
   mergeConfig,
   parseMetricNumber,
   pidIsRunning,
@@ -1848,5 +2271,12 @@ module.exports = {
   releaseAgentLock,
   replaceRoomIdInUrl,
   roomIdFromUrl,
-  safePageUrl
+  safePageUrl,
+  buildInactiveScreenState,
+  shouldResetStreamCapture,
+  normalizeRoomDiscoveryPayload,
+  REFRESH_REQUEST_PATH,
+  readRefreshRequest,
+  clearRefreshRequest,
+  waitForNextCycle
 };

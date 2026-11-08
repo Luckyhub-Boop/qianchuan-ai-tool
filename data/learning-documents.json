@@ -1,4 +1,62 @@
 {
-  "updatedAt": "2026-10-28T16:09:10+08:00",
-  "documents": []
+  "updatedAt": "2026-11-08T17:18:07+08:00",
+  "documents": [
+    {
+      "id": "e5f4f730cb8d41ef815a543c97778d7b",
+      "name": "操作记录.xlsx",
+      "extension": ".xlsx",
+      "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "bytes": 38253,
+      "sha256": "138e6629f429262e85a8e502a321a4eaeae555d2b0484635db3c47fed80944b3",
+      "uploadedAt": "2026-11-02T21:30:43+08:00",
+      "storedFilename": "e5f4f730cb8d41ef815a543c97778d7b.xlsx",
+      "source": "data_page_upload",
+      "learningReady": true,
+      "status": "ready",
+      "statusLabel": "可学习 · 63 段",
+      "textCharacters": 46363,
+      "chunks": 63,
+      "extractionMethod": "xlsx_xml",
+      "extractionError": "",
+      "indexedAt": "2026-11-02T21:30:43+08:00"
+    },
+    {
+      "id": "51058ecc24644ae994443425029d4d88",
+      "name": "千川投放skill-v1.md",
+      "extension": ".md",
+      "contentType": "text/markdown",
+      "bytes": 7164,
+      "sha256": "2e95f166fc63654a7d6c3c7b67d36211859b79bc88936bc2bb3692f161cb62f2",
+      "uploadedAt": "2026-11-02T21:30:43+08:00",
+      "storedFilename": "51058ecc24644ae994443425029d4d88.md",
+      "source": "data_page_upload",
+      "learningReady": true,
+      "status": "ready",
+      "statusLabel": "可学习 · 5 段",
+      "textCharacters": 3294,
+      "chunks": 5,
+      "extractionMethod": "plain_text:utf-8-sig",
+      "extractionError": "",
+      "indexedAt": "2026-11-02T21:30:43+08:00"
+    },
+    {
+      "id": "a15b25794edd45f39aa847fdea5b347b",
+      "name": "直播间千川投放功能手册 (1).docx",
+      "extension": ".docx",
+      "contentType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "bytes": 8988515,
+      "sha256": "3d75df769f8554f5a85b155e17ee83250f5be7debb0f650bf2861bbec9382e05",
+      "uploadedAt": "2026-11-08T17:18:07+08:00",
+      "storedFilename": "a15b25794edd45f39aa847fdea5b347b.docx",
+      "source": "data_page_upload",
+      "learningReady": true,
+      "status": "ready",
+      "statusLabel": "可学习 · 6 段",
+      "textCharacters": 4067,
+      "chunks": 6,
+      "extractionMethod": "docx_xml",
+      "extractionError": "",
+      "indexedAt": "2026-11-08T17:18:07+08:00"
+    }
+  ]
 }

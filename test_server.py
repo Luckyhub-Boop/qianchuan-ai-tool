@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+import copy
 import json
 import tempfile
 import threading
@@ -57,6 +58,8 @@ class FrontendContractTests(unittest.TestCase):
         self.assertIn("/api/campaign/diagnostics", html)
         self.assertIn("近 30 天真实日均", html)
         self.assertIn("直播大屏采集器", html)
+        self.assertIn("function captureNotLive(payload)", html)
+        self.assertIn("四个账号均已确认未开播", html)
         self.assertIn("playbackUrl: serverStream.proxyUrl || serverStream.url", html)
         self.assertIn("enableStashBuffer: true", html)
         self.assertIn("hasAudio: false", html)
@@ -75,8 +78,30 @@ class FrontendContractTests(unittest.TestCase):
         self.assertIn('id="aiDiagnosisLearning"', html)
         self.assertIn("/api/learning/documents", html)
         self.assertIn("/api/learning/search", html)
+        self.assertIn("/api/assistant/chat", html)
+        self.assertIn('id="knowledgeChatForm"', html)
+        self.assertIn('id="knowledgeChatLog"', html)
+        self.assertIn('id="knowledgeProgressBar"', html)
+        self.assertIn('id="knowledgeOutcomeSummary"', html)
+        self.assertIn("data-knowledge-app-status", html)
+        self.assertIn("学习成果已应用到", html)
         self.assertIn("learningAdvice", html)
         self.assertIn("产品学习资料", html)
+        self.assertIn("knowledge-source-note", html)
+        self.assertIn("经验底线校验", html)
+        self.assertIn("/api/live/refresh", html)
+        self.assertIn("正在拉取最新数据...", html)
+        self.assertIn("manualRefreshAll", html)
+        self.assertIn("优先使用千川 MCP", html)
+        self.assertIn("大屏直抓", html)
+        self.assertIn("MCP 优先", html)
+        self.assertIn("不跨数据源混算", html)
+        self.assertIn("大屏直抓（MCP暂不可用）", html)
+        self.assertIn("流量占比", html)
+        self.assertIn("成交金额占比", html)
+        self.assertIn("千次观看成交", html)
+        self.assertIn("大屏渠道明细", html)
+        self.assertNotIn("未剔除退款", html)
         self.assertNotIn('id="dataLiveTrendChart"', html)
         self.assertNotIn('id="dataLiveBoard"', html)
 
@@ -200,6 +225,27 @@ class LiveStreamRegistryTests(unittest.TestCase):
         self.assertEqual(result["roomId"], "123456789")
         self.assertEqual(registry.resolve("123456789")["type"], "flv")
 
+    def test_registry_prefers_signed_origin_over_bad_certificate_redirect(self) -> None:
+        registry = server.LiveStreamRegistry()
+        origin = (
+            "https://pull-x3-f5.douyincdn.com/third/stream.flv"
+            "?expire=1794642278&sign=origin-secret"
+        )
+        redirect = (
+            "https://2408_8720_800_422_8000_0_b00_146.bytefcdnrd.com"
+            "/third/stream.flv?redirect_from=pod"
+            "&fp_user_url=" + urllib.parse.quote(origin, safe="")
+        )
+        registry.register(
+            {
+                "roomId": "123456789",
+                "url": redirect,
+                "type": "flv",
+            }
+        )
+        resolved = registry.resolve("123456789")
+        self.assertEqual(resolved["url"], origin)
+
 
 class MaterialTests(unittest.TestCase):
     def test_video_library_uses_documented_create_time_as_upload_time(self) -> None:
@@ -295,6 +341,8 @@ class MaterialTests(unittest.TestCase):
             "stats_info": {
                 "metrics": {
                     "stat_cost_for_roi2": 123.45,
+                    "total_order_settle_amount_for_roi2_1h": 456.78,
+                    "total_order_settle_count_for_roi2_1h": 9,
                     "total_pay_order_gmv_for_roi2": 456.78,
                     "total_pay_order_count_for_roi2": 9,
                     "live_show_count_for_roi2_v2": 12000,
@@ -406,6 +454,8 @@ class MaterialTests(unittest.TestCase):
                 },
                 "metrics": {
                     "stat_cost_for_roi2": {"Value": 10.0},
+                    "total_order_settle_amount_for_roi2_1h": {"Value": 20.0},
+                    "total_order_settle_count_for_roi2_1h": {"Value": 2.0},
                     "total_pay_order_gmv_for_roi2": {"Value": 20.0},
                     "total_pay_order_count_for_roi2": {"Value": 2.0},
                     "live_show_count_for_roi2_v2": {"Value": 1000.0},
@@ -424,6 +474,8 @@ class MaterialTests(unittest.TestCase):
                 },
                 "metrics": {
                     "stat_cost_for_roi2": {"Value": 5.0},
+                    "total_order_settle_amount_for_roi2_1h": {"Value": 7.5},
+                    "total_order_settle_count_for_roi2_1h": {"Value": 1.0},
                     "total_pay_order_gmv_for_roi2": {"Value": 7.5},
                     "total_pay_order_count_for_roi2": {"Value": 1.0},
                     "live_show_count_for_roi2_v2": {"Value": 500.0},
@@ -532,18 +584,59 @@ class MaterialTests(unittest.TestCase):
 
 
 class NormalizationTests(unittest.TestCase):
+    def test_net_settled_metrics_are_canonical_and_gross_is_audit_only(self) -> None:
+        metrics = server.settled_transaction_metrics(
+            {
+                "stat_cost": 100.0,
+                "total_order_settle_amount_for_roi2_1h": 56.0,
+                "total_order_settle_count_for_roi2_1h": 2,
+                "total_prepay_and_pay_settle_roi2_1h": 0.56,
+                "total_pay_order_gmv_for_roi2": 80.0,
+                "total_pay_order_count_for_roi2": 3,
+                "total_prepay_and_pay_order_roi2": 0.8,
+            }
+        )
+        self.assertEqual(metrics["gmv"], 56.0)
+        self.assertEqual(metrics["orders"], 2)
+        self.assertEqual(metrics["roi"], 0.56)
+        self.assertEqual(metrics["grossGmv"], 80.0)
+        self.assertEqual(metrics["grossOrders"], 3)
+        self.assertEqual(metrics["gmvScope"], "net")
+        self.assertEqual(metrics["grossGmvScope"], "gross_including_refund")
+
     def test_normalizes_and_merges_duplicate_dates(self) -> None:
         rows = [
-            {"stat_date": "2026-10-18", "stat_cost": "10.5", "pay_order_amount": "20", "pay_order_count": 2},
-            {"stat_date": "2026-10-18", "stat_cost": 4.5, "pay_order_amount": 5, "pay_order_count": 1},
-            {"date": "2026-10-17", "spend": 3, "gmv": 9, "orders": 1},
-            {"date": "2026-04-19", "spend": 99, "gmv": 99, "orders": 99},
+            {
+                "stat_date": "2026-10-18",
+                "stat_cost": "10.5",
+                "total_order_settle_amount_for_roi2_1h": "20",
+                "total_order_settle_count_for_roi2_1h": 2,
+            },
+            {
+                "stat_date": "2026-10-18",
+                "stat_cost": 4.5,
+                "total_order_settle_amount_for_roi2_1h": 5,
+                "total_order_settle_count_for_roi2_1h": 1,
+            },
+            {
+                "date": "2026-10-17",
+                "spend": 3,
+                "total_order_settle_amount_for_roi2_1h": 9,
+                "total_order_settle_count_for_roi2_1h": 1,
+            },
+            {
+                "date": "2026-04-19",
+                "spend": 99,
+                "total_order_settle_amount_for_roi2_1h": 99,
+                "total_order_settle_count_for_roi2_1h": 99,
+            },
         ]
         result = server.normalize_daily_rows(rows, server.DEFAULT_FIELD_MAP, "2026-04-20", "2026-10-18")
         self.assertEqual([row["date"] for row in result], ["2026-10-17", "2026-10-18"])
         self.assertEqual(result[1]["spend"], 15.0)
         self.assertEqual(result[1]["gmv"], 25.0)
         self.assertEqual(result[1]["orders"], 3.0)
+        self.assertEqual(result[1]["gmvScope"], "net")
 
     def test_realtime_upsert_replaces_today_and_keeps_last_non_zero(self) -> None:
         rows = [
@@ -655,6 +748,8 @@ class MCPTests(unittest.TestCase):
             "room_id": "room-1",
             "room_status": "LIVING",
             "stat_cost": 100000,
+            "total_order_settle_amount_for_roi2_1h": 250000,
+            "total_order_settle_count_for_roi2_1h": 3,
             "pay_order_amount": 250000,
             "pay_order_count": 3,
         }
@@ -673,8 +768,8 @@ class MCPTests(unittest.TestCase):
         fields = call.call_args.args[1]["fields"]
         self.assertEqual(fields[:3], [
             "stat_cost",
-            "pay_order_amount",
-            "pay_order_count",
+            "total_order_settle_amount_for_roi2_1h",
+            "total_order_settle_amount_realtime_for_roi2_1h",
         ])
         for field in (
             "total_live_watch_cnt",
@@ -757,14 +852,24 @@ class StoreTests(unittest.TestCase):
             store = server.DashboardStore(snapshot_path)
             today = date.today().isoformat()
             fake_rows = [
-                {"stat_date": "2026-10-17", "stat_cost": 10, "pay_order_amount": 20, "pay_order_count": 2},
-                {"stat_date": "2026-10-18", "stat_cost": 11, "pay_order_amount": 22, "pay_order_count": 3},
+                {
+                    "stat_date": "2026-10-17",
+                    "stat_cost": 10,
+                    "total_order_settle_amount_for_roi2_1h": 20,
+                    "total_order_settle_count_for_roi2_1h": 2,
+                },
+                {
+                    "stat_date": "2026-10-18",
+                    "stat_cost": 11,
+                    "total_order_settle_amount_for_roi2_1h": 22,
+                    "total_order_settle_count_for_roi2_1h": 3,
+                },
             ]
             realtime_account_row = {
                 "stat_date": today,
                 "stat_cost": 7,
-                "pay_order_amount": 14,
-                "pay_order_count": 1,
+                "total_order_settle_amount_for_roi2_1h": 14,
+                "total_order_settle_count_for_roi2_1h": 1,
             }
             fake_plans = [
                 {
@@ -772,8 +877,8 @@ class StoreTests(unittest.TestCase):
                     "name": "测试计划 A",
                     "status": "已暂停",
                     "data": [
-                        {"date": "2026-10-17", "spend": 10.0, "gmv": 20.0, "orders": 2.0},
-                        {"date": "2026-10-18", "spend": 11.0, "gmv": 22.0, "orders": 3.0},
+                        {"date": "2026-10-17", "spend": 10.0, "gmv": 20.0, "orders": 2.0, "gmvScope": "net"},
+                        {"date": "2026-10-18", "spend": 11.0, "gmv": 22.0, "orders": 3.0, "gmvScope": "net"},
                     ],
                     "materials": [],
                 }
@@ -787,8 +892,8 @@ class StoreTests(unittest.TestCase):
                     "roomInfo": [],
                     "stats": {
                         "stat_cost": 500000,
-                        "total_pay_order_gmv_for_roi2": 800000,
-                        "total_pay_order_count_for_roi2": 2,
+                        "total_order_settle_amount_for_roi2_1h": 800000,
+                        "total_order_settle_count_for_roi2_1h": 2,
                     },
                 }
             ]
@@ -840,13 +945,14 @@ class StoreTests(unittest.TestCase):
             self.assertEqual(result["syncStatus"], "success")
             self.assertEqual(result["mode"], "live")
             self.assertEqual(result["accounts"][0]["data"], [
-                {"date": "2026-10-17", "spend": 10.0, "gmv": 20.0, "orders": 2.0},
-                {"date": "2026-10-18", "spend": 11.0, "gmv": 22.0, "orders": 3.0},
+                {"date": "2026-10-17", "spend": 10.0, "gmv": 20.0, "orders": 2.0, "gmvScope": "net"},
+                {"date": "2026-10-18", "spend": 11.0, "gmv": 22.0, "orders": 3.0, "gmvScope": "net"},
                 {
                     "date": today,
                     "spend": 7.0,
                     "gmv": 14.0,
                     "orders": 1.0,
+                    "gmvScope": "net",
                     "realtime": True,
                     "syncedAt": result["accounts"][0]["data"][-1]["syncedAt"],
                 },
@@ -863,6 +969,153 @@ class StoreTests(unittest.TestCase):
             self.assertEqual(reconciliation["awemeAttribution"]["spend"], 15.0)
             self.assertEqual(reconciliation["difference"]["spend"], -8.0)
 
+    def test_dashboard_uses_screen_only_as_labelled_mcp_fallback(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = server.DashboardStore(Path(temp_dir) / "snapshot.json")
+            today = date.today().isoformat()
+            snapshot = store.dashboard()
+            account = snapshot["accounts"][0]
+            if not account.get("awemes"):
+                account["awemes"] = [
+                    {
+                        "id": "live-aweme",
+                        "name": "测试直播号",
+                        "status": "直播中",
+                        "data": [],
+                    }
+                ]
+            aweme = account["awemes"][0]
+            aweme["id"] = "live-aweme"
+            aweme["data"] = [
+                {
+                    "date": today,
+                    "spend": 4500.0,
+                    "gmv": 2016.0,
+                    "orders": 12.0,
+                    "grossGmv": 2520.0,
+                    "grossOrders": 15.0,
+                    "gmvScope": "net",
+                }
+            ]
+            account["data"] = copy.deepcopy(aweme["data"])
+            store.snapshot = snapshot
+            server.atomic_write_json(
+                store.live_screen_path,
+                {
+                    "status": "ok",
+                    "live": True,
+                    "syncedAt": server.now_iso(),
+                    "heartbeatAt": server.now_iso(),
+                    "room": {
+                        "id": "room-1",
+                        "awemeId": "live-aweme",
+                    },
+                    "metrics": {
+                        "spend": 4535.17,
+                        "gmv": 1512.0,
+                        "orders": 12.0,
+                        "roi": 0.33,
+                        "orderCost": 377.93,
+                    },
+                },
+            )
+
+            dashboard = store.dashboard()
+            dashboard_account = dashboard["accounts"][0]
+            dashboard_aweme = dashboard_account["awemes"][0]
+            account_today = next(
+                row for row in dashboard_account["data"] if row["date"] == today
+            )
+            aweme_today = next(
+                row for row in dashboard_aweme["data"] if row["date"] == today
+            )
+            self.assertEqual(account_today["gmv"], 1512.0)
+            self.assertEqual(account_today["grossGmv"], 2520.0)
+            self.assertEqual(account_today["gmvScope"], "screen_net")
+            self.assertEqual(account_today["metricSource"], "live_screen_fallback")
+            self.assertEqual(account_today["source"], "大屏直抓（MCP暂不可用）")
+            self.assertEqual(aweme_today["gmv"], 1512.0)
+            self.assertEqual(
+                dashboard["realtime"]["sources"]["live_screen_fallback"],
+                1,
+            )
+            self.assertEqual(dashboard["transactionScope"], "screen_fallback")
+            self.assertEqual(
+                dashboard_account["reconciliation"]["difference"]["gmv"],
+                0.0,
+            )
+
+    def test_dashboard_prefers_cached_mcp_over_screen(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = server.DashboardStore(Path(temp_dir) / "snapshot.json")
+            today = date.today().isoformat()
+            snapshot = store.dashboard()
+            account = snapshot["accounts"][0]
+            account["awemes"] = [
+                {
+                    "id": "live-aweme",
+                    "name": "测试直播号",
+                    "status": "直播中",
+                    "data": [],
+                }
+            ]
+            account["data"] = [
+                {
+                    "date": today,
+                    "spend": 100.0,
+                    "gmv": 120.0,
+                    "orders": 2.0,
+                    "gmvScope": "net",
+                }
+            ]
+            store.snapshot = snapshot
+            with store.live_lock:
+                store.campaign_cache["fashion"] = (
+                    time.time(),
+                    {
+                        "ok": True,
+                        "mcpAvailable": True,
+                        "syncedAt": server.now_iso(),
+                        "room": {"awemeId": "live-aweme"},
+                        "metrics": {
+                            "spend": 900.0,
+                            "gmv": 480.0,
+                            "orders": 8.0,
+                            "roi": 0.53,
+                            "cost": 112.5,
+                        },
+                    },
+                )
+            server.atomic_write_json(
+                store.live_screen_path,
+                {
+                    "status": "ok",
+                    "live": True,
+                    "syncedAt": server.now_iso(),
+                    "heartbeatAt": server.now_iso(),
+                    "room": {"id": "room-1", "awemeId": "live-aweme"},
+                    "metrics": {
+                        "spend": 950.0,
+                        "gmv": 500.0,
+                        "orders": 9.0,
+                        "roi": 0.52,
+                        "orderCost": 105.56,
+                    },
+                },
+            )
+
+            dashboard = store.dashboard()
+            today_row = next(
+                row
+                for row in dashboard["accounts"][0]["data"]
+                if row["date"] == today
+            )
+            self.assertEqual(today_row["gmv"], 480.0)
+            self.assertEqual(today_row["orders"], 8.0)
+            self.assertEqual(today_row["metricSource"], "mcp")
+            self.assertEqual(today_row["source"], "千川 MCP · 主数据源")
+            self.assertEqual(dashboard["transactionScope"], "mcp")
+
     def test_account_realtime_falls_back_to_official_plan_data(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             snapshot_path = Path(temp_dir) / "snapshot.json"
@@ -871,14 +1124,14 @@ class StoreTests(unittest.TestCase):
             history_rows = [{
                 "stat_date": "2026-10-20",
                 "stat_cost": 10,
-                "pay_order_amount": 20,
-                "pay_order_count": 2,
+                "total_order_settle_amount_for_roi2_1h": 20,
+                "total_order_settle_count_for_roi2_1h": 2,
             }]
             historical_plan = [{
                 "id": "c-1",
                 "name": "测试计划",
                 "status": "投放中",
-                "data": [{"date": "2026-10-20", "spend": 10.0, "gmv": 20.0, "orders": 2.0}],
+                "data": [{"date": "2026-10-20", "spend": 10.0, "gmv": 20.0, "orders": 2.0, "gmvScope": "net"}],
                 "materials": [],
                 "roomInfo": [],
             }]
@@ -890,8 +1143,8 @@ class StoreTests(unittest.TestCase):
                 "roomInfo": [],
                 "stats": {
                     "stat_cost": 900000,
-                    "total_pay_order_gmv_for_roi2": 1800000,
-                    "total_pay_order_count_for_roi2": 3,
+                    "total_order_settle_amount_for_roi2_1h": 1800000,
+                    "total_order_settle_count_for_roi2_1h": 3,
                 },
             }]
 
@@ -1211,6 +1464,50 @@ class StoreTests(unittest.TestCase):
                 all("登录已过期" in item["message"] for item in payload["errors"])
             )
 
+    def test_confirmed_not_live_has_no_stale_metrics_or_capture_errors(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = server.DashboardStore(Path(temp_dir) / "snapshot.json")
+            checked_accounts = [
+                {"awemeId": "1", "name": "图解", "status": "not_live", "roomId": ""},
+                {"awemeId": "2", "name": "精讲", "status": "not_live", "roomId": ""},
+                {"awemeId": "3", "name": "拆解", "status": "not_live", "roomId": ""},
+                {"awemeId": "4", "name": "通解", "status": "not_live", "roomId": ""},
+            ]
+            store.live_screen_path.write_text(
+                json.dumps(
+                    {
+                        "heartbeatAt": server.now_iso(),
+                        "intervalSeconds": 10,
+                        "status": "not_live",
+                        "detectionStatus": "not_live",
+                        "source": "puppeteer-core",
+                        "sourceLabel": "未开播",
+                        "room": {},
+                        "metrics": {},
+                        "checkedAccounts": checked_accounts,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with patch.object(
+                store,
+                "live_five_dimension",
+                return_value={"status": "not_live", "values": {}, "sources": {}, "missing": []},
+            ):
+                payload = store.live_snapshot("fashion")
+
+            self.assertFalse(payload["live"])
+            self.assertEqual(payload["captureStatus"], "not_live")
+            self.assertEqual(payload["sourceLabel"], "未开播")
+            self.assertEqual(payload["detectionStatus"], "not_live")
+            self.assertEqual(payload["checkedAccounts"], checked_accounts)
+            self.assertEqual(payload["metrics"], {})
+            self.assertEqual(payload["errors"], [])
+            self.assertEqual(payload["error"], "未开播")
+            self.assertEqual(payload["channels"]["trade"]["status"], "not_live")
+            self.assertEqual(payload["channels"]["behavior"]["status"], "not_live")
+            self.assertTrue(store.live_screen_status()["ok"])
+
     def test_fresh_stale_screen_values_remain_usable_when_mcp_is_optional(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             store = server.DashboardStore(Path(temp_dir) / "snapshot.json")
@@ -1374,6 +1671,67 @@ class StoreTests(unittest.TestCase):
             self.assertEqual(result["sources"]["watch"], "mcp:qianchuan_report_live_get_v1")
             self.assertEqual(result["sources"]["stay"], "screen:live_board")
 
+    def test_five_dimension_uses_nonzero_today_live_fields_and_ignores_zero_pending(self) -> None:
+        direct = server.DashboardStore._five_dimension_payload(
+            {
+                "watchCount": 999,
+                "watchOneMinute": 420,
+                "comments": 17,
+                "orders": 3,
+            },
+            {},
+            official_live={
+                "status": "ok",
+                "metrics": {
+                    "watchCount": 1200,
+                    "watchOneMinute": 480,
+                    "comments": 30,
+                    "orders": 4,
+                },
+            },
+        )
+        self.assertEqual(direct["values"]["watch"], 1200)
+        self.assertEqual(direct["values"]["stay"], 480)
+        self.assertEqual(direct["values"]["comments"], 30)
+        self.assertEqual(direct["values"]["orders"], 4)
+        self.assertEqual(
+            direct["sources"]["stay"],
+            "official:qianchuan_today_live",
+        )
+        sample = server.DashboardStore._screen_sample(
+            {
+                "metrics": {"watchCount": 999, "orders": 3},
+                "syncedAt": "2026-11-05T05:00:00.000Z",
+            },
+            direct,
+        )
+        self.assertEqual(sample["watchOneMinute"], 480)
+        self.assertEqual(sample["comments"], 30)
+
+        zero_pending = server.DashboardStore._five_dimension_payload(
+            {
+                "watchCount": 999,
+                "watchOneMinute": 420,
+                "comments": 17,
+                "orders": 3,
+            },
+            {},
+            official_live={
+                "status": "zero_pending",
+                "metrics": {
+                    "watchCount": 0,
+                    "watchOneMinute": 0,
+                    "comments": 0,
+                    "orders": 0,
+                },
+            },
+        )
+        self.assertEqual(zero_pending["values"]["watch"], 999)
+        self.assertEqual(zero_pending["values"]["stay"], 420)
+        self.assertEqual(zero_pending["values"]["comments"], 17)
+        self.assertEqual(zero_pending["values"]["orders"], 3)
+        self.assertEqual(zero_pending["sources"]["stay"], "screen:live_board")
+
     def test_campaign_diagnostics_uses_real_mcp_and_30_day_basis(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             store = server.DashboardStore(Path(temp_dir) / "snapshot.json")
@@ -1392,9 +1750,9 @@ class StoreTests(unittest.TestCase):
             client = server.QianchuanMCPClient({"url": "https://example.test/mcp"})
             record = {
                 "stat_cost": 10000000,
-                "total_pay_order_gmv_for_roi2": 18000000,
-                "total_pay_order_count_for_roi2": 2,
-                "total_prepay_and_pay_order_roi2": 1.8,
+                "total_order_settle_amount_for_roi2_1h": 18000000,
+                "total_order_settle_count_for_roi2_1h": 2,
+                "total_prepay_and_pay_settle_roi2_1h": 1.8,
                 "online_count": 35,
                 "live_click_product_count_alias": 250,
                 "total_live_watch_cnt": 3000,
@@ -1431,6 +1789,658 @@ class StoreTests(unittest.TestCase):
             self.assertEqual(result["history"]["averages"]["spend"], 100.0)
             self.assertEqual(result["targets"], {"cost": 300.0, "productPrice": 168.0, "roi": 0.56})
 
+    def test_campaign_diagnostics_uses_labelled_screen_fallback_only_when_mcp_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = server.DashboardStore(Path(temp_dir) / "snapshot.json")
+            client = server.QianchuanMCPClient({"url": "https://example.test/mcp"})
+            server.atomic_write_json(
+                store.live_screen_path,
+                {
+                    "status": "ok",
+                    "live": True,
+                    "syncedAt": server.now_iso(),
+                    "heartbeatAt": server.now_iso(),
+                    "room": {
+                        "id": "room-1",
+                        "awemeId": "7637818476896437305",
+                        "awemeName": "赵镭图解小数基本功",
+                    },
+                    "metrics": {
+                        "spend": 100.0,
+                        "gmv": 180.0,
+                        "orders": 2,
+                        "roi": 1.8,
+                        "orderCost": 50.0,
+                        "online": 20,
+                        "watchCount": 500,
+                        "productClicks": 30,
+                    },
+                    "flows": [
+                        {"key": "live_pc_qian_chuan", "value": 60},
+                        {"key": "homepage_hot", "value": 40},
+                    ],
+                    "flowBreakdown": {
+                        "source": "qianchuan_board_network",
+                        "items": [
+                            {
+                                "key": "live_pc_qian_chuan",
+                                "label": "千川PC",
+                                "trafficShare": 60,
+                                "gmvShare": 55,
+                                "gpm": 1800,
+                            },
+                            {
+                                "key": "homepage_hot",
+                                "label": "直播推荐",
+                                "trafficShare": 40,
+                                "gmvShare": 45,
+                                "gpm": 1500,
+                            },
+                        ],
+                    },
+                },
+            )
+            with patch.object(store, "_get_mcp_client", return_value=client), \
+                 patch.object(
+                     client,
+                     "fetch_live_room",
+                     side_effect=server.QianchuanMCPError("MCP empty"),
+                 ):
+                result = store.campaign_diagnostics("fashion")
+
+            self.assertTrue(result["ok"])
+            self.assertTrue(result["fallbackFromMCP"])
+            self.assertFalse(result["mcpAvailable"])
+            self.assertEqual(result["source"], "live_screen_fallback")
+            self.assertEqual(
+                result["sourceLabel"],
+                "千川大屏直抓（MCP与百应暂不可用）",
+            )
+            self.assertEqual(result["metrics"]["gmv"], 180.0)
+            self.assertEqual(result["flows"]["live_pc_qian_chuan"], 60)
+            self.assertEqual(result["flowDetails"][0]["gmvShare"], 55)
+            self.assertEqual(result["flowDetails"][0]["gpm"], 1800)
+
+    def test_campaign_diagnostics_keeps_mcp_values_when_screen_differs(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = server.DashboardStore(Path(temp_dir) / "snapshot.json")
+            client = server.QianchuanMCPClient({"url": "https://example.test/mcp"})
+            server.atomic_write_json(
+                store.live_screen_path,
+                {
+                    "status": "ok",
+                    "live": True,
+                    "syncedAt": server.now_iso(),
+                    "heartbeatAt": server.now_iso(),
+                    "room": {"id": "room-1", "awemeId": "7637818476896437305"},
+                    "metrics": {
+                        "spend": 999.0,
+                        "gmv": 888.0,
+                        "orders": 9,
+                        "roi": 0.89,
+                    },
+                },
+            )
+            response = {
+                "tool": server.QianchuanMCPClient.LIVE_REPORT_TOOL,
+                "room": {
+                    "room_id": "room-1",
+                    "stat_cost": 10000000,
+                    "total_pay_order_gmv_for_roi2": 18000000,
+                    "total_pay_order_count_for_roi2": 2,
+                    "total_prepay_and_pay_order_roi2": 1.8,
+                    "online_count": 35,
+                },
+                "payload": {},
+                "arguments": {},
+            }
+            with patch.object(store, "_get_mcp_client", return_value=client), \
+                 patch.object(client, "fetch_live_room", return_value=response):
+                result = store.campaign_diagnostics("fashion")
+
+            self.assertTrue(result["mcpAvailable"])
+            self.assertFalse(result["fallbackFromMCP"])
+            self.assertEqual(result["source"], "qianchuan_mcp_realtime")
+            self.assertEqual(result["metrics"]["spend"], 100.0)
+            self.assertEqual(result["metrics"]["gmv"], 180.0)
+            self.assertEqual(result["metrics"]["orders"], 2)
+            self.assertEqual(result["metrics"]["gmvScope"], "mcp_reported")
+
+    def test_buyin_live_status_keeps_login_failure_separate_from_not_live(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = server.DashboardStore(Path(temp_dir) / "snapshot.json")
+            server.atomic_write_json(
+                store.buyin_live_path,
+                {
+                    "status": "login_required",
+                    "live": False,
+                    "heartbeatAt": server.now_iso(),
+                    "intervalSeconds": 10,
+                    "metrics": {},
+                    "channels": None,
+                    "extras": [],
+                    "error": "巨量百应登录已过期",
+                },
+            )
+            status = store.buyin_live_status()
+            self.assertFalse(status["available"])
+            self.assertFalse(status["stale"])
+            self.assertEqual(status["status"], "login_required")
+            self.assertFalse(status["live"])
+
+    def test_buyin_history_is_not_available_during_confirmed_not_live(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = server.DashboardStore(Path(temp_dir) / "snapshot.json")
+            server.atomic_write_json(
+                store.buyin_live_path,
+                {
+                    "status": "ok",
+                    "live": True,
+                    "heartbeatAt": server.now_iso(),
+                    "syncedAt": server.now_iso(),
+                    "intervalSeconds": 10,
+                    "pageUrl": (
+                        "https://compass.jinritemai.com/screen/live/talent"
+                        "?live_room_id=7704532779547085622"
+                    ),
+                    "metrics": {"online": 10},
+                    "channels": {"items": [{"key": "搜索", "trafficShare": 10}]},
+                    "extras": [],
+                },
+            )
+            server.atomic_write_json(
+                store.live_screen_path,
+                {
+                    "status": "not_live",
+                    "live": False,
+                    "heartbeatAt": server.now_iso(),
+                    "syncedAt": server.now_iso(),
+                    "room": {},
+                    "metrics": {},
+                },
+            )
+            status = store.buyin_live_status()
+            self.assertFalse(status["available"])
+            self.assertTrue(status["confirmedNotLive"])
+            self.assertFalse(status["currentRoomVerified"])
+
+    def test_review_sessions_merge_local_recording_with_live_history(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = server.DashboardStore(Path(temp_dir) / "snapshot.json")
+            recordings_root = Path(temp_dir) / "recordings"
+            session_dir = recordings_root / "2026-11-06_room-1_120000"
+            (session_dir / "segments").mkdir(parents=True)
+            (session_dir / "index.m3u8").write_text("#EXTM3U\n", encoding="utf-8")
+            (session_dir / "segments" / "part_000001.ts").write_bytes(b"video")
+            server.recording_store.write_manifest(
+                session_dir,
+                {
+                    "id": session_dir.name,
+                    "accountId": "fashion",
+                    "roomId": "room-1",
+                    "awemeName": "测试直播号",
+                    "date": "2026-11-06",
+                    "startedAt": "2026-11-06T12:00:00+08:00",
+                    "endedAt": "2026-11-06T12:10:00+08:00",
+                    "status": "completed",
+                },
+            )
+            start_ms = int(
+                datetime.fromisoformat("2026-11-06T12:00:00+08:00").timestamp()
+                * 1000
+            )
+            server.atomic_write_json(
+                store.live_history_path,
+                {
+                    "version": 1,
+                    "days": {
+                        "2026-11-06": {
+                            "room-1": [
+                                {
+                                    "t": start_ms,
+                                    "spend": 0,
+                                    "gmv": 0,
+                                    "orders": 0,
+                                    "watch": 0,
+                                    "online": 20,
+                                },
+                                {
+                                    "t": start_ms + 5 * 60 * 1000,
+                                    "spend": 100,
+                                    "gmv": 180,
+                                    "orders": 2,
+                                    "watch": 300,
+                                    "online": 24,
+                                },
+                            ]
+                        }
+                    },
+                },
+            )
+            server.atomic_write_json(
+                store.buyin_audience_history_path,
+                {
+                    "version": 1,
+                    "items": [
+                        {
+                            "t": start_ms + 60 * 1000,
+                            "capturedAt": "2026-11-06T12:01:00+08:00",
+                            "roomId": "room-1",
+                            "profiles": {
+                                "realtimeViewer": {
+                                    "available": True,
+                                    "gender": {"top": "女性", "distribution": []},
+                                    "age": {"top": "31-35岁", "distribution": []},
+                                    "region": {"top": "四川", "distribution": []},
+                                    "summary": "女性居多",
+                                    "source": "buyin_compass_live_screen_dom",
+                                },
+                                "recentBuyer": {
+                                    "available": True,
+                                    "gender": {"top": "女性", "distribution": []},
+                                    "age": {"top": "25-30岁", "distribution": []},
+                                    "region": {"top": "广东", "distribution": []},
+                                    "summary": "女性居多",
+                                    "source": "buyin_compass_live_screen_dom",
+                                },
+                            },
+                        }
+                    ],
+                },
+            )
+            with patch.object(server, "RECORDINGS_DIR", recordings_root), \
+                 patch.object(server, "REVIEW_ARCHIVE_DIR", Path(temp_dir) / "archive"):
+                payload = store.review_sessions("fashion")
+
+            self.assertTrue(payload["ok"])
+            self.assertEqual(payload["sessionCount"], 1)
+            session = payload["sessions"][0]
+            self.assertEqual(session["metrics"]["gmv"], 180)
+            self.assertEqual(session["videoType"], "daily_hls")
+            self.assertIn("/api/review/daily-playlist?", session["videoUrl"])
+            self.assertIn("千川直播大屏", " ".join(session["dataSources"]))
+            self.assertTrue(session["analysisSteps"])
+            self.assertIn("asr", payload)
+            self.assertEqual(payload["selectedDate"], "2026-11-06")
+            self.assertEqual(payload["availableDates"], ["2026-11-06"])
+            self.assertEqual(
+                session["series"][0]["viewerPersona"]["region"],
+                "四川",
+            )
+            self.assertEqual(
+                session["series"][0]["buyerPersona"]["age"],
+                "25-30岁",
+            )
+            self.assertGreaterEqual(payload["audienceHistory"]["matchedPoints"], 1)
+            self.assertTrue(session["mcpTimeSeriesAttempted"])
+            self.assertFalse(session["mcpTimeSeriesAvailable"])
+            self.assertEqual(session["mcpTimeSeriesStatus"], "unsupported")
+            self.assertIn("空 data", session["mcpTimeSeriesError"])
+            self.assertEqual(payload["mcpTimeSeries"]["status"], "unsupported")
+            self.assertIn("千川直播大屏", session["timeBucketSourceLabel"])
+
+    def test_script_analysis_uses_archived_transcript_after_raw_video_delete(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            store = server.DashboardStore(root / "snapshot.json")
+            recordings_root = root / "recordings"
+            current_directory = recordings_root / "2026-11-08_room-1_190000"
+            server.recording_store.write_manifest(
+                current_directory,
+                {
+                    "id": current_directory.name,
+                    "accountId": "fashion",
+                    "roomId": "room-1",
+                    "date": "2026-11-08",
+                    "startedAt": "2026-11-08T19:00:00+08:00",
+                    "status": "recording",
+                },
+            )
+
+            archive_root = root / "archive"
+            archived_directory = (
+                archive_root / "sessions" / "2026-11-08_room-1_123419"
+            )
+            server.recording_store.write_manifest(
+                archived_directory,
+                {
+                    "id": archived_directory.name,
+                    "accountId": "fashion",
+                    "roomId": "room-1",
+                    "date": "2026-11-08",
+                    "startedAt": "2026-11-08T12:34:19+08:00",
+                    "status": "recording",
+                },
+            )
+            server.atomic_write_json(
+                archived_directory / "asr" / "transcript.json",
+                {
+                    "model": "faster-whisper-large-v3",
+                    "segments": [
+                        {
+                            "id": "line-1",
+                            "segmentId": "part_000001",
+                            "text": "这是历史归档中的测试话术",
+                            "startedAt": "2026-11-08T12:34:20+08:00",
+                            "endedAt": "2026-11-08T12:34:28+08:00",
+                        }
+                    ],
+                    "processedParts": ["part_000001"],
+                },
+            )
+            start_ms = int(
+                datetime.fromisoformat(
+                    "2026-11-08T12:34:19+08:00"
+                ).timestamp()
+                * 1000
+            )
+            server.atomic_write_json(
+                archived_directory / "asr" / "metrics.json",
+                {
+                    "samples": [
+                        {
+                            "t": start_ms,
+                            "spend": 10,
+                            "gmv": 0,
+                            "orders": 0,
+                            "online": 20,
+                        },
+                        {
+                            "t": start_ms + 60_000,
+                            "spend": 10,
+                            "gmv": 168,
+                            "orders": 1,
+                            "online": 22,
+                        },
+                    ]
+                },
+            )
+            server.atomic_write_json(
+                store.live_history_path,
+                {"version": 1, "days": {"2026-11-08": {"room-1": []}}},
+            )
+
+            with patch.object(server, "RECORDINGS_DIR", recordings_root), \
+                 patch.object(server, "REVIEW_ARCHIVE_DIR", archive_root):
+                payload = store.script_analysis("fashion")
+                selected = store.script_analysis(
+                    "fashion",
+                    "2026-11-08",
+                    archived_directory.name,
+                )
+
+            self.assertTrue(payload["available"])
+            self.assertEqual(payload["selectedSessionId"], archived_directory.name)
+            self.assertEqual(payload["sessionSource"], "archive")
+            self.assertEqual(payload["session"]["status"], "archived_analysis")
+            self.assertGreaterEqual(len(payload["phrases"]), 1)
+            self.assertEqual(len(payload["availableDates"]), 1)
+            self.assertTrue(
+                next(
+                    item
+                    for item in payload["availableSessions"]
+                    if item["id"] == archived_directory.name
+                )["hasTranscript"]
+            )
+            self.assertEqual(selected["selectedSessionId"], archived_directory.name)
+            self.assertIn("永久复盘归档", " ".join(
+                [payload["summary"], payload["source"]]
+            ))
+
+    def test_review_sessions_loads_only_selected_date(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = server.DashboardStore(Path(temp_dir) / "snapshot.json")
+            recordings_root = Path(temp_dir) / "recordings"
+            for day, room_id in (
+                ("2026-11-05", "room-1"),
+                ("2026-11-06", "room-2"),
+            ):
+                session_dir = recordings_root / f"{day}_{room_id}_120000"
+                (session_dir / "segments").mkdir(parents=True)
+                (session_dir / "index.m3u8").write_text("#EXTM3U\n", encoding="utf-8")
+                (session_dir / "segments" / "part_000001.ts").write_bytes(b"video")
+                server.recording_store.write_manifest(
+                    session_dir,
+                    {
+                        "id": session_dir.name,
+                        "accountId": "fashion",
+                        "roomId": room_id,
+                        "date": day,
+                        "startedAt": f"{day}T12:00:00+08:00",
+                        "endedAt": f"{day}T12:05:00+08:00",
+                        "status": "completed",
+                    },
+                )
+            with patch.object(server, "RECORDINGS_DIR", recordings_root), \
+                 patch.object(server, "REVIEW_ARCHIVE_DIR", Path(temp_dir) / "archive"):
+                payload = store.review_sessions("fashion", "2026-11-05")
+
+            self.assertEqual(
+                payload["availableDates"],
+                ["2026-11-05", "2026-11-06"],
+            )
+            self.assertEqual(payload["selectedDate"], "2026-11-05")
+            self.assertEqual(payload["sessionCount"], 1)
+            self.assertEqual(payload["sessions"][0]["date"], "2026-11-05")
+
+    def test_campaign_diagnostics_prefers_buyin_over_qianchuan_when_mcp_empty(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = server.DashboardStore(Path(temp_dir) / "snapshot.json")
+            client = server.QianchuanMCPClient({"url": "https://example.test/mcp"})
+            server.atomic_write_json(
+                store.buyin_live_path,
+                {
+                    "status": "ok",
+                    "live": True,
+                    "heartbeatAt": server.now_iso(),
+                    "syncedAt": server.now_iso(),
+                    "intervalSeconds": 10,
+                    "room": {
+                        "id": "buyin-room-1",
+                        "awemeName": "赵镭图解小数基本功",
+                    },
+                    "metrics": {
+                        "spend": 120.0,
+                        "gmv": 240.0,
+                        "orders": 2,
+                        "roi": 2.0,
+                        "online": 20,
+                    },
+                    "gmvScope": "net",
+                    "channels": {
+                        "source": "buyin_live_board_network",
+                        "sourceLabel": "巨量百应直播中控台 · 网络数据",
+                        "items": [
+                            {
+                                "key": "live_pc_qian_chuan",
+                                "label": "千川PC",
+                                "trafficShare": 60,
+                                "gmvShare": 55,
+                                "gpm": 1800,
+                            }
+                        ],
+                    },
+                    "extras": [
+                        {
+                            "label": "商品点击率",
+                            "value": 12.5,
+                            "unit": "percent",
+                            "source": "buyin_live_board_dom",
+                        },
+                        {
+                            "label": "女性用户占比",
+                            "value": 65,
+                            "unit": "percent",
+                            "source": "buyin_live_board_dom",
+                        }
+                    ],
+                },
+            )
+            server.atomic_write_json(
+                store.live_screen_path,
+                {
+                    "status": "ok",
+                    "live": True,
+                    "heartbeatAt": server.now_iso(),
+                    "syncedAt": server.now_iso(),
+                    "room": {"id": "qianchuan-room-1"},
+                    "metrics": {
+                        "spend": 999.0,
+                        "gmv": 888.0,
+                        "orders": 9,
+                        "roi": 0.89,
+                    },
+                },
+            )
+            with patch.object(store, "_get_mcp_client", return_value=client), \
+                 patch.object(
+                     client,
+                     "fetch_live_room",
+                     side_effect=server.QianchuanMCPError("MCP empty"),
+                 ):
+                result = store.campaign_diagnostics("fashion")
+
+            self.assertTrue(result["ok"])
+            self.assertTrue(result["buyinAvailable"])
+            self.assertTrue(result["buyinUsed"])
+            self.assertFalse(result["qianchuanScreenUsed"])
+            self.assertEqual(result["source"], "buyin_live_screen_fallback")
+            self.assertEqual(result["metrics"]["spend"], 120.0)
+            self.assertEqual(result["metrics"]["gmv"], 240.0)
+            self.assertEqual(result["flowDetails"][0]["gpm"], 1800)
+            self.assertEqual(result["flowValueKind"], "buyin_reported")
+            self.assertEqual(
+                result["fieldSources"]["spend"],
+                "buyin_live_screen",
+            )
+            self.assertEqual(result["users"]["gender"][0]["gender_type"], "2")
+            self.assertEqual(result["fieldSources"]["users"], "buyin_live_screen")
+
+    def test_campaign_diagnostics_uses_buyin_only_to_fill_mcp_missing_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = server.DashboardStore(Path(temp_dir) / "snapshot.json")
+            client = server.QianchuanMCPClient({"url": "https://example.test/mcp"})
+            server.atomic_write_json(
+                store.buyin_live_path,
+                {
+                    "status": "ok",
+                    "live": True,
+                    "heartbeatAt": server.now_iso(),
+                    "syncedAt": server.now_iso(),
+                    "intervalSeconds": 10,
+                    "metrics": {
+                        "spend": 999.0,
+                        "gmv": 888.0,
+                        "orders": 9,
+                    },
+                    "gmvScope": "net",
+                    "channels": {
+                        "source": "buyin_compass_live_screen_dom",
+                        "items": [
+                            {
+                                "key": "homepage_hot",
+                                "label": "直播推荐",
+                                "trafficShare": 75,
+                                "gmvShare": 70,
+                                "gpm": 1500,
+                            }
+                        ]
+                    },
+                    "extras": [
+                        {
+                            "label": "商品点击率",
+                            "value": 12.5,
+                            "unit": "percent",
+                            "source": "buyin_live_board_dom",
+                        }
+                    ],
+                },
+            )
+            response = {
+                "tool": server.QianchuanMCPClient.LIVE_REPORT_TOOL,
+                "room": {
+                    "room_id": "room-1",
+                    "stat_cost": 10000000,
+                    "total_order_settle_amount_for_roi2_1h": 18000000,
+                    "total_order_settle_count_for_roi2_1h": 2,
+                    "total_prepay_and_pay_settle_roi2_1h": 1.8,
+                },
+                "payload": {},
+                "arguments": {},
+            }
+            with patch.object(store, "_get_mcp_client", return_value=client), \
+                 patch.object(client, "fetch_live_room", return_value=response):
+                result = store.campaign_diagnostics("fashion")
+
+            self.assertTrue(result["mcpAvailable"])
+            self.assertTrue(result["buyinAvailable"])
+            self.assertTrue(result["buyinSupplemented"])
+            self.assertFalse(result["buyinUsed"])
+            self.assertEqual(result["source"], "qianchuan_mcp_realtime")
+            self.assertEqual(result["metrics"]["spend"], 100.0)
+            self.assertEqual(result["metrics"]["gmv"], 180.0)
+            self.assertEqual(result["fieldSources"]["flows"], "buyin_live_screen")
+            self.assertEqual(result["flowValueKind"], "native")
+            self.assertIn("flows", result["mcpMissingFields"])
+            self.assertEqual(len(result["buyin"]["extras"]), 1)
+
+    def test_campaign_diagnostics_does_not_treat_buyin_gross_as_net(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = server.DashboardStore(Path(temp_dir) / "snapshot.json")
+            client = server.QianchuanMCPClient({"url": "https://example.test/mcp"})
+            server.atomic_write_json(
+                store.buyin_live_path,
+                {
+                    "status": "ok",
+                    "live": True,
+                    "heartbeatAt": server.now_iso(),
+                    "syncedAt": server.now_iso(),
+                    "intervalSeconds": 10,
+                    "gmvScope": "buyin_reported",
+                    "metrics": {
+                        "spend": 120.0,
+                        "gmv": 500.0,
+                        "orders": 3,
+                    },
+                    "channels": None,
+                    "extras": [],
+                },
+            )
+            server.atomic_write_json(
+                store.live_screen_path,
+                {
+                    "status": "ok",
+                    "live": True,
+                    "heartbeatAt": server.now_iso(),
+                    "syncedAt": server.now_iso(),
+                    "room": {"id": "qianchuan-room-1"},
+                    "metrics": {
+                        "spend": 100.0,
+                        "gmv": 180.0,
+                        "orders": 2,
+                        "roi": 1.8,
+                    },
+                },
+            )
+            with patch.object(store, "_get_mcp_client", return_value=client), \
+                 patch.object(
+                     client,
+                     "fetch_live_room",
+                     side_effect=server.QianchuanMCPError("MCP empty"),
+                 ):
+                result = store.campaign_diagnostics("fashion")
+
+            self.assertTrue(result["buyinAvailable"])
+            self.assertFalse(result["buyinUsed"])
+            self.assertTrue(result["qianchuanScreenUsed"])
+            self.assertEqual(result["metrics"]["gmv"], 180.0)
+            self.assertEqual(
+                result["fieldSources"]["gmv"],
+                "qianchuan_live_screen",
+            )
+
     def test_discover_live_room_returns_precise_room_id(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             store = server.DashboardStore(Path(temp_dir) / "snapshot.json")
@@ -1438,6 +2448,19 @@ class StoreTests(unittest.TestCase):
                 "room_id": 7699337106561846035,
                 "room_status": "LIVING",
                 "aweme_id": 7637818476896437305,
+                "stat_cost": 100000,
+                "total_order_settle_amount_for_roi2_1h": 250000,
+                "total_order_settle_count_for_roi2_1h": 3,
+                "total_prepay_and_pay_settle_roi2_1h": 2.5,
+                "live_pay_order_gmv_alias": 250000,
+                "live_pay_order_count_alias": 3,
+                "live_pay_order_gmv_roi": 2.5,
+                "total_live_watch_cnt": 1200,
+                "live_watch_one_minute_count": 480,
+                "live_click_product_count_alias": 75,
+                "total_live_comment_cnt": 30,
+                "total_live_follow_cnt": 12,
+                "room_delivery": 2,
             }
             with patch.dict(
                 "os.environ", {"QIANCHUAN_ACCESS_TOKEN": "test-token"}, clear=True
@@ -1450,9 +2473,169 @@ class StoreTests(unittest.TestCase):
             self.assertTrue(payload["live"])
             self.assertEqual(payload["roomId"], "7699337106561846035")
             self.assertEqual(payload["advertiserId"], "1744479430946824")
+            self.assertEqual(payload["officialLive"]["status"], "ok")
+            self.assertEqual(payload["officialLive"]["metrics"]["spend"], 1.0)
+            self.assertEqual(payload["officialLive"]["metrics"]["gmv"], 2.5)
+            self.assertEqual(payload["officialLive"]["metrics"]["orders"], 3)
+            self.assertEqual(payload["officialLive"]["metrics"]["watchCount"], 1200)
+            self.assertIn("online", payload["officialLive"]["missingMetrics"])
+            self.assertIn("gpm", payload["officialLive"]["missingMetrics"])
+
+    def test_discover_live_room_checks_every_configured_aweme(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = server.DashboardStore(Path(temp_dir) / "snapshot.json")
+            config = json.loads(json.dumps(server.DEFAULT_CONFIG))
+            aweme_ids = [
+                "7637818476896437305",
+                "2904261216450640",
+                "7665361622538945585",
+                "7534976849169040442",
+            ]
+            config["accounts"][0]["awemeIds"] = aweme_ids
+            config["accounts"][0]["awemeAccounts"] = [
+                {"id": "7637818476896437305", "name": "赵镭图解小数基本功"},
+                {"id": "2904261216450640", "name": "赵镭精讲小数基本功"},
+                {"id": "7665361622538945585", "name": "赵镭拆解小数基本功"},
+                {"id": "7534976849169040442", "name": "赵镭通解小数基本功"},
+            ]
+
+            def fetch_rooms(_advertiser_id: str, aweme_id: str, _date: str) -> list[dict]:
+                if aweme_id != "7534976849169040442":
+                    return []
+                return [
+                    {
+                        "room_id": 7701192872432700202,
+                        "room_status": "LIVING",
+                        "aweme_id": aweme_id,
+                    }
+                ]
+
+            with patch.dict(
+                "os.environ", {"QIANCHUAN_ACCESS_TOKEN": "test-token"}, clear=True
+            ), patch.object(
+                server, "load_config", return_value=config
+            ), patch.object(
+                server.QianchuanClient,
+                "fetch_live_rooms",
+                side_effect=fetch_rooms,
+            ) as fetch:
+                payload = store.discover_live_room("fashion")
+
+            self.assertEqual(
+                [call.args[1] for call in fetch.call_args_list],
+                aweme_ids,
+            )
+            self.assertEqual(payload["status"], "live")
+            self.assertEqual(payload["roomId"], "7701192872432700202")
+            self.assertEqual(payload["awemeName"], "赵镭通解小数基本功")
+            self.assertEqual(
+                [item["status"] for item in payload["checkedAccounts"]],
+                ["not_live", "not_live", "not_live", "live"],
+            )
+
+    def test_discover_live_room_reports_not_live_only_after_all_checks(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = server.DashboardStore(Path(temp_dir) / "snapshot.json")
+            config = json.loads(json.dumps(server.DEFAULT_CONFIG))
+            aweme_ids = [
+                "7637818476896437305",
+                "2904261216450640",
+                "7665361622538945585",
+                "7534976849169040442",
+            ]
+            config["accounts"][0]["awemeIds"] = aweme_ids
+            with patch.dict(
+                "os.environ", {"QIANCHUAN_ACCESS_TOKEN": "test-token"}, clear=True
+            ), patch.object(
+                server, "load_config", return_value=config
+            ), patch.object(
+                server.QianchuanClient,
+                "fetch_live_rooms",
+                return_value=[],
+            ) as fetch:
+                payload = store.discover_live_room("fashion")
+
+            self.assertEqual(fetch.call_count, len(aweme_ids))
+            self.assertFalse(payload["live"])
+            self.assertEqual(payload["status"], "not_live")
+            self.assertEqual(payload["statusLabel"], "未开播")
+            self.assertTrue(payload["discoveryComplete"])
+            self.assertEqual(len(payload["checkedAccounts"]), len(aweme_ids))
+
+    def test_request_live_screen_refresh_waits_for_exact_capture_request(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = server.DashboardStore(Path(temp_dir) / "snapshot.json")
+            release = threading.Event()
+
+            def publish_capture() -> None:
+                deadline = time.monotonic() + 3
+                while time.monotonic() < deadline:
+                    request = server.load_json(store.live_refresh_request_path, {})
+                    request_id = str(request.get("requestId") or "")
+                    if request_id:
+                        server.atomic_write_json(
+                            store.live_screen_path,
+                            {
+                                "status": "ok",
+                                "live": True,
+                                "syncedAt": server.now_iso(),
+                                "heartbeatAt": server.now_iso(),
+                                "captureRequestId": request_id,
+                                "captureRequestStatus": "ok",
+                                "metrics": {"spend": 88.8},
+                            },
+                        )
+                        release.set()
+                        return
+                    time.sleep(0.02)
+
+            worker = threading.Thread(target=publish_capture, daemon=True)
+            worker.start()
+            with patch.object(
+                store,
+                "live_snapshot",
+                return_value={"live": True, "metrics": {"spend": 88.8}},
+            ) as live_snapshot:
+                result = store.request_live_screen_refresh("fashion", timeout_seconds=3)
+            worker.join(timeout=1)
+
+            self.assertTrue(release.is_set())
+            self.assertTrue(result["ok"])
+            self.assertTrue(result["completed"])
+            self.assertEqual(result["captureStatus"], "ok")
+            self.assertEqual(result["live"]["metrics"]["spend"], 88.8)
+            live_snapshot.assert_called_once_with("fashion", force=True)
 
 
 class HandlerTests(unittest.TestCase):
+    def test_recording_endpoint_supports_byte_ranges(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "index.html").write_text("ok", encoding="utf-8")
+            recording = root / "recordings" / "session" / "session.mp4"
+            recording.parent.mkdir(parents=True)
+            recording.write_bytes(bytes(range(256)) * 8)
+            store = server.DashboardStore(root / "snapshot.json")
+            httpd = ThreadingHTTPServer(("127.0.0.1", 0), server.make_handler(store, root))
+            thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+            thread.start()
+            try:
+                port = httpd.server_address[1]
+                request = urllib.request.Request(
+                    f"http://127.0.0.1:{port}/recordings/session/session.mp4",
+                    headers={"Range": "bytes=100-199"},
+                )
+                with urllib.request.urlopen(request, timeout=5) as response:
+                    body = response.read()
+                    self.assertEqual(response.status, 206)
+                    self.assertEqual(response.headers["Content-Range"], "bytes 100-199/2048")
+                    self.assertEqual(response.headers["Accept-Ranges"], "bytes")
+                    self.assertEqual(len(body), 100)
+            finally:
+                httpd.shutdown()
+                thread.join(timeout=2)
+                httpd.server_close()
+
     def test_dashboard_and_health_endpoints(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -1493,6 +2676,9 @@ class HandlerTests(unittest.TestCase):
             self.assertEqual(dashboard["accounts"][0]["id"], "fashion")
             self.assertTrue(health["ok"])
             self.assertEqual(health["accountCount"], 1)
+            self.assertIn("buyinLiveCapture", health)
+            self.assertIn("liveRecorder", health)
+            self.assertIn("localAsr", health)
             self.assertEqual(mcp_tools["tools"][0]["name"], "qianchuan_report_live_get_v1")
             self.assertFalse(live["live"])
             self.assertEqual(synced["syncStatus"], "degraded")
@@ -1701,6 +2887,32 @@ class LearningDocumentTests(unittest.TestCase):
             self.assertEqual(store.payload()["documents"], [])
             self.assertFalse(path.exists())
 
+    def test_learning_hits_include_filename_and_numbered_markdown_section(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = server.LearningDocumentStore(Path(temp_dir))
+            store.save(
+                "千川投放skill-v1.md",
+                (
+                    "# 千川投放 Skill\n\n"
+                    "## 一、基本信息\n\n"
+                    "ROI 目标参考线为 0.56。\n\n"
+                    "## 二、稳定跑量阶段\n\n"
+                    "订单成本高于 300 元时，优先检查素材和人群并小步控量。\n"
+                ).encode("utf-8"),
+                "text/markdown",
+            )
+            search = store.search("稳定跑量 订单成本 控量", limit=3)
+
+            self.assertEqual(search["status"], "matched")
+            self.assertTrue(search["hits"])
+            hit = search["hits"][0]
+            self.assertEqual(hit["documentName"], "千川投放skill-v1.md")
+            self.assertIn("第二节 稳定跑量阶段", hit["sectionLabel"])
+            self.assertEqual(
+                hit["citationLabel"],
+                "千川投放skill-v1.md 第二节 稳定跑量阶段",
+            )
+
     def test_docx_is_indexed_retrieved_and_applied_to_strategy(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             store = server.LearningDocumentStore(Path(temp_dir))
@@ -1726,6 +2938,11 @@ class LearningDocumentTests(unittest.TestCase):
             search = store.search("ROI 低 暂停放量 订单成本", limit=3)
             self.assertEqual(search["status"], "matched")
             self.assertIn("投放策略SOP.docx", search["hits"][0]["documentName"])
+            answer = store.answer("ROI 低时应该怎么处理？")
+            self.assertEqual(answer["status"], "matched")
+            self.assertIn("投放策略SOP.docx", answer["answer"])
+            self.assertTrue(answer["citations"])
+            self.assertEqual(answer["mode"], "local_grounded_extraction")
 
             payload = {
                 "ok": True,
@@ -1742,9 +2959,17 @@ class LearningDocumentTests(unittest.TestCase):
             }
             enriched = server.enrich_campaign_with_learning(payload, store)
             self.assertTrue(enriched["decision"]["learningApplied"])
-            self.assertGreater(enriched["decision"]["confidence"], 60)
+            self.assertEqual(enriched["decision"]["confidence"], 60)
+            self.assertEqual(enriched["decision"]["learningMode"], "guardrail")
             self.assertTrue(enriched["decision"]["learningAdvice"])
-            self.assertIn("按学习资料复核执行边界", enriched["decision"]["expected"])
+            self.assertIn("learningConflict", enriched["decision"])
+            self.assertTrue(enriched["decision"]["learningCheckNote"])
+            self.assertTrue(
+                any(
+                    "经验底线校验" in item or "过往习惯" in item
+                    for item in enriched["decision"]["expected"]
+                )
+            )
             self.assertTrue(enriched["learning"]["hits"])
 
             unavailable = {
@@ -1756,6 +2981,32 @@ class LearningDocumentTests(unittest.TestCase):
             }
             guarded = server.enrich_campaign_with_learning(unavailable, store)
             self.assertNotIn("learningApplied", guarded["decision"])
+
+    def test_delivery_profile_extracts_habits_logic_and_guardrails(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = server.LearningDocumentStore(Path(temp_dir))
+            store.save(
+                "投放经验.md",
+                (
+                    "投放底线：ROI 低于 0.5 时绝对不能放量。"
+                    "加预算习惯：ROI 达到 1.2 且消耗稳定时，给达标计划加 20% 预算。"
+                    "操作逻辑：订单成本连续两小时高于 300 元时，先降出价 10% 再观察。"
+                ).encode("utf-8"),
+                "text/markdown",
+            )
+
+            profile = store.profile()
+            self.assertEqual(profile["mode"], "local_heuristic")
+            self.assertGreaterEqual(profile["stats"]["guardrailCount"], 1)
+            self.assertGreaterEqual(profile["stats"]["habitCount"], 1)
+            self.assertGreaterEqual(profile["stats"]["logicCount"], 1)
+            guardrail = profile["guardrails"][0]
+            self.assertIn("ROI", guardrail["rule"])
+            self.assertEqual(guardrail["source"]["documentName"], "投放经验.md")
+
+            matches = store.profile_matches("ROI 低于 0.5 能放量吗", limit=5)
+            self.assertTrue(matches)
+            self.assertEqual(matches[0]["category"], "guardrails")
 
     def test_pdf_text_stream_is_extracted(self) -> None:
         content = (
@@ -1860,6 +3111,26 @@ class LearningDocumentTests(unittest.TestCase):
                     search = json.loads(response.read().decode("utf-8"))
                 self.assertEqual(search["status"], "matched")
                 self.assertEqual(search["hits"][0]["documentId"], document["id"])
+                chat_request = urllib.request.Request(
+                    f"{base_url}/api/assistant/chat",
+                    data=json.dumps(
+                        {
+                            "message": "ROI 低于 0.8 时怎么处理？",
+                            "history": [
+                                {"role": "user", "content": "我们在讨论订单成本。"},
+                                {"role": "assistant", "content": "请继续。"},
+                            ],
+                        },
+                        ensure_ascii=False,
+                    ).encode("utf-8"),
+                    method="POST",
+                    headers={"Content-Type": "application/json"},
+                )
+                with urllib.request.urlopen(chat_request) as response:
+                    chat = json.loads(response.read().decode("utf-8"))
+                self.assertEqual(chat["status"], "matched")
+                self.assertIn("产品学习资料.md", chat["answer"])
+                self.assertTrue(chat["citations"])
 
                 campaign_payload = {
                     "ok": True,
@@ -1884,7 +3155,9 @@ class LearningDocumentTests(unittest.TestCase):
                     ) as response:
                         campaign = json.loads(response.read().decode("utf-8"))
                 self.assertTrue(campaign["decision"]["learningApplied"])
-                self.assertGreater(campaign["decision"]["confidence"], 55)
+                self.assertEqual(campaign["decision"]["confidence"], 55)
+                self.assertEqual(campaign["decision"]["learningMode"], "guardrail")
+                self.assertTrue(campaign["decision"]["learningCheckNote"])
 
                 download_url = (
                     f"{base_url}/api/learning/documents/download?id={document['id']}"

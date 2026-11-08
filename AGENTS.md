@@ -2,7 +2,7 @@
 
 本文件面向在本仓库工作的 AI 助手，说明项目背景、技术选型与必须遵守的约定。
 
-最近更新：2026-10-28
+最近更新：2026-11-08
 
 ## 0. 换电脑交接（先读）
 
@@ -11,20 +11,25 @@
 - 产品是一个单页 Web 看板，入口为 `index.html`，本地数据服务为 `server.py`，默认访问地址是 `http://127.0.0.1:8765/`。
 - Python 服务端仍只使用标准库；直播大屏行为通道新增 Node.js + `puppeteer-core`，只影响大屏观看/点击/峰值/GPM 采集，不影响 Python 主服务和历史素材快照。
 - 数据页、素材页和今日直播间已接通真实链路；直播大屏相关卡片位于诊断页“实时监控曲线”，交易与行为指标均由独立 `chrome-profile` 的无头 Chrome 直接抓取，失败时明确显示失败，不使用 MCP 补值。
-- 数据页已增加“产品学习资料”上传区，支持文本、DOCX、XLSX、PPTX 与可提取文本的 PDF。后台上传后自动抽取文本、切分片段并写入本地 `data/learning-index.json`；AI 问题定位和数据页投放建议会检索相关片段并展示出处。扫描版 PDF 和旧版 DOC/XLS/PPT 不可提取时会明确标记失败，不能把“已入库”表述成“已学习”。
+- 已增加独立“知识库”页，支持上传 TXT / MD / CSV / JSON、DOC/DOCX、XLS/XLSX、PPT/PPTX 与可提取文本的 PDF。后台上传后自动抽取文本、切分片段并写入本地 `data/learning-index.json`；知识库对话、AI 问题定位和投放诊断建议按“大模型通用知识为主、用户经验做底线校验”的方式使用检索片段，并标注来源与冲突。页面展示整体学习进度、单文档学习进度和学习成果解说，明确提取字数、片段数、失败资料及应用位置。扫描版 PDF 和旧版 DOC/XLS/PPT 不可提取时会明确标记失败，不能把“已入库”表述成“已学习”。
 - 当前唯一真实广告主为 `1744479430946824`，当前授权主体为企业 BP 账户 `1855365007750474`。其他广告主没有授权时不能凭账户 ID 伪造接入。
-- 交接时最近一次可核实快照为 revision 6368、同步时间 `2026-10-25T22:06:42+08:00`：1 个真实广告主、5 条计划、5 个抖音号；账户序列覆盖 `2026-09-23` 至 `2026-10-25` 共 33 个日期、18 个有效消耗/成交日；素材去重 1,885 条、5/5 计划完整、缺失 0。当前 `syncStatus=partial`，原因是账户维度实时报表偶发 500 后按既有规则回退到官方计划汇总，不能把回退结果标成账户维度原始报表。数值会继续变化，以 `/api/health` 和快照为准。
+- 2026-11-08 已清理外部目录全部历史录像。新的复盘策略为：直播中按 5 分钟临时采集音频，场次结束且全部转写完成后，后台生成会话/每日 `review.json` 与 `review.md`，归档校验成功后再立即删除临时音频；不保留视频回放，失败时保留临时文件供重试。当前临时采集模式为 `audio_only_pyav`，不再依赖旧版 ffmpeg 解码 HEVC 视频。
+- 巨量百应直播中控台通道已完成独立登录、采集、接口、前端补充展示和开机守护恢复。当前 `buyinLiveCapture.status=ok`、`available=true`，保存了独立 `buyin-chrome-profile`、Cookie 和页面地址；强制结束百应采集器后，看门狗已实测自动拉起新 PID，并凭持久化登录态恢复采集，无需再次登录。
+- 2026-11-07 最近核验快照为 revision 23549、同步时间 `2026-11-07T20:14:22+08:00`：`/api/health` 为 `success`，千川直播大屏 `ok`，百应采集 `ok`，录像器 `recording`，本地 ASR `idle`。录像根目录已迁移到坚果云目录之外的 `D:\DAI投放产品录屏备份`，当前场次已生成 5 个 5 分钟分段。DeepSeek 产品模型固定为 `deepseek-flash`，但 `DEEPSEEK_API_KEY` 尚未配置，当前模式为 `local_fallback`。MCP 直播报表仍返回空 `data`，直播相关实时字段继续按既有规则使用大屏采集器。
 - 2026-10-25 运行态核验：`start.bat` 在无项目进程、8765 端口空闲时冷启动通过，看门狗、后端、单个采集器各 1 个进程；采集器状态为 `ok`，当前直播间 `7700373751996746532` 持续返回真实大屏指标。OAuth 应用参数尚未配置，因此当前只有已有 Access Token，没有 Refresh Token，不能宣称 OAuth 授权已完成。
+- 2026-11-05 运行态核验：看门狗、后端、单个采集器各 1 个进程；当前直播间 `7704532779547085622`，大屏心跳 `ok`、`streamCaptureOnline=true`，交易/行为字段均有真实值。今日直播间 Open API 当前仍为 `zero_pending`，五维四率保持 `partial`，不能用官方 0 覆盖大屏。OAuth 仍未配置。
 
 ### 0.2 换电脑必须复制的文件
 
 建议复制整个 `AI投放工具` 目录，但排除本机浏览器缓存和临时目录：
 
-- 必须：`server.py`、`index.html`、`start.ps1`、`start.bat`、`start-background.ps1`、`start-autostart-loop.ps1`、`start-hidden.vbs`、`vendor/`、`test_server.py`、`test_live_watchdog.py`、`qianchuan.config.example.json`、`AGENTS.md`、`PRD.md`、`AUTOSTART.md`、`install-autostart.ps1`、`install-autostart.bat`、`uninstall-autostart.ps1`、`package.json`、`package-lock.json`、`live-screen-agent.js`、`live-screen-agent.test.js`、`live_watchdog.py`、`login-live-screen.bat`、`live-screen.example.json`、`LIVE_SCREEN_DUAL_CHANNEL.md`、`OAUTH_OPENAPI.md`、`oauth_login.py`、`oauth-login.ps1`、`oauth-login.bat`、`data/qianchuan-oauth.example.json`。
+- 必须：`server.py`、`index.html`、`start.ps1`、`start.bat`、`start-background.ps1`、`start-autostart-loop.ps1`、`start-hidden.vbs`、`vendor/`、`test_server.py`、`test_live_watchdog.py`、`qianchuan.config.example.json`、`AGENTS.md`、`PRD.md`、`AUTOSTART.md`、`install-autostart.ps1`、`install-autostart.bat`、`uninstall-autostart.ps1`、`package.json`、`package-lock.json`、`live-screen-agent.js`、`live-screen-agent.test.js`、`buyin-live-agent.js`、`buyin-live-agent.test.js`、`live_watchdog.py`、`login-live-screen.bat`、`login-buyin.bat`、`live-screen.example.json`、`buyin-live.example.json`、`LIVE_SCREEN_DUAL_CHANNEL.md`、`OAUTH_OPENAPI.md`、`oauth_login.py`、`oauth-login.ps1`、`oauth-login.bat`、`data/qianchuan-oauth.example.json`。
+- 必须补充 `recording_store.py`、`review_finalizer.py`、`live_recorder.py`、`audio_capture.py`、`live_asr.py`、`test_recording_store.py`、`test_review_finalizer.py`、`test_audio_capture.py`、`test_live_asr.py`、`requirements-whisper.txt`、`install-whisper.ps1`、`install-whisper.bat`。临时音频固定保存在坚果云目录之外的 `D:\DAI投放产品录屏备份`，不得迁入项目或由坚果云同步，并在分析归档成功后立即删除；本地 Whisper 模型仍属于本机运行依赖。迁移录像/音频时必须按敏感经营数据安全传输。
 - 需要继续同步千川时必须：`data/qianchuan-token.json`。该文件包含访问令牌，只能通过安全方式迁移，不能提交到公开仓库或发送到群聊。
 - 需要自动刷新 OAuth Token 时必须：`data/qianchuan-oauth.json`。该文件包含 App Secret、Refresh Token 所需的 App ID 和已登记回调地址，只能本机安全保存，不能提交或外发。
 - 需要使用千川 MCP 直播大屏数据时必须：`data/qianchuan-mcp.json`。该文件包含 MCP API Key URL，只能通过安全方式迁移。
 - 需要保留无头 Chrome 登录态时必须安全迁移 `data/live-screen.json`、`data/live-screen-session.json` 和 `data/chrome-profile/`；它们包含直播大屏地址/Cookie，不能提交或外发。`live-screen-session.json` 只用于重启后的自动登录恢复。
+- 需要保留巨量百应直播中控台登录态时必须安全迁移 `data/buyin-live.json`、`data/buyin-live-session.json`、`data/buyin-live-metrics.json` 和 `data/buyin-chrome-profile/`；它们包含百应页面地址、Cookie 和经营数据，不能提交或外发。
 - 需要离线查看已同步数据或保留 5 分钟整场归档时：`data/qianchuan-snapshot.json`、`data/live-screen-history.json`。这些文件包含真实经营数据，也应按敏感业务数据管理。
 - 需要保留已上传的产品学习资料时：`data/learning-documents/`、`data/learning-documents.json` 和 `data/learning-index.json`。其中可能包含内部 SOP、经营数据与复盘，只能通过安全方式迁移，不能提交到公开仓库。
 - 需要自动采集直播大屏画面时：`live-capture-extension/`，并在新电脑浏览器中重新“加载解压缩扩展”。
@@ -36,11 +41,12 @@
 2. 将整个项目放到固定目录，不要依赖旧电脑的 `D:\ai投放产品\我的坚果云` 绝对路径。
 3. 确认新电脑可以访问 `https://api.oceanengine.com`，并从安全存储中恢复 `data/qianchuan-token.json`；也可通过环境变量 `QIANCHUAN_ACCESS_TOKEN` 注入令牌。
 4. 需要自定义接口、分页或账户配置时，先备份现有 `qianchuan.config.json`，再按 `qianchuan.config.example.json` 调整。当前电脑已有正式配置文件，`campaigns.historyDays` 为 30。
-5. 首次安装执行 `npm install`，再双击 `login-live-screen.bat`。脚本固定使用项目 `runtime\node\node.exe`，打开新版 EBP 入口；只有检测到 roomId 或至少 2 个指定大屏指标才自动保存地址和 Cookie。旧版 `qianchuan.jinritemai.com/uni-prom`、无 roomId 的旧 board 和 EBP 首页都会被拒绝。
-6. 双击 `start.bat`，或在 PowerShell 中执行 `.\start.ps1`。脚本会启动看门狗，由看门狗守护主服务和直播大屏采集器。
-7. 打开 `http://127.0.0.1:8765/api/health` 检查 `ok`、`liveScreenCapture`、MCP 和凭证状态；`GET /api/live/screen` 可单独查看行为通道心跳。
-8. 验证回归：执行 `python -m unittest -v test_server.py`（预期 51 个用例）、`python -m unittest -v test_live_watchdog.py`（预期 10 个用例）和 `npm run test:live-screen`。
-9. `live-capture-extension` 仍可作为传统浏览器画面采集备用方案；直播大屏指标与交易字段默认由无头 Chrome 直接抓取，不需要常驻可见大屏。
+5. 首次安装执行 `npm install`，再运行 `install-whisper.bat` 安装开源 ASR 依赖并把 `faster-whisper-tiny` 下载到 `models/whisper-tiny/`；然后双击 `login-live-screen.bat`。脚本固定使用项目 `runtime\node\node.exe`，打开新版 EBP 入口；只有检测到 roomId 或至少 2 个指定大屏指标才自动保存地址和 Cookie。旧版 `qianchuan.jinritemai.com/uni-prom`、无 roomId 的旧 board 和 EBP 首页都会被拒绝。
+6. 双击 `login-buyin.bat`，以 1440×900 正常窗口打开 `https://buyin.jinritemai.com/mpa/account/login?log_out=1&type=24`，助手会自动切到“抖音手机号登录”；登录巨量百应后选择对应账号角色并进入当前场次的直播中控台。巨量百应不是抖店，不能使用 `fxg.jinritemai.com/login`。只有抓到可核验数值后才保存独立百应 profile、页面地址和会话。
+7. 双击 `start.bat`，或在 PowerShell 中执行 `.\start.ps1`。脚本会启动看门狗，由看门狗分别守护主服务、千川大屏采集器和百应直播中控台采集器。
+8. 打开 `http://127.0.0.1:8765/api/health` 检查 `ok`、`liveScreenCapture`、`buyinLiveCapture`、MCP 和凭证状态；`GET /api/live/screen`、`GET /api/live/buyin` 可分别查看两个采集器心跳。
+9. 验证回归：执行 `python -m unittest -v test_server.py`、`python -m unittest -v test_live_watchdog.py`、`npm run test:live-screen` 和 `npm run test:buyin-live`。
+10. `live-capture-extension` 仍可作为传统浏览器画面采集备用方案；直播大屏指标与交易字段默认由无头 Chrome 直接抓取，不需要常驻可见大屏。
 
 启动策略：当前 `start.ps1` 会请求后台监督进程拉起缺失的看门狗；如果原看门狗和主服务仍健康，则复用现有进程。冷启动已验证通过，但“双击 `start.bat` 强制重启现有服务”尚未实现。更新 Python 代码后若需要确保加载新版本，应先只结束本项目的 `server.py` 与 `live_watchdog.py`，再执行 `start.bat`；不要结束本机其他 Python 程序。
 
@@ -58,8 +64,10 @@
 | `QIANCHUAN_PORT` | 本地服务端口，默认 `8765` | 否 |
 | `QIANCHUAN_SYNC_INTERVAL_SECONDS` | 服务端同步间隔 | 否 |
 | `QIANCHUAN_FFMPEG` | ffmpeg 可执行文件路径 | 使用 RTMP/FLV 转码时需要 |
+| `QIANCHUAN_RECORDINGS_DIR` | 录屏根目录，覆盖默认 `D:\DAI投放产品录屏备份` | 否 |
 | `QIANCHUAN_NODE` | Node.js 可执行文件路径 | 看门狗找不到 `node` 时需要 |
 | `QIANCHUAN_BROWSER_PATH` | Chrome / Edge 可执行文件路径 | 自动探测失败时需要 |
+| `BUYIN_BROWSER_PATH` | 百应采集专用 Chrome / Edge 可执行文件路径 | 自动探测失败时需要 |
 
 ### 0.4 新电脑常见阻塞
 
@@ -69,6 +77,8 @@
 - `WinError 10013`：通常是运行环境禁止本地套接字或外部网络。用正常 PowerShell 启动 `start.ps1`，不要在受限沙箱内运行同步。
 - 直播画面不出现：先检查扩展是否加载、千川直播大屏是否登录并打开、`/api/live` 是否返回 `captured:true`。
 - 大屏采集指标为空：运行 `login-live-screen.bat` 重新进入直播大屏，再检查 `GET /api/live/screen`；`config_required` 表示未保存地址，`login_required` 表示独立 profile 登录态失效。
+- 百应渠道或千次观看成交为空：运行 `login-buyin.bat`，人工进入当前场次的巨量百应直播中控台，再检查 `GET /api/live/buyin`；`login_required` 不能被当成“未开播”。
+- 百应采集与千川采集同时异常：分别检查 `data/buyin-live-agent.log`、`data/live-screen-agent.log`，两套 profile 不能同时被登录窗口占用。
 - 采集器反复重启：检查 `data/live-screen-agent.log`、`data/live-watchdog.log`，确认 `node_modules/puppeteer-core` 存在且没有其他进程占用 `data/chrome-profile`。
 - RTMP/FLV 无法转码：新电脑安装 ffmpeg 或设置 `QIANCHUAN_FFMPEG`，脚本和 `server.py` 会自动探测常见路径。
 
@@ -77,12 +87,79 @@
 | 模块 | 当前状态 | 真实数据 | 主要未完成项 |
 | --- | --- | --- | --- |
 | 数据 | 部分可用 | 全域推广报表；账户序列覆盖 33 个日期；直播指标由大屏单源采集；冷启动与日志锁问题已修复 | 180 天历史未回填；账户实时接口偶发 500 时仍回退计划汇总；OAuth 自动续期未配置 |
+| 知识库 | 可用 | 本地文档上传、解析、分块、检索、删除、重建索引、学习进度、成果解说、带来源标注问答，以及 DeepSeek flash 通用知识为主、经验底线校验的生成入口与本地回退 | `DEEPSEEK_API_KEY` 未配置，外部生成尚未实测 |
 | 素材 | 可用 | 116 天素材库与跑量报表、删除同步、完整数审计、官方上传时间、等级筛选和真实 Excel 导出；当前去重 1,885 条素材 | 51 条已离库历史视频和 5 条直播间画面无上传时间；素材人群画像 |
-| 诊断 | 部分可用 | 大屏直抓交易/行为、5 分钟整场归档、五维四率即时大屏返回与 MCP 后台补充、代理 FLV 稳定播放 | MCP 直播报表空数据、ASR、主播状态识别、1 分钟观看字段 |
-| 话术 | 部分可用 | 本地词库上传 | 真实 ASR、逐句归因、优质/低效话术统计 |
-| 投放诊断 | 部分可用 | 字段缺失说明、近 30 天操作推演、5 分钟异常推断、本地文档检索依据 | MCP 直播报表当前返回空 data、DeepSeek 生成、真实操作 API |
-| 复盘 | 演示为主 | 直播流可看 | 录像存储、回放切片、人脸与视频理解 |
-| AI 模型 | 未接入 | 无 | DeepSeek 诊断与建议生成 |
+| 诊断 | 部分可用 | 大屏直抓交易/行为、5 分钟整场归档、五维四率即时大屏返回与 MCP/官方直播字段补充、代理 FLV 稳定播放、百应渠道/画像补充 | MCP 直播报表空数据、官方直播累计字段当前为零、百应画像当前不可用、主播状态识别 |
+| 话术 | 可用 | 本地词库、PyAV 16k 单声道 WAV 临时音频、faster-whisper、长句合并、出单/掉人窗口归因、TOP 5；临时录像与永久归档转写统一查询，支持历史场次切换 | 更强中文模型可选升级；历史场次下拉仍需持续回归 |
+| 投放诊断 | 部分可用 | 字段缺失说明、近 30 天操作推演、百应渠道/千次观看成交补充、5 分钟异常推断、本地文档底线校验、DeepSeek flash 配置状态 | MCP 直播报表当前返回空 data、`DEEPSEEK_API_KEY` 未配置、真实操作 API |
+| 复盘 | 可用 | 外部目录临时音频、5 分钟交易/流量回溯、Whisper 长句归因、结构化话术结论、15 分钟分析、JSON/Markdown 永久复盘归档、分析成功后立即删除临时音频 | 人脸、多模态主播状态识别、百应真实画像持续可用性 |
+| AI 模型 | 已配置、待密钥 | 开发模型 `deepseek-v4-pro`；产品模型 `deepseek-flash`；统一客户端、状态接口、知识库生成（经验底线校验）与本地回退已接入 | `DEEPSEEK_API_KEY` 未配置；AI 诊断、建议、问题定位尚未全部切换为模型生成 |
+
+### 0.6 今日进度（2026-11-08）
+
+#### 1. 今天做了什么
+
+- 停止旧录像流程并永久删除 `D:\DAI投放产品录屏备份` 下 6 个历史场次，共约 56.44 GB；`data/review-archive/` 中的历史转写、指标、复盘 JSON 和 Markdown 均保留。
+- 新增 `review_finalizer.py`：场次结束后必须同时满足“录像状态完成、所有临时分段完成转写、会话 `review.json/review.md`、每日 JSON/Markdown、基础 manifest 与 transcript 已落盘”，验证通过后才删除临时媒体目录；任一条件失败则保留并重试。
+- 复盘不再合并 `session.mp4`，避免重复占用空间；会话级和每日级复盘均同时保存结构化 JSON 与可读 Markdown。
+- 当前千川流的视频编码为 HEVC，旧版 ffmpeg 3.0.1 反复报 `Video codec (c) is not implemented`，无法生成 TS。新增 `audio_capture.py`，使用 PyAV 从签名 FLV 中只解码 AAC 音频，重采样为 16k 单声道 WAV，并每 5 分钟切段；`live_recorder.py` 的当前模式为 `captureMode=audio_only_pyav`。
+- 已实测 PyAV 能识别当前流 `audio=aac`、`video=hevc`，并在当前场次 `2026-11-08_7705568418515766067_190202` 生成首个临时音频分段。音频 WAV 头会在写入过程中持续回写，进程异常退出后已写内容仍可读取。
+- 修复“话术板块有归档文件但显示无数据”：根因是 `/api/script/analysis` 原先只查询 `RECORDINGS_DIR` 临时录像目录；原始视频删除后，不会扫描 `data/review-archive/sessions/`。
+- 新增临时录像与永久归档统一数据源 `recording_store.script_session_sources()`：当前临时目录有有效转写时优先使用；否则使用永久归档；两者都没有转写时才显示“尚未生成”。
+- 话术接口新增 `session` 参数并返回 `selectedSessionId`、`availableSessions`、`sessionSource`。前端场次下拉从“只选日期”升级为列出每个有转写的历史场次，并标注“历史归档/本次临时录制”。
+- 读归档 manifest 时统一把历史 `recording` 状态规范为 `archived_analysis`，并从 transcript 的最后一句补偿缺失的 `endedAt`，避免已删除视频的历史场次被误判为仍在录制。
+- 12:34 场次 `2026-11-08_7705568418515766067_123419` 已确认读取正常：归档 transcript 共 2,232 段原始转录，合并为 97 条完整长句，接口返回 5 类优质话术和 12 类低效话术。
+- 当前话术默认不再被无转写的 19:02 新场次遮挡；默认选中 12:34 历史归档，同时场次选择器可访问 11/6、11/7、11/8 共 11 个历史场次。
+- 今日回归共 101 项 Python 测试通过，新增覆盖：归档转写回退、历史场次选择、归档 manifest 状态规范化、音频采集 WAV 可恢复写入、转写不完整时不删除媒体、完整归档后删除媒体。
+
+#### 2. 还有什么没做
+
+- 需要等待当前场次首个完整 5 分钟 WAV 被 ASR 处理后，再验证新音频采集的实时转写和场次结束后的自动归档删除闭环。
+- PyAV 首次打开千川签名 FLV 在本机约需 40–50 秒，页面不能把这段连接时间误判成转写服务异常。
+- 话术页每次加载会读取较大的归档 transcript，后续可增加服务端缓存，但当前 11 个场次的接口响应已可正常返回。
+- 现有历史归档中部分旧 manifest 仍写有“HLS/MP4”旧口径，读取时已规范化；文件本身不要求批量改写。
+
+#### 3. 下一步要做什么
+
+1. 观察当前场次生成第二个 5 分钟音频分段后，确认 ASR 自动处理第一段且话术页可切换显示“本次临时录制”。
+2. 观察场次结束后的完整归档、临时目录删除、服务重启和失败重试。
+3. 持续验证话术场次下拉在 11/6、11/7、11/8 各场次间切换，不串场、不把旧转写挂到新场次。
+4. 视接口耗时增加归档 transcript 的服务端缓存，避免重复解析大 JSON。
+
+### 0.7 今日进度（2026-11-07）
+
+#### 2. 今天做了什么
+
+- 复盘页完成布局和加载优化：侧栏改为两列且按内容高度排列，避免空白拉伸；`/api/review/sessions` 支持 `date=YYYY-MM-DD`，仅返回选中日期，同时返回 `availableDates`，避免一次加载全部历史。
+- 所有仍存在视频的复盘日期统一使用 `/api/review/daily-playlist?account=...&date=...` 全天播放列表；只有外部录像目录确有 TS/MP4 时才返回播放地址。视频过期但分析仍存在的日期标记为“录像已过期 · 分析保留”，不再返回无效播放地址。
+- 复盘新增 15 分钟数据分析、全天长句话术明细和出单长句 TOP 5。话术按完整长句、时间和对应效果逐条展示，不再把长段结论混在一起；修复全天聚合把毫秒时间戳误当秒导致时长异常的问题。
+- 复盘新增“先分析、后删除”后台流程：所有分段转写完成、会话 JSON/Markdown、每日 JSON/Markdown 和基础归档均落盘成功后，才删除原始录像目录。任一归档步骤失败会保留录像重试。
+- 完成会话级永久分析归档：`manifest.json`、Whisper transcript、指标、`review.json` 和 `review.md` 写入 `data/review-archive/sessions/`；每日聚合文档同步保存 `data/review-archive/<account>_<date>.json/.md`。归档校验成功后原始录像立即删除，话术和分析结果永久可读。
+- 百应采集器会读取千川当前 `roomId` 并自动切换直播大屏，已实测从旧房间 `7704903843406039850` 切到当前房间 `7705197544334166826`，避免跨直播间串数据。
+- 百应新增近 1 分钟看播、近 5 分钟购买、全场看播、全场购买四类画像提取，支持性别、年龄、地域 TOP 和分布，写入 `data/buyin-live-audience-history.json`，原始快照保留 14 天。当前百应页面显示“无法查看用户画像”时如实记录不可用，不补造。
+- 复盘曲线按 `roomId` 和时间戳匹配最近的百应画像快照，最大匹配窗口 10 分钟；看播人群优先近 1 分钟画像，出单人群优先近 5 分钟购买画像，并展示画像来源、采集时间和失败原因。
+- 核实 MCP 时间序列能力：`qianchuan_report_advertiser_get_v1` 原生只支持日/小时；`qianchuan_report_live_get_v1` 和 `qianchuan_report_uni_promotion_get_v1` 没有时间粒度或时间序列返回字段。两个 15 分钟 MCP 窗口实测均返回空 `data`，因此 15 分钟数据由千川大屏高频历史聚合，并明确标注 MCP 不支持原因。
+- 修复录像代理 502：根因是抖音 CDN 重定向主机与其证书域名不匹配。代理优先使用签名原始流，并只对通过 CDN 白名单校验的媒体流关闭证书主机名校验；普通千川 API、OAuth 和其他 HTTPS 请求仍保持正常 TLS 校验。修复后本机代理返回 `200 OK`，录像器恢复 `recording`。
+- 录像 TS、FLAC、Whisper 均按 5 分钟粒度运行；当前外部录像目录已验证 5 个片段，播放列表分段时长约 300 秒。
+- 录屏根目录迁移到 `D:\DAI投放产品录屏备份`。项目原 `recordings/` 目录已整体移出并删除，迁移约 15.2 GB 历史录像；坚果云项目目录不再保存录屏视频，只同步代码和数据/分析文件。
+- 新增 DeepSeek 双模型机制：开发模型固定 `deepseek-v4-pro`，产品模型固定 `deepseek-flash`；产品统一通过 `deepseek_client.py` 读取模型，新增 `/api/ai/config`、健康状态和 `aiConfig` 返回。知识库命中片段时使用 flash 生成，通用知识为主、经验仅作底线校验；未配置或失败会自动回退本地通用规则 + 检索。
+
+#### 3. 还有什么没做
+
+- `DEEPSEEK_API_KEY` 尚未配置，因此 DeepSeek 外部调用尚未真实跑通；当前知识库仍走本地通用规则 + 检索回退，AI 诊断报告、投放建议和问题定位仍主要由本地规则/检索生成，经验仅作底线校验，尚未全部切换为 `deepseek-flash` 生成。
+- 当前 Codex 会话模型由客户端控制，仓库只能强制后续开发会话按 `deepseek-v4-pro` 选择，无法在业务代码中热切换当前会话模型。
+- 百应画像当前被页面提示“无法查看用户画像”，采集器和匹配逻辑已完成，但真实分布的持续采集与曲线展示仍取决于百应页面何时放量展示画像。
+- MCP 直播报表仍返回空 `data`，没有原生 15 分钟时间序列；当前 15 分钟数据依赖千川大屏采集器聚合。待 MCP 恢复后，仍需验证其字段一致性和来源优先级。
+- 原始录像默认不再保留 10 天；`retentionDays=1` 仅作为分析失败时的磁盘保护上限。持续观察失败重试、归档成功删除和重启恢复即可。
+- 仍存在长期模块缺口：OAuth Refresh Token 自动续期未配置、90/180 天历史未回填、素材人群画像未接入、人脸/视频理解与主播状态识别未接入、千川真实操作 API 未接入。
+
+#### 4. 下一步要做什么
+
+1. 配置 `DEEPSEEK_API_KEY`，先验证 `deepseek-flash` 的“通用知识为主、经验底线校验”回答，再把 AI 诊断报告、投放建议和问题定位全部接到同一产品客户端；调用失败必须继续回退本地结果并显示来源。
+2. 观察外部临时录屏目录，验证场次结束后完整转写、JSON/Markdown 归档、原始录像立即删除、失败重试和重启恢复。
+3. 当百应页面重新展示真实画像时，验证四类画像的实际提取和复盘曲线时间匹配；若仍不可用，保持明确失败态。
+4. 持续探测 MCP 直播报表恢复情况；若恢复并出现可用时间序列，先完成 MCP 优先、采集器回退的来源切换验证。
+5. 按长期路线继续推进 OAuth 自动续期、90/180 天历史回填、素材人群画像、人脸/多模态分析、主播状态识别和真实操作 API。
 
 ## 1. 项目定位
 
@@ -100,6 +177,14 @@
 
 ## 3. 数据口径
 
+### 3.0 DeepSeek 模型分工（强制）
+
+- 使用 Codex、AI 助手或子代理进行代码开发、功能修改、调试和产品设计时，开发模型必须使用 `deepseek-v4-pro`。仓库内的开发模型策略配置在 `deepseek.config.example.json` 和本地 `data/deepseek.json` 的 `models.development`，任何开发协作不得使用 `deepseek-flash` 代替。
+- 产品运行时面向用户的 DeepSeek 功能，包括 AI 诊断报告、投放建议、问题定位、知识库自然语言回答及其他生成式能力，必须统一使用 `deepseek-flash`。产品功能不得自行硬编码其他模型，必须通过服务端统一 DeepSeek 客户端读取 `models.product`。
+- 当前可用会话模型由 Codex 客户端决定，仓库配置用于约束后续开发会话和子代理模型选择；不能通过修改业务代码切换当前正在运行的 Codex 会话模型。
+- DeepSeek API Key 只允许通过 `DEEPSEEK_API_KEY` 环境变量或已被 `.gitignore` 排除的本地配置文件提供，不得写入代码、测试、日志、快照或提交历史。
+- 未配置密钥、调用失败或被限流时，产品必须回退现有本地规则/本地检索结果并明确标注回退原因，不得伪造 DeepSeek 输出。
+
 所有指标与千川后台逐字段对齐。
 
 - 指标的名称、定义、单位、统计周期、归因规则，一律以千川后台展示为准。
@@ -108,13 +193,15 @@
 - 新增指标前，先确认千川后台存在对应字段，并在本节登记口径。
 - 千川账户与抖音开播账号一一绑定；切换账号后，页面数据必须跟随当前抖音号。
 - 总看板总账户使用千川广告主账户/全域计划账户口径，不能把抖音号作者维度归因简单相加后冒充后台总账户；抖音号列表只用于归因拆分，归因差额单独展示。
+- 数据源之间必须隔离：MCP 是报表、分析和建议的主数据源；MCP 有有效值时，不得用大屏值覆盖全局报表、投放诊断或建议。大屏只用于“全域推广报表数据”的授权回退，以及五维四率、指标走势、直播间实时诊断等大屏专属板块。
+- 大屏专属板块使用页面当前展示口径；素材维度报表继续使用其官方净成交字段，但必须标注“千川 Open API · 素材维度报表”来源，不能冒充 MCP。MCP 暂不可用时，才允许大屏临时回退，并在来源中明确显示“大屏直抓（MCP暂不可用）”。
 - 诊断页“实时监控曲线”固定为直播大屏直抓口径：消耗、成交、订单、ROI、累计观看、商品点击、峰值在线、GPM、实时在线和可识别的流量渠道均取千川大屏页面当前展示值；抓取失败字段留空并显示“抓取失败”，不可用 MCP 或其他指标补差。五维四率例外：先立即返回大屏数据，MCP 在后台补充；MCP 报错、超时、空数据或线程启动失败都不能阻塞 `/api/live`。
 - 大屏行为指标只接受页面实际显示并可匹配到标签的值；四个核心标签（累计观看、商品点击、峰值在线、GPM）任一缺失时标记部分字段，不按其他指标反推。页面结构变化时通过 `data/live-screen.json` 的 `metrics.*.labels` 或 `selector` 校准。
-- 直播间五维四率（诊断页）：五维取千川今日直播间接口的场次累计值——进入 = 累计观看人数 `total_live_watch_cnt`，停留 = 观看满 1 分钟人数 `live_watch_one_minute_count`，互动 = 累计评论次数 `total_live_comment_cnt`，成交 = 成交订单数；曝光人数接口未返回，曝光层与「曝光→进入率」标记为待接入，不补造。
-- 四率口径：进入→停留 = 1 分钟观看 ÷ 累计观看；停留→互动 = 评论次数 ÷ 1 分钟观看（评论是次数不是人数，只作趋势参考）；观看→成交 = 成交订单 ÷ 累计观看，与 PRD 转化率一致。
+- 直播间五维四率（诊断页）：五维取千川今日直播间接口的场次累计值——进入 = 累计观看人数 `total_live_watch_cnt`，停留 = 观看满 1 分钟人数 `live_watch_one_minute_count`，互动 = 累计评论次数 `total_live_comment_cnt`，成交 = 净成交订单数；曝光人数接口未返回，曝光层与「曝光→进入率」标记为待接入，不补造。
+- 四率口径：进入→停留 = 1 分钟观看 ÷ 累计观看；停留→互动 = 评论次数 ÷ 1 分钟观看（评论是次数不是人数，只作趋势参考）；观看→成交 = 净成交订单 ÷ 累计观看，与 PRD 转化率一致。
 - 诊断页实时建议阈值属于运营经验值，不是千川后台口径：进入→停留 30%、停留→互动 10%、观看→成交 2%、ROI 1、付费流量占比 70%；页面需明确标注参考线。后续预测按本场当前节奏线性外推到 4 小时场次，只作参考，不写成承诺值。
-- 素材页统计窗口固定从 `2026-07-01` 起，结束到最近一个完整自然日（当前为 `2026-10-24`，次日自动顺延）。视频和直播间画面分别调用千川素材维度报表，按素材 ID 汇总；消耗、成交、订单、曝光、点击、完播率和平均停留取千川返回值，点击率与 ROI 由汇总分子/分母重新计算。
-- 素材综合分分项先归一，再按展示 30%、转化（成交订单）30%、点击 30%、其他（ROI）10% 加权；适合放量取综合分 TOP 5，适合追投优先取消耗不高于样本中位数且已有成交的素材，不足 5 条时用其余有跑量素材补齐。
+- 素材页统计窗口固定从 `2026-07-01` 起，结束到最近一个完整自然日（次日自动顺延）。视频和直播间画面分别调用千川素材维度报表，按素材 ID 汇总；消耗、净成交、净成交订单、曝光、点击、完播率和平均停留取千川返回值，点击率与净成交ROI 由汇总分子/分母重新计算。
+- 素材综合分分项先归一，再按展示 30%、转化（净成交订单）30%、点击 30%、其他（净成交ROI）10% 加权；适合放量取综合分 TOP 5，适合追投优先取消耗不高于样本中位数且已有净成交的素材，不足 5 条时用其余有跑量素材补齐。
 - 素材报表是素材维度归因，素材合计不强行拼接到计划总消耗。标题、其他创意等归因会和视频/直播间画面形成口径差异，不能用差额反推或补造素材。
 
 ## 4. 已完成
@@ -135,18 +222,28 @@
 - 实时话术看板：逐句展示 ASR 语句，4 秒延迟归因评论、停留和成交影响，含实时评论与逐句影响曲线。
 - 投放诊断页：实时流量渠道与人群画像、下一手建议、投放知识库文档上传、千川四类操作台与操作后流量影响、流量异常时段看板。
 - 千川 MCP：已加载 `qianchuan` HTTP MCP，首个真实广告账户已接入数据页。
-- 数据页真实数据：`TT-申坤-赵镭老师(店播)-小学数学-自运营`（`1744479430946824`），口径为千川全域推广，当前快照已写入 2026-10-12 至 2026-10-20 的消耗、用户实付成交金额与成交订单；10-12 至 10-17 为 0。
+- 数据页真实数据：`TT-申坤-赵镭老师(店播)-小学数学-自运营`（`1744479430946824`），口径为千川全域推广净成交；账户与抖音号历史序列、今日计划/作者报表、素材报表及直播大屏统一使用净成交金额、净成交订单和净成交ROI。
 - 数据页已接本地服务：启动时读取 `/api/dashboard`，点击刷新调用 `/api/sync`，页面每 10 秒读取服务端快照；服务端每 10 秒执行轻量实时同步，历史完整同步每 180 秒执行，素材库按独立 3 分钟周期强制刷新；服务不可用时回退内置快照并明确标注。
-- 数据页产品学习资料：`GET/POST /api/learning/documents` 负责清单和原始文件上传，`GET /api/learning/search?q=...` 检索片段，`POST /api/learning/reindex` 重建全部索引，`GET /api/learning/documents/download?id=...` 下载，`DELETE /api/learning/documents?id=...` 删除；单文件限制 25 MB，上传文件名经过路径清理，原始文件使用随机 ID 存储，清单和索引通过原子写入维护。
+- 知识库页：`GET/POST /api/learning/documents` 负责清单和原始文件上传，`GET /api/learning/search?q=...` 检索片段，`POST /api/assistant/chat` 先基于通用投放知识结合当前数据给出建议，再用已学片段做底线校验并标注来源/冲突（未配置 DeepSeek 时回退本地通用规则 + 检索），`POST /api/learning/reindex` 重建全部索引，`GET /api/learning/documents/download?id=...` 下载，`DELETE /api/learning/documents?id=...` 删除；单文件限制 25 MB，上传文件名经过路径清理，原始文件使用随机 ID 存储，清单和索引通过原子写入维护。
 - 总看板今日实时链路：账户维度官方日报当天数据优先；账户接口失败时回退官方全域计划接口当天汇总；抖音号使用作者维度官方报表当天数据，并同步覆盖计划当天行。页面显示今日累计更新时间、官方账户/计划回退来源和失败状态。
 - 刷新接口最多同步等待 0.75 秒，未完成立即返回 202 和当前快照，后台任务继续执行；页面每秒跟进，直到 revision 更新，避免被完整素材任务阻塞。
 - 数据趋势图支持消耗、成交、订单、ROI、转化成本五条折线多选叠加，默认消耗+成交；按钮高亮控制显隐，各线使用独立量级、不同颜色和清晰图例，悬停展示全部五项指标真实值。
 - 直播大屏已切换为大屏单源：`live-screen-agent.js` 使用 `puppeteer-core`、无头 Edge/Chrome 和独立 `data/chrome-profile`，每 10 秒抓取交易、累计观看、商品点击、曝光、GPM 和实时在线；`live_watchdog.py` 每 5 秒巡检，进程退出或心跳超时自动重启。
 - `/api/live` 返回 `source=qianchuan_live_screen_direct`，采集器有新鲜数据时即使状态为 `stale` 也照常返回并带 `staleWarning`；交易与行为字段失败时分别展示真实失败态，不用 MCP 或其他指标补差。MCP 五维查询只允许后台执行，失败后冷却 30 秒；历史曲线在 `/api/live` 中只读内存缓存，避免 7–8 MB 历史 JSON 阻塞主接口。`/api/health` 暴露 `liveScreenCapture`，`/api/live/screen` 返回完整心跳，5 分钟历史写入 `data/live-screen-history.json`。
 - 千川 MCP 通过 `data/qianchuan-mcp.json` 配置，服务端会执行 `initialize`、`tools/list` 和 `tools/call`；投放诊断 `/api/campaign/diagnostics` 使用 MCP `qianchuan_report_live_get_v1` 获取实时投放字段，`GET /api/mcp/tools` 可查看当前工具列表。MCP 未返回字段或返回空 `data` 时，投放诊断显示缺失原因和解决方案，不使用演示值。
+- 巨量百应直播中控台已作为独立通道接入：`login-buyin.bat` 使用可见浏览器人工登录并保存独立 profile；`buyin-live-agent.js` 用无头 Chrome 每 10 秒抓取 DOM 表格和 JSON 网络响应，输出渠道流量占比、成交金额占比、渠道千次观看成交及页面可核验的补充字段。`GET /api/live/buyin` 查看状态，`POST /api/live/buyin/refresh` 立即刷新；投放诊断的优先级固定为 MCP 主源 > 百应字段补充/临时回退 > 千川大屏临时回退，响应通过 `fieldSources` 标明每个字段来源。
+- 当前开机 Startup 快捷方式指向本项目 `start-hidden.vbs`，登录 Windows 后由 `start-autostart-loop.ps1` 拉起看门狗；看门狗同时守护千川和百应采集器。百应登录完成后只保存会话，不保留可见浏览器；后台以无头模式自动打开已保存的直播中控台地址。登录暂停标记已绑定登录进程 PID，登录窗口异常退出时下一次巡检会自动清除，不会让开机后的采集永久停摆。
+- 百应只有页面明确给出净成交金额、净成交订单和净成交ROI 时，才允许临时顶替 MCP 的核心交易指标；普通成交/支付金额标记为 `gmvScope=buyin_reported`，只能作为补充字段，不能驱动净成交判断。
+- 百应“直播大屏专业版 · 流量分析”已接入原生渠道三列：流量占比、成交金额占比、渠道千次观看成交。接口在百应原生值可用时返回 `flowValueKind=native`，来源为 `buyin_compass_live_screen_dom`；千川 `statQuery` 只作为兜底，由渠道流量人数和成交金额计算，返回 `flowValueKind=calculated`，不能宣称为千川页面直接展示字段。
+- 投放诊断的流量渠道和画像改为横向自适应网格：渠道卡片按可用宽度自动排列为多列，长渠道名自动换行，渠道表列间距不少于 7–12 px；性别、年龄、地域和实时看播画像使用横向分区卡片。2026-11-06 用 1440 宽页面和长渠道名样本验收，重叠元素数为 0。
+- 复盘已接入 `live_recorder.py`：看门狗常驻启动，直播中从千川大屏签名 FLV 的本机代理临时采集到 `D:\DAI投放产品录屏备份\<日期>_<roomId>_<时间>/`。当前由 `audio_capture.py` 使用 PyAV 只解码音频，每 5 分钟生成一个 16k 单声道 WAV；保留对旧 TS/M3U8 文件的历史兼容。场次结束后不再合并 MP4；后台在全部 Whisper 转写和复盘归档成功后立即删除临时音频。项目所在的坚果云目录只同步代码、复盘文档和 `data/` 数据，不同步录屏视频。
+- `GET /api/review/sessions` 扫描本地录像清单，并按 roomId、日期合并千川直播大屏 5 分钟历史，返回真实消耗、净成交、订单、ROI、流量节点、来源和分析步骤。复盘页保持原版位和播放器控件，仅把视频源换成本地 HLS/MP4、曲线换成真实 5 分钟序列；ASR 未接入时话术线留空并明确显示，不生成逐句话术或主播风格分数。
+- 2026-11-06 实跑已验证：录像、音频和 Whisper 转写均按 5 分钟分段；`/api/review/sessions` 返回真实累计消耗、净成交、订单、ROI、问题/优势标注和来源；“录像回放”可实际播放画面并拖动进度，`/recordings/*` 返回 HTTP 206 Range。
+- 直播话术 ASR 已接入 `live_asr.py`：从每场直播的 TS 分段抽取 16k 单声道 FLAC，使用项目本地 `models/whisper-tiny` 的 `faster-whisper` CPU INT8 模型转写，再用 OpenCC 统一简体中文。不调用第三方付费 API，不用麦克风。
+- Whisper 结果写入场次 `asr/transcript.json`，同时约每 5 秒记录在线、消耗、成交、订单到 `asr/metrics.json`；复盘接口按每句话起止时间对齐指标，输出“对应窗口出单 / 掉人 / 留人 / 无明显变化”，并明确这是时间窗口关联，不是因果证明。
 - MCP 直播报表字段 schema 以 `qianchuan_report_live_get_v1` 实际 schema 为准；当前请求会同时索要交易、观看、曝光、评论、关注、GPM、在线等字段。金额换算按 `live.moneyDivisor` 处理，并在响应中暴露换算口径。
 - 同步与限流：账户报表、抖音号日报各缓存 120 秒，素材缓存 6 小时；千川请求之间强制至少 0.35 秒间隔，命中 40100 / 429 自动重试，持续限流按 60 / 120 / 300 秒退避，`syncBackoffSeconds` 同时写入快照和 `/api/health`。
-- `start.bat` / `start.ps1` 已改为启动 `live_watchdog.py` 并打开页面；看门狗负责拉起/重启 `server.py` 和 `live-screen-agent.js`，脚本仍会自动查找 `py`、`python` 或 Codex 自带 Python。
+- `start.bat` / `start.ps1` 已改为启动 `live_watchdog.py` 并打开页面；看门狗负责拉起/重启 `server.py`、`live-screen-agent.js` 和 `buyin-live-agent.js`，脚本仍会自动查找 `py`、`python` 或 Codex 自带 Python。
 - 计划维度已落地：快照 `accounts[].plans[]` 保存每条计划的日报与素材，数据、素材、诊断三块共用同一个账号 + 计划选择状态。
 - 数据页账号视角展示计划拆分列表，标记投放中、已暂停、未使用；点击计划进入单计划 KPI、趋势、素材和诊断。
 - 诊断页在计划视角下展示计划独立的区间指标、诊断分、问题与建议，不再复用账户级人货场示例。
@@ -154,12 +251,14 @@
 - 已接入真实千川 Open API：全域计划列表 `/qianchuan/uni_promotion/list/`、计划素材 `/qianchuan/uni_promotion/ad/material/get/`、今日直播间 `/qianchuan/today_live/room/get/` 及流量、用户、商品接口。
 - 数据页已写入 5 条真实全域计划（2 条历史有消耗、3 条本周期无消耗）；计划素材按分页完整拉取，再用官方素材维度报表补真实跑量。
 - 多抖音号对比：当前广告主下 5 个抖音号以 `accounts[].awemes[]` 挂在同一广告主下，前端展开为 5 个可切换账号；启动默认进入赵镭图解账号，顺序固定为图解、精讲、拆解、通解，其余账号排后。
-- 自动化测试：`test_server.py` 当前 51 个用例通过，覆盖 MCP 永久挂起或未分类异常时 `/api/live` 仍快速返回采集器数据、新鲜 `stale` 大屏值可用、产品学习资料上传/下载/删除、DOCX/PDF/XLSX/PPTX 文本抽取、片段检索、策略建议引用、大屏直抓、5 分钟历史归档、投放诊断 30 天基线、MCP 空数据失败态、账户/抖音号对账、素材分页、直播流和 HTTP 接口等链路。
+- 直播场次自动发现：采集器启动前及每轮抓取前逐个查询 `qianchuan.config.json` 中的抖音号，当前覆盖图解、精讲、拆解、通解；发现 `LIVING` 后使用实时 roomId 动态打开大屏，换场时清空旧指标和旧直播流。四个账号全部成功且均无直播时写 `not_live` 并显示“未开播”，查询失败则写 `discovery_error`/`discovery_incomplete`，不回退旧场次。
+- 官方直播字段对照通道：直播场次发现接口在 `officialLive` 中返回今日直播间 Open API 的直接字段映射。该接口可给出 roomId、账号、开播时间和部分累计投放字段，但不返回实时在线、峰值、GPM、订单成本和曝光人数；2026-11-04 实测当前场次累计值仍返回 0，而大屏同场次已有非零值，所以只作独立对照，不覆盖大屏 KPI。2026-11-05 已将该通道的 `watchCount`、`watchOneMinute`、`comments`、`orders` 接入五维四率和 5 分钟历史：状态为 `ok` 时在 MCP 缺失字段后补充；状态为 `zero_pending` 时整组忽略，仍使用大屏真实值。`qianchuan/report/live/get/` 当前今日及历史查询均返回空 `data`，暂不接入。
+- 自动化测试：`test_server.py` 当前 62 个用例通过，覆盖 MCP 原始口径优先于大屏、MCP 暂不可用时带标签的大屏回退、净成交与总成交审计隔离、四账号直播巡检、确认未开播状态、MCP 挂起或未分类异常时 `/api/live` 仍快速返回采集器数据、新鲜 `stale` 大屏值可用、官方直播字段零值保护与五维补充、知识来源章节标注、手动刷新请求 ID、产品学习资料、素材分页、直播流和 HTTP 接口等链路。
 - 2026-10-21 素材板块更新：官方素材报表替代全零的 `stats_info` 作为跑量来源；补视频与直播间画面当天累计；TOP5 两栏、全量素材合并、标题/直播素材去重、计划日期统一为 `2026.6.30` 风格、缓存兜底均已验证。验收截图见 `material-report-final.png`。
 
 ## 5. 下一步
 
-- 产品学习资料已完成本地抽取、分块和检索，并在策略建议中展示资料出处；下一步可选接入 DeepSeek，将检索到的片段作为受限上下文生成更自然的建议。无论是否接入模型，都只能引用检索命中内容，不能仅凭“已上传”推断模型已经学会。
+- 产品学习资料已完成本地抽取、分块、检索、知识库对话和策略建议来源标注；下一步可选接入 DeepSeek，由大模型基于通用投放知识先行作答，再把检索到的片段作为底线校验标注来源与冲突。无论是否接入模型，“已上传”都不等于“模型已经学会”，经验只做底线参考，不是唯一答案。
 - 继续补齐历史数据：账户报表 `50000` 时使用计划日报回退，计划回退受 `campaigns.historyDays` 限制。`campaigns.historyDays` 已从 7 调到 30，快照当前覆盖 `2026-09-23` 至 `2026-10-23` 共 31 个日期、18 个有效日；下一步备份快照后验证 90 / 180 天回填。
 - Open API 凭证已配置并验证计划、素材、直播间接口；继续观察账户报表 `50000` 是否恢复，恢复后可去掉“计划日报汇总”回退。
 - 计划素材已接入，下一步补充素材级人群画像接口；当前素材画像仍显示“—”。
@@ -170,7 +269,7 @@
 - 接入 ASR、逐句归因和话术效果模型，替换实时话术看板的示例语句与归因结果。
 - 接入词库同步渠道（团队表格、千川词库、开放 API），替换本地上传与示例版本记录。
 - 接入千川操作 API，替换投放操作台的示例执行，并按操作时间回读流量影响。
-- 文档解析与本地检索已接入产品学习资料，投放诊断页已复用同一资料清单和命中片段；下一步评估 DeepSeek 基于检索上下文生成建议。
+- 文档解析、本地检索与知识库对话已接入产品学习资料，投放诊断页已复用同一资料清单和命中片段作为底线校验；下一步评估 DeepSeek 以通用知识为主、经验底线校验的方式生成建议。
 - 接入 DeepSeek，替换本地规则诊断与投放建议生成。
 - 逐模块补齐素材、投放诊断和复盘的真实数据能力。
 
@@ -234,7 +333,7 @@
 - 诊断页：直播大屏采集进程当前未运行，最后心跳已过期；需要恢复看门狗和采集器并完成整场稳定性验证。主播语速/能量/情绪、话术 ASR 合规仍待接入；1 分钟观看和评论字段当前未返回。
 - 直播大屏：累计观看、商品点击、GPM、实时在线、曝光及交易字段已能真实抓取；历史原生峰值在线未确认存在，`peakOnline` 仍是采集器启动后的观测最高值。录像存储、回放切片和 ASR 仍未接入。
 - 话术页：违禁词本地 TXT/CSV 上传可用；ASR 逐句归因、优质话术摘取、持续低效话术统计仍为示例。
-- 投放诊断：MCP 直播报表当前返回空 `data`，实时字段、流量渠道和用户画像均处于失败态；操作台已用近 30 天快照做推演，但不执行、不写入千川后台。本地学习资料检索已接入建议依据，DeepSeek 生成和真实操作 API 尚未接入。
+- 投放诊断：MCP 直播报表当前返回空 `data`，实时字段、流量渠道和用户画像均处于失败态；操作台已用近 30 天快照做推演，但不执行、不写入千川后台。本地学习资料已接入建议的底线校验，DeepSeek 生成和真实操作 API 尚未接入。
 - 复盘：录像回放、时间轴标注、主播画像、主播库仍为示例；直播流、录像存储、ASR、人脸识别和视频理解尚未接入。
 - 取数：`campaigns.historyDays` 已从 7 调整为 30 并完成回填，但 `HISTORY_DAYS=182` 对应的 90 / 180 天仍未验证；当前快照只能用于近 30 天窗口。
 - 自动启动：`install-autostart.ps1` 和 `start-hidden.vbs` 已实现，但尚未完成“重启 Windows 后自动恢复服务与采集器”的实机验收。
@@ -353,6 +452,8 @@
 - 登录态恢复后，尚未完成至少一个完整直播场次的稳定性验收，包括换场、下播重开、断流恢复、签名过期、跨小时运行、页面刷新和采集器自动重启。
 - 新版 EBP 页面在登录态有效时曾成功打开详情页，但尚未核实全部交易和行为指标标签均已稳定映射；若页面字段改版，仍需校准 `data/live-screen.json` 的 `metrics.*.labels` 或 `selector`。
 - Windows 重启后的开机自启尚未做实机验收；当前已验证 Startup 快捷方式存在、自启循环可拉起看门狗、看门狗可重启后端和采集器，但没有实际重启 Windows。
+- 复盘录像实跑使用当前内置 ffmpeg 3.0.1：不支持新版 HLS `append_list` 和 `rw_timeout`，因此采用 MPEG-TS segment muxer + 程序生成 `.m3u8`；MP4 合并需要 `-bsf:a aac_adtstoasc`。不要改回旧版不支持的参数。
+- 当前 `faster-whisper 1.2.1` 与已安装 PyAV 的路径解码接口不兼容；`live_asr.py` 已改为先用 PyAV 解码成 16k float32 NumPy 波形再送入 Whisper，不要直接改回 `model.transcribe(path)`。
 - 当前沙箱身份无权重写 Administrator 的 Startup 快捷方式，重新执行安装器会报“拒绝访问”；需要在正常桌面用户下执行 `install-autostart.bat` 才能刷新或重建快捷方式。
 - MCP `qianchuan_report_live_get_v1` 仍返回空 `data`；投放诊断的 MCP 实时指标、流量渠道和用户画像仍处于失败态。没有核实前不能用大屏值冒充 MCP 返回。
 - 90 / 180 天历史回填、素材人群画像、DeepSeek 诊断、真实 ASR、逐句话术归因、录像存储、回放切片、人脸与视频理解、千川真实操作 API 仍未完成。
@@ -421,6 +522,81 @@
 7. 继续调查 51 条历史视频和直播间画面是否存在可用的官方上传时间接口；没有真实返回值时保持“未获取”，禁止推算。
 8. 观察账户实时报表 500 与 MCP 空数据是否恢复；恢复前继续保持回退来源和失败态标注，再推进素材人群画像、DeepSeek、ASR、录像回放和真实操作 API。
 9. 为 `start.bat` 增加“重启本项目”安全模式：只结束本项目 `server.py`、`live_watchdog.py` 和采集器，不误杀本机其他 Python 进程；同时保留当前已验证通过的冷启动模式。
+
+### 7.10 2026-11-02 当日总结
+
+以下状态以 2026-11-02 22:05 的 `/api/health`、`/api/learning/documents`、页面验收和自动化测试为准；实时经营数据与运行状态会继续变化，交接时以接口现场返回为准。
+
+#### 2 - 今天做了什么
+
+1. 新增独立“知识库”页面，支持批量上传 TXT、MD、CSV、JSON、PDF、DOC/DOCX、XLS/XLSX、PPT/PPTX，单文件限制 25 MB；上传后自动抽取文本、重叠切分、写入本地 `data/learning-index.json`，并支持下载、删除和重建索引。
+2. 新增知识库问答接口 `POST /api/assistant/chat` 和前端对话区。回答先基于通用投放知识结合当前数据给出建议，再用本地检索命中的 1–3 个片段做底线校验，展示文档名、片段序号、相关度和原文出处，并标注与过往习惯的一致或冲突；未命中或没有资料时明确说明并继续按通用知识回答，不编造内部规则。
+3. 知识库已接入三个实际应用位置：专属助手对话、数据页“AI 问题定位”、投放诊断“下一手建议”。投放诊断会把命中资料作为底线校验，标注与过往习惯的一致或冲突，不再据此上调置信度。
+4. 新增整体学习进度条和单文档学习进度。整体进度按“成功进入检索索引的文档数 ÷ 已上传文档数”计算；可检索文档显示 100%，已保存但文本提取失败的文档显示 35% 并标注失败原因。
+5. 新增“学习进度与成果解说”板块，动态展示提取字数、可检索片段数、文件格式、待处理/失败文档，以及知识当前应用到哪些产品功能；页面明确说明这里展示的是本地知识覆盖度，不代表模型参数被重新训练。
+6. 完成真实页面验收：临时构造 1 份可学习文档和 1 份旧格式失败文档时，整体进度正确显示 75%，单文档分别显示 100% 和 35%；验收后临时文档已删除。
+7. 当前知识库真实状态为 2 份文档、68 个可检索片段、49,657 个提取字符，整体学习进度 100%；文档为 `操作记录.xlsx` 和 `千川投放skill-v1.md`。
+8. 回归验证：`test_server.py` 51 项全部通过，页面内联 JavaScript 语法检查通过；桌面和移动端页面验收截图已生成。知识库相关 PRD、AGENTS 说明和前端契约测试已同步更新。
+
+#### 3 - 还有什么没做
+
+1. DeepSeek 尚未接入。当前知识库对话是本地检索式原文抽取，不是大模型自然语言生成；不能把“命中文档并回答”表述成已经完成模型训练或 DeepSeek 学习。
+2. 尚未记录每个文档在真实对话、问题定位和投放建议中的实际引用次数与最近引用时间。当前页面能说明“接入了哪些功能”，但还不能回答“某份文档具体被用过多少次、最近一次用在哪里”。
+3. 对话记录只保存在当前页面内存，刷新页面后清空；尚未实现本地持久化、收藏问题或历史会话管理。
+4. 检索仍是本地 TF-IDF + 中英文 n-gram，不是语义向量检索。资料规模扩大后可能出现同义表达召回不足；当前不能宣称具备语义理解。
+5. 扫描版 PDF 和旧版 DOC/XLS/PPT 不支持 OCR/格式转换，仍会明确标记文本提取失败；扫描件、老 Office 文件还不能直接进入知识库。
+6. 文档模型尚未增加目录/标签/版本管理、重复文档检测、批量文件夹导入和文档级启用/停用。当前只能按单文件上传、查看和删除。
+7. 截至 22:05，服务进程与知识库接口正常，但当日经营数据实时同步状态仍为 `failed`，`realtime.updatedAt` 仍停留在 `2026-10-26T21:03:38+08:00`；MCP 最近错误为 SSE HTTP 400 `app信息有误`。这与知识库功能无关，但仍是当前产品整体运行缺口。
+8. OAuth 目前只有 Access Token，没有 Refresh Token；`oauthConfigured=false`、`refreshTokenConfigured=false`，现有 Token 到期后仍需人工处理。
+
+#### 4 - 下一步要做什么
+
+1. 配置 DeepSeek 后，由大模型基于通用投放知识结合当前数据先作答，再用 `/api/learning/search` 或 `/api/assistant/chat` 命中的片段做底线校验，冲突处标注“这和过往的投放习惯不符”；经验是刹车不是方向盘，不把知识库当唯一答案。
+2. 增加知识引用审计：按文档记录命中次数、最近命中时间、最近应用模块（助手对话 / 问题定位 / 投放建议）和最近引用片段，在“学习成果解说”中展示真实使用情况。
+3. 将问答历史持久化到本地，支持历史会话、问题收藏和按文档筛选相关问答；敏感知识仍只保存在本机。
+4. 在文档规模明显增长后引入语义向量检索或混合检索，并保留当前 TF-IDF 结果作为兜底和可解释命中依据。
+5. 增加扫描 PDF OCR、旧版 Office 转换和批量文件夹导入；无法转换的文件继续明确失败，不把“已上传”标记成“已学习”。
+6. 增加文档标签、版本、启用/停用和重复检测，方便区分投放 SOP、场次复盘、字段口径和经营数据。
+7. 继续修复当日经营数据实时同步和 MCP `app信息有误` 问题，并补齐 OAuth 自动续期；知识库能力与本机经营数据链路应分别验收，不能相互冒充成功。
+
+### 7.11 2026-11-05 当日总结
+
+以下状态以 2026-11-05 13:32 的本机运行态、`/api/health`、`/api/live/discover` 和自动化测试为准；直播场次、指标和进程状态会继续变化。
+
+#### 1 - 今天做了什么
+
+1. 复核 2026-11-04 的官方直播字段对照工作，确认真实账号 `1744479430946824` 当前场次 `7704532779547085622` 可以由今日直播间 Open API 正确发现，四个抖音号查询完整，当前官方累计值仍为 `0`，大屏同场次有真实非零值。
+2. 补齐官方直播字段和五维四率之间的断点：`officialLive.status=ok` 时，`watchCount`、`watchOneMinute`、`comments`、`orders` 在 MCP 未返回后补充，最后才回退大屏；`zero_pending` 时整组忽略，不使用 0 覆盖大屏。
+3. 5 分钟历史节点同步补齐大屏未直接返回的 1 分钟观看和评论字段；大屏已有值始终优先，只有缺失字段才从五维来源补充。
+4. 诊断页曝光层说明同步改为“MCP、官方直播字段与大屏均未返回”，避免页面仍只写 MCP/大屏两路。
+5. 新增自动化用例同时覆盖两条边界：官方直播字段非零时正确进入漏斗和历史；官方 `zero_pending` 时不得覆盖大屏值。
+6. 修复直播发现瞬时超时误清空画面地址：只有四个账号明确确认未开播或换场时才重置流；`discovery_error` / `discovery_incomplete` 保留当前场次的短时流 URL，让 20 秒周期登记在服务恢复后继续工作。
+7. 完成故障注入验证：仅重启本项目后端后，采集器进入短暂 `discovery_error`，但 `streamCaptureOnline` 保持 `true`；下一次巡检恢复 `status=ok`、`live=true`，`/api/live` 继续返回当前 roomId 和大屏交易指标。
+8. 为知识库命中的经验增加统一来源标注：Markdown 文档按命中词定位最近的 `## 第X节` 标题，输出“文件名 第X节 标题”；Excel 等无章节文档只输出文件名。AI 问题定位、投放诊断“下一手建议”、知识库对话和经验底线校验列表统一使用该标注，并以浅灰小字放在结论或动作附近。
+9. 顶部“刷新”改为真正的按需拉取：前端同时触发当日报表实时同步和 `/api/live/refresh`，采集器通过请求文件提前结束等待并抓取一次大屏，后端等到同一请求 ID 的最新状态后直接返回。按钮加载期间显示“正在拉取最新数据...”，完成后立即把该份 `/api/live` 快照应用到页面。
+10. 真实页面验收：点击刷新后约 4.5 秒完成大屏抓取，加载状态、成功提示、9 项 KPI 和知识依据小字均正常渲染；状态文件与 `/api/live` 的消耗、净成交、净成交订单逐项一致。当前实测值会继续变化，以现场为准。
+11. 修正数据源优先级：看板今日数据先读取 60 秒内有效的 MCP 缓存，MCP 有交易指标时使用 MCP 原始口径并标注“千川 MCP · 主数据源”；只有 MCP 无有效值时，才使用大屏并标注“大屏直抓（MCP暂不可用）”。
+12. 投放诊断新增独立的大屏回退边界：MCP 有值时完全保持 MCP 口径；MCP 报错、空 data 或没有交易指标时，才临时读取大屏，响应增加 `fallbackFromMCP=true`、`mcpAvailable=false` 和明确来源标签。
+13. 数据页面恢复 MCP 优先和来源隔离展示：主报表指标不再统一改名成净成交，也不再跨源覆盖；大屏专属 KPI、五维四率和实时诊断继续使用大屏自己的净成交数字。
+14. 回归验证：`test_server.py` 62 项、`test_live_watchdog.py` 10 项、Node 采集器测试、Python 编译和页面内联 JavaScript 语法检查全部通过。
+15. “指标走势”增加大屏历史回退：MCP/报表无可用序列时，直接使用 `/api/live?account=fashion` 返回的当前直播 5 分钟历史节点绘制消耗、成交、订单、净成交ROI 和净成交成本，并在图表元信息标注“大屏直抓（MCP暂不可用）”和实际直播抖音号。
+16. 大屏采集器新增渠道明细网络解析：从直播大屏 `statQuery` 的 `combined_first_compass_entrance_code` 行中直接读取 `total_live_watch_cnt_for_roi2` 和 `total_live_pay_amt_for_roi2`，计算每个渠道的流量占比、成交金额占比和渠道千次观看成交，不使用页面文字猜测。
+17. 投放诊断的“流量渠道与用户画像”在 MCP 回退时展示 8 个渠道的流量占比、成交金额占比和千次观看成交；页面明确显示“大屏直抓（MCP暂不可用）”，人口属性缺失时说明大屏渠道明细不提供性别、年龄、地域画像。
+18. 真实页面验收：“指标走势”已绘制大屏历史折线并显示实际直播号；渠道表已显示短视频及图文引流、搜索、直播推荐、头条西瓜、抖音商城推荐、关注、个人主页&店铺&橱窗等渠道数据。
+
+#### 2 - 还有什么没做
+
+1. 今日直播间 Open API 的累计值仍为 0，因此本次仅完成“将来非零时可用”的代码闭环，不能宣称当前官方的 1 分钟观看、评论和成交已经恢复。
+2. 当前本机使用已有 Access Token，仍没有 Refresh Token；`oauthConfigured=false`、`refreshTokenConfigured=false`。
+3. MCP `qianchuan_report_live_get_v1` 对全域推广账户仍返回空 `data`，投放诊断的 MCP 实时指标、流量渠道和用户画像继续保持失败态。
+4. 90 / 180 天历史、素材人群画像、DeepSeek、ASR、录像回放、人脸/视频理解和千川真实操作 API 仍未完成。
+
+#### 3 - 下一步要做什么
+
+1. 继续观察今日直播间 Open API 的累计非零样例；出现非零值后核对五维来源标记、四率计算和 5 分钟历史节点，不把 0 当成真实经营结果。
+2. 完成 OAuth App ID / App Secret / 回调地址配置和一次真实授权，验证 Refresh Token 自动续期。
+3. 继续等待或排查 MCP 直播报表空 `data`，保持失败态，不用大屏或官方字段冒充 MCP 返回。
+4. 在真实直播场次中继续验收换场、下播重开、断流、签名过期、跨小时运行和采集器自动恢复。
 
 ## 8. 更新记录
 

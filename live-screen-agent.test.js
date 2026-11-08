@@ -10,10 +10,13 @@ const {
   DEFAULT_CONFIG,
   LOGIN_URL,
   acquireAgentLock,
+  buildInactiveScreenState,
   buildLiveBoardUrl,
   buildLoginPageUrl,
+  clearRefreshRequest,
   cleanupBrowserProfileState,
   extractFlows,
+  extractFlowBreakdown,
   extractMetrics,
   findStreamUrl,
   isConfiguredLiveScreenUrl,
@@ -21,16 +24,26 @@ const {
   isLoginCompletePage,
   isLiveScreenPage,
   loginRequired,
+  mergePreparedConfig,
+  normalizeRoomDiscoveryPayload,
   parseMetricNumber,
+  readRefreshRequest,
   releaseAgentLock,
   replaceRoomIdInUrl,
   roomIdFromUrl,
-  safePageUrl
+  safePageUrl,
+  shouldResetStreamCapture
 } = require("./live-screen-agent");
 
 assert.ok(BROWSER_LAUNCH_ARGS.includes("--no-sandbox"));
 assert.ok(BROWSER_LAUNCH_ARGS.includes("--disable-gpu"));
 assert.ok(BROWSER_LAUNCH_ARGS.includes("--disable-gpu-sandbox"));
+const preparedConfig = mergePreparedConfig(
+  { metrics: { spend: { labels: ["消耗"] } }, intervalSeconds: 10 },
+  { pageUrl: "https://qianchuan.jinritemai.com/board-next?live_room_id=7700000000000000000" }
+);
+assert.deepEqual(preparedConfig.metrics.spend.labels, ["消耗"]);
+assert.equal(preparedConfig.intervalSeconds, 10);
 assert.equal(
   isConfiguredLiveScreenUrl("https://business.oceanengine.com/ebp/home"),
   false
@@ -176,6 +189,23 @@ assert.equal(fs.readFileSync(path.join(profileDir, "keep.txt"), "utf8"), "keep")
 fs.rmSync(lockDir, { recursive: true, force: true });
 fs.rmSync(profileDir, { recursive: true, force: true });
 
+const refreshDir = fs.mkdtempSync(path.join(os.tmpdir(), "qc-refresh-request-"));
+const refreshPath = path.join(refreshDir, "refresh.json");
+fs.writeFileSync(
+  refreshPath,
+  JSON.stringify({
+    requestId: "manual-refresh-test",
+    requestedAt: "2026-11-05T05:00:00.000Z",
+    accountId: "fashion"
+  }),
+  "utf8"
+);
+assert.equal(readRefreshRequest(refreshPath).requestId, "manual-refresh-test");
+assert.equal(clearRefreshRequest("another-request", refreshPath), false);
+assert.equal(clearRefreshRequest("manual-refresh-test", refreshPath), true);
+assert.equal(fs.existsSync(refreshPath), false);
+fs.rmSync(refreshDir, { recursive: true, force: true });
+
 assert.equal(
   LOGIN_URL,
   "https://business.oceanengine.com/ebp/account-manage/ecp/bidding/universe/account?ebpid=1855365007750474&uuid=6f018086-b594-462c-8733-5c8f75c443a1"
@@ -187,10 +217,107 @@ const directBoard = buildLiveBoardUrl({
 });
 assert.match(directBoard, /live_room_id=7698576510591994665/);
 assert.match(directBoard, /aavid=1744479430946824/);
+const switchedBoard = buildLiveBoardUrl({
+  roomId: "7701192872432700202",
+  advertiserId: "1744479430946824",
+  anchorId: "77732238866"
+});
+assert.match(switchedBoard, /live_room_id=7701192872432700202/);
+assert.notEqual(switchedBoard, directBoard);
+
+const liveDiscovery = normalizeRoomDiscoveryPayload({
+  live: true,
+  status: "live",
+  roomId: "7701192872432700202",
+  advertiserId: "1744479430946824",
+  awemeId: "7534976849169040442",
+  awemeName: "赵镭通解小数基本功",
+  room: { anchor_id: "77732238866" },
+  officialLive: {
+    status: "ok",
+    metrics: { spend: 120.5, watchCount: 3000 },
+    missingMetrics: ["online", "gpm"]
+  },
+  checkedAccounts: [
+    { awemeId: "7534976849169040442", name: "赵镭通解小数基本功", status: "live" }
+  ]
+});
+assert.equal(liveDiscovery.live, true);
+assert.equal(liveDiscovery.awemeName, "赵镭通解小数基本功");
+assert.equal(liveDiscovery.anchorId, "77732238866");
+assert.equal(liveDiscovery.discoveryComplete, true);
+assert.equal(liveDiscovery.officialLive.metrics.spend, 120.5);
+
+const noLiveDiscovery = normalizeRoomDiscoveryPayload({
+  live: false,
+  status: "not_live",
+  statusLabel: "未开播",
+  discoveryComplete: true,
+  checkedAccounts: [
+    { awemeId: "1", name: "图解", status: "not_live" },
+    { awemeId: "2", name: "精讲", status: "not_live" }
+  ],
+  errors: []
+});
+const noLiveState = buildInactiveScreenState({}, noLiveDiscovery);
+assert.equal(noLiveDiscovery.status, "not_live");
+assert.equal(noLiveState.status, "not_live");
+assert.equal(noLiveState.live, false);
+assert.equal(noLiveState.sourceLabel, "未开播");
+assert.deepEqual(noLiveState.metrics, {});
+assert.equal(noLiveState.checkedAccounts.length, 2);
+assert.equal(shouldResetStreamCapture(noLiveState), true);
+
+const failedDiscovery = normalizeRoomDiscoveryPayload({
+  live: false,
+  status: "discovery_error",
+  discoveryComplete: false,
+  errors: [{ awemeId: "1", message: "当前ApiKey已过期" }]
+});
+const failedState = buildInactiveScreenState({}, failedDiscovery);
+assert.equal(failedState.status, "discovery_error");
+assert.equal(failedState.sourceLabel, "直播状态读取失败");
+assert.match(failedState.error, /ApiKey/);
+assert.equal(shouldResetStreamCapture(failedState), false);
 const directLogin = buildLoginPageUrl(directBoard);
 assert.match(directLogin, /^https:\/\/business\.oceanengine\.com\/login\?/);
 assert.match(directLogin, /ssoDomain=sso\.oceanengine\.com/);
 assert.equal(parseMetricNumber("1.2万"), 12000);
+const flowBreakdown = extractFlowBreakdown({
+  data: {
+    StatsData: {
+      Rows: [
+        {
+          Dimensions: {
+            combined_first_compass_entrance_code: {
+              Value: "video_to_live",
+              ValueStr: "短视频及图文引流"
+            }
+          },
+          Metrics: {
+            total_live_watch_cnt_for_roi2: { Value: 750 },
+            total_live_pay_amt_for_roi2: { Value: 900 }
+          }
+        },
+        {
+          Dimensions: {
+            combined_first_compass_entrance_code: {
+              Value: "general_search",
+              ValueStr: "搜索"
+            }
+          },
+          Metrics: {
+            total_live_watch_cnt_for_roi2: { Value: 250 },
+            total_live_pay_amt_for_roi2: { Value: 600 }
+          }
+        }
+      ]
+    }
+  }
+});
+assert.equal(flowBreakdown.items[0].trafficShare, 75);
+assert.equal(flowBreakdown.items[0].gmvShare, 60);
+assert.equal(flowBreakdown.items[0].gpm, 1200);
 assert.equal(parseMetricNumber("¥ 1,234.56"), 1234.56);
 assert.equal(parseMetricNumber("3.5K"), 3500);
 assert.equal(parseMetricNumber("暂无数据"), null);

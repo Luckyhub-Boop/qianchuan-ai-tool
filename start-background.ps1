@@ -5,6 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 Set-Location -Path $PSScriptRoot
 
+$ExternalRoot = if ($env:QIANCHUAN_EXTERNAL_ROOT) { $env:QIANCHUAN_EXTERNAL_ROOT } else { Split-Path -Parent (Split-Path -Parent $PSScriptRoot) }
 $dataDir = Join-Path $PSScriptRoot "data"
 $logPath = Join-Path $dataDir "live-autostart.log"
 $logFallbackPath = Join-Path $dataDir "live-autostart.active.log"
@@ -35,7 +36,7 @@ function Resolve-Node {
         $candidates += $env:QIANCHUAN_NODE.Trim('"')
     }
 
-    $candidates += (Join-Path $PSScriptRoot "runtime\node\node.exe")
+    $candidates += (Join-Path $ExternalRoot "runtime\node\node.exe")
 
     $nodeCommand = Get-Command node.exe -ErrorAction SilentlyContinue
     if ($nodeCommand) {
@@ -97,7 +98,7 @@ function Resolve-Python {
     }
 
     $candidates += @(
-        @{ File = (Join-Path $PSScriptRoot "runtime\python\python.exe"); Arguments = @() },
+        @{ File = (Join-Path $ExternalRoot "runtime\python\python.exe"); Arguments = @() },
         @{ File = (Join-Path $PSScriptRoot "python\python.exe"); Arguments = @() },
         @{ File = (Join-Path $env:USERPROFILE ".cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"); Arguments = @() }
     )

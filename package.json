@@ -6,7 +6,10 @@
   "scripts": {
     "live-screen": "node live-screen-agent.js",
     "live-screen:login": "node live-screen-agent.js --login",
-    "test:live-screen": "node live-screen-agent.test.js"
+    "buyin-live": "node buyin-live-agent.js",
+    "buyin-live:login": "node buyin-live-agent.js --login",
+    "test:live-screen": "node live-screen-agent.test.js",
+    "test:buyin-live": "node buyin-live-agent.test.js"
   },
   "dependencies": {
     "puppeteer-core": "^24.23.0"

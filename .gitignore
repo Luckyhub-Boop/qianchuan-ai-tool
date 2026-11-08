@@ -3,6 +3,14 @@
 .tmp-edge-*/
 .tmp-doc-edge/
 chrome-profile/
+buyin-chrome-profile/
+data/buyin-live.json
+data/buyin-live-session.json
+data/buyin-live-metrics.json
+data/buyin-live-refresh.request.json
+data/deepseek.json
+recordings/
+models/
 
 # 内置运行时
 runtime/

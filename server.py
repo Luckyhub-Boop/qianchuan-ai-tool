@@ -5,9 +5,11 @@ import hashlib
 import http.client
 import json
 import math
+import mimetypes
 import os
 import re
 import shutil
+import ssl
 import subprocess
 import threading
 import time
@@ -25,8 +27,12 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any
 
+import deepseek_client
+import recording_store
+
 
 ROOT = Path(__file__).resolve().parent
+EXTERNAL_ROOT = Path(os.getenv("QIANCHUAN_EXTERNAL_ROOT", r"D:\AI投放产品"))
 DATA_DIR = ROOT / "data"
 SNAPSHOT_PATH = DATA_DIR / "qianchuan-snapshot.json"
 CONFIG_PATH = ROOT / "qianchuan.config.json"
@@ -35,7 +41,18 @@ OAUTH_CONFIG_PATH = DATA_DIR / "qianchuan-oauth.json"
 MCP_CONFIG_PATH = DATA_DIR / "qianchuan-mcp.json"
 LIVE_SCREEN_STATE_PATH = DATA_DIR / "live-screen-metrics.json"
 LIVE_SCREEN_HISTORY_PATH = DATA_DIR / "live-screen-history.json"
+LIVE_SCREEN_REFRESH_REQUEST_NAME = "live-screen-refresh.request.json"
+BUYIN_LIVE_STATE_PATH = DATA_DIR / "buyin-live-metrics.json"
+BUYIN_AUDIENCE_HISTORY_PATH = DATA_DIR / "buyin-live-audience-history.json"
+BUYIN_LIVE_REFRESH_REQUEST_NAME = "buyin-live-refresh.request.json"
+RECORDINGS_DIR = recording_store.RECORDINGS_DIR
+REVIEW_ARCHIVE_DIR = DATA_DIR / "review-archive"
+RECORDER_STATE_PATH = DATA_DIR / "live-recorder-state.json"
 HLS_DIR = DATA_DIR / "hls"
+SPEAKERS_PATH = DATA_DIR / "speakers.json"
+SPEAKER_FACES_DIR = DATA_DIR / "speaker-faces"
+SPEAKER_FACE_MAX_BYTES = 8 * 1024 * 1024
+SPEAKER_FACE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 LEARNING_DOCUMENT_MAX_BYTES = 25 * 1024 * 1024
 LEARNING_DOCUMENT_MAX_CHARS = 1_000_000
 LEARNING_CHUNK_SIZE = 900
@@ -69,15 +86,80 @@ DEFAULT_PAGE_SIZE = 100
 CAMPAIGN_TARGET_COST = 300.0
 CAMPAIGN_PRODUCT_PRICE = 168.0
 CAMPAIGN_TARGET_ROI = 0.56
+MCP_LIVE_15_MINUTE_CAPABILITY = {
+    "attempted": True,
+    "available": False,
+    "status": "unsupported",
+    "tool": "qianchuan_report_live_get_v1",
+    "checkedAt": "2026-11-07T17:09:00+08:00",
+    "probeWindows": [
+        {
+            "start": "2026-11-06 12:00:00",
+            "end": "2026-11-06 12:15:00",
+            "result": "code=0, data={}",
+        },
+        {
+            "start": "2026-11-07 16:00:00",
+            "end": "2026-11-07 16:15:00",
+            "result": "code=0, data={}",
+        },
+    ],
+    "reason": (
+        "MCP 直播报表工具只声明按天汇总的 start_time / end_time，"
+        "没有 15 分钟时间粒度参数；实际查询两个 15 分钟窗口均返回空 data，"
+        "因此不能作为 15 分钟序列来源"
+    ),
+}
+LIVE_STREAM_SSL_CONTEXT = ssl.create_default_context()
+LIVE_STREAM_SSL_CONTEXT.check_hostname = False
+LIVE_STREAM_SSL_CONTEXT.verify_mode = ssl.CERT_NONE
 FIVE_DIMENSION_CACHE_SECONDS = 8.0
 FIVE_DIMENSION_RETRY_SECONDS = 30.0
+NET_GMV_FIELDS = (
+    "total_order_settle_amount_for_roi2_1h",
+    "total_order_settle_amount_realtime_for_roi2_1h",
+    "total_order_real_settle_amount_for_roi2_1h",
+)
+NET_ORDER_FIELDS = (
+    "total_order_settle_count_for_roi2_1h",
+    "total_order_settle_count_realtime_for_roi2_1h",
+)
+NET_ROI_FIELDS = (
+    "total_prepay_and_pay_settle_roi2_1h",
+    "total_prepay_and_pay_settle_realtime_roi2_1h",
+)
+NET_ORDER_COST_FIELDS = (
+    "total_cost_per_pay_order_settle_for_roi2_1h",
+    "total_cost_per_pay_order_settle_realtime_for_roi2_1h",
+)
+GROSS_GMV_FIELDS = (
+    "total_pay_order_gmv_for_roi2",
+    "total_pay_order_gmv_include_coupon_for_roi2",
+)
+GROSS_ORDER_FIELDS = ("total_pay_order_count_for_roi2",)
+GROSS_ROI_FIELDS = ("total_prepay_and_pay_order_roi2",)
+GROSS_ORDER_COST_FIELDS = ("total_cost_per_pay_order_for_roi2",)
 
-DEFAULT_FIELDS = ["stat_cost", "pay_order_amount", "pay_order_count"]
+DEFAULT_FIELDS = [
+    "stat_cost",
+    *NET_GMV_FIELDS[:1],
+    *NET_ORDER_FIELDS[:1],
+    *NET_ROI_FIELDS[:1],
+    *GROSS_GMV_FIELDS,
+    *GROSS_ORDER_FIELDS,
+    *GROSS_ROI_FIELDS,
+]
 DEFAULT_FIELD_MAP = {
     "date": ["stat_date", "date", "time"],
     "spend": ["stat_cost", "cost", "spend"],
-    "gmv": ["pay_order_amount", "gmv", "user_pay_amount"],
-    "orders": ["pay_order_count", "order_count", "orders"],
+    "gmv": list(NET_GMV_FIELDS),
+    "orders": list(NET_ORDER_FIELDS),
+    "roi": list(NET_ROI_FIELDS),
+    "orderCost": list(NET_ORDER_COST_FIELDS),
+    "grossGmv": list(GROSS_GMV_FIELDS),
+    "grossOrders": list(GROSS_ORDER_FIELDS),
+    "grossRoi": list(GROSS_ROI_FIELDS),
+    "grossOrderCost": list(GROSS_ORDER_COST_FIELDS),
     "viewers": ["live_watch_count", "watch_count", "viewers"],
 }
 
@@ -121,11 +203,14 @@ DEFAULT_CAMPAIGN_CONFIG: dict[str, Any] = {
         "live_show_count_for_roi2_v2",
         "live_watch_count_for_roi2_v2",
         "live_cvr_rate_for_roi2_v2",
-        "total_pay_order_count_for_roi2",
+        *NET_ORDER_FIELDS[:1],
         "stat_cost_for_roi2",
-        "total_pay_order_gmv_for_roi2",
-        "total_prepay_and_pay_order_roi2",
-        "total_cost_per_pay_order_for_roi2",
+        *NET_GMV_FIELDS[:1],
+        *NET_ROI_FIELDS[:1],
+        *NET_ORDER_COST_FIELDS[:1],
+        *GROSS_GMV_FIELDS,
+        *GROSS_ORDER_FIELDS,
+        *GROSS_ROI_FIELDS,
         "video_play_count_for_roi2_v2",
         "video_play_finish_rate_for_roi2_v2",
         "video_avg_watch_duration_for_roi2",
@@ -134,11 +219,14 @@ DEFAULT_CAMPAIGN_CONFIG: dict[str, Any] = {
         "live_show_count_exclude_video_for_roi2",
         "live_watch_count_exclude_video_for_roi2",
         "live_cvr_rate_exclude_video_for_roi2",
-        "total_pay_order_count_for_roi2_fork",
+        *NET_ORDER_FIELDS[:1],
         "stat_cost_for_roi2_fork",
-        "total_pay_order_gmv_for_roi2_fork",
-        "total_prepay_and_pay_order_roi2_fork",
-        "total_cost_per_pay_order_for_roi2_fork",
+        *NET_GMV_FIELDS[:1],
+        *NET_ROI_FIELDS[:1],
+        *NET_ORDER_COST_FIELDS[:1],
+        *GROSS_GMV_FIELDS,
+        *GROSS_ORDER_FIELDS,
+        *GROSS_ROI_FIELDS,
     ],
     "method": "GET",
     "timeoutSeconds": DEFAULT_TIMEOUT_SECONDS,
@@ -151,17 +239,23 @@ DEFAULT_CAMPAIGN_CONFIG: dict[str, Any] = {
     "moneyDivisor": 100000,
     "fields": [
         "stat_cost",
-        "total_pay_order_gmv_for_roi2",
-        "total_pay_order_count_for_roi2",
-        "total_prepay_and_pay_order_roi2",
-        "total_cost_per_pay_order_for_roi2",
+        *NET_GMV_FIELDS[:1],
+        *NET_ORDER_FIELDS[:1],
+        *NET_ROI_FIELDS[:1],
+        *NET_ORDER_COST_FIELDS[:1],
+        *GROSS_GMV_FIELDS,
+        *GROSS_ORDER_FIELDS,
+        *GROSS_ROI_FIELDS,
     ],
     "materialFields": [
         "stat_cost_for_roi2",
-        "total_pay_order_gmv_for_roi2",
-        "total_pay_order_count_for_roi2",
-        "total_prepay_and_pay_order_roi2",
-        "total_cost_per_pay_order_for_roi2",
+        *NET_GMV_FIELDS[:1],
+        *NET_ORDER_FIELDS[:1],
+        *NET_ROI_FIELDS[:1],
+        *NET_ORDER_COST_FIELDS[:1],
+        *GROSS_GMV_FIELDS,
+        *GROSS_ORDER_FIELDS,
+        *GROSS_ROI_FIELDS,
         "live_show_count_for_roi2_v2",
         "live_watch_count_for_roi2_v2",
         "live_cvr_rate_for_roi2_v2",
@@ -171,10 +265,13 @@ DEFAULT_CAMPAIGN_CONFIG: dict[str, Any] = {
     ],
     "liveRoomFields": [
         "stat_cost_for_roi2",
-        "total_pay_order_gmv_for_roi2",
-        "total_pay_order_count_for_roi2",
-        "total_prepay_and_pay_order_roi2",
-        "total_cost_per_pay_order_for_roi2",
+        *NET_GMV_FIELDS[:1],
+        *NET_ORDER_FIELDS[:1],
+        *NET_ROI_FIELDS[:1],
+        *NET_ORDER_COST_FIELDS[:1],
+        *GROSS_GMV_FIELDS,
+        *GROSS_ORDER_FIELDS,
+        *GROSS_ROI_FIELDS,
         "live_show_count_exclude_video_for_roi2",
         "live_watch_count_exclude_video_for_roi2",
         "live_cvr_rate_exclude_video_for_roi2",
@@ -186,8 +283,14 @@ DEFAULT_CAMPAIGN_CONFIG: dict[str, Any] = {
         "status": ["ad_info.status", "status", "opt_status", "campaign_status"],
         "date": ["stat_date", "stat_datetime", "date", "time"],
         "spend": ["stats_info.stat_cost", "stat_cost", "cost", "spend"],
-        "gmv": ["stats_info.total_pay_order_gmv_for_roi2", "pay_order_amount", "gmv", "user_pay_amount"],
-        "orders": ["stats_info.total_pay_order_count_for_roi2", "pay_order_count", "order_count", "orders"],
+        "gmv": [f"stats_info.{field}" for field in NET_GMV_FIELDS] + list(NET_GMV_FIELDS),
+        "orders": [f"stats_info.{field}" for field in NET_ORDER_FIELDS] + list(NET_ORDER_FIELDS),
+        "roi": [f"stats_info.{field}" for field in NET_ROI_FIELDS] + list(NET_ROI_FIELDS),
+        "orderCost": [f"stats_info.{field}" for field in NET_ORDER_COST_FIELDS] + list(NET_ORDER_COST_FIELDS),
+        "grossGmv": [f"stats_info.{field}" for field in GROSS_GMV_FIELDS] + list(GROSS_GMV_FIELDS),
+        "grossOrders": [f"stats_info.{field}" for field in GROSS_ORDER_FIELDS] + list(GROSS_ORDER_FIELDS),
+        "grossRoi": [f"stats_info.{field}" for field in GROSS_ROI_FIELDS] + list(GROSS_ROI_FIELDS),
+        "grossOrderCost": [f"stats_info.{field}" for field in GROSS_ORDER_COST_FIELDS] + list(GROSS_ORDER_COST_FIELDS),
         "materialId": ["material_id", "creative_id", "ad_id", "id"],
         "materialName": ["material_name", "creative_name", "ad_name", "name"],
         "materialType": ["material_type", "type", "creative_material_mode"],
@@ -361,6 +464,73 @@ def atomic_write_json(path: Path, payload: Any) -> None:
         handle.flush()
         os.fsync(handle.fileno())
     os.replace(temp_path, path)
+
+
+def _sanitize_speaker_name(raw_name: str) -> str:
+    value = re.sub(r"[\r\n\t]+", " ", str(raw_name or "")).strip()
+    return value[:40]
+
+
+def load_speakers() -> list[dict[str, Any]]:
+    payload = load_json(SPEAKERS_PATH, {"version": 1, "speakers": []})
+    speakers = payload.get("speakers") if isinstance(payload, dict) else []
+    return [item for item in speakers if isinstance(item, dict)]
+
+
+def save_speaker_face(name: str, ext: str, content: bytes) -> dict[str, Any]:
+    name = _sanitize_speaker_name(name)
+    if not name:
+        raise ValueError("主播姓名不能为空")
+    if ext.lower() not in SPEAKER_FACE_EXTENSIONS:
+        raise ValueError("只支持 jpg / png / webp 图片")
+    if len(content) > SPEAKER_FACE_MAX_BYTES:
+        raise ValueError("正脸图片不能超过 8 MB")
+    SPEAKER_FACES_DIR.mkdir(parents=True, exist_ok=True)
+    speaker_id = uuid.uuid4().hex[:12]
+    filename = f"{speaker_id}{ext.lower()}"
+    (SPEAKER_FACES_DIR / filename).write_bytes(content)
+    record = {
+        "id": speaker_id,
+        "name": name,
+        "face": f"speaker-faces/{filename}",
+        "createdAt": now_iso(),
+    }
+    speakers = load_speakers()
+    speakers.append(record)
+    atomic_write_json(SPEAKERS_PATH, {"version": 1, "speakers": speakers})
+    return record
+
+
+def _session_speaker_map_path(session_id: str) -> Path:
+    safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", str(session_id or ""))[:120]
+    return RECORDINGS_DIR / safe / "asr" / "speaker-map.json"
+
+
+def load_session_speaker_map(session_id: str) -> dict[str, Any]:
+    payload = load_json(_session_speaker_map_path(session_id), {})
+    return payload if isinstance(payload, dict) else {}
+
+
+def save_session_speaker_map(
+    session_id: str,
+    speaker: str,
+    reference: dict[str, Any],
+) -> dict[str, Any]:
+    speaker = str(speaker or "").strip()
+    if not speaker:
+        raise ValueError("缺少说话人标识")
+    payload = load_session_speaker_map(session_id)
+    speakers = payload.get("speakers") if isinstance(payload.get("speakers"), dict) else {}
+    speakers = dict(speakers)
+    speakers[speaker] = {
+        "id": str(reference.get("id") or ""),
+        "name": _sanitize_speaker_name(str(reference.get("name") or "")),
+        "face": str(reference.get("face") or ""),
+        "assignedAt": now_iso(),
+    }
+    payload = {"version": 1, "speakers": speakers, "updatedAt": now_iso()}
+    atomic_write_json(_session_speaker_map_path(session_id), payload)
+    return payload
 
 
 class LearningDocumentError(ValueError):
@@ -710,6 +880,56 @@ def _learning_excerpt(text: str, limit: int = 260) -> str:
     return compact[: limit - 1].rstrip() + "…"
 
 
+def _learning_section_label(text: str, matched_terms: list[str] | None = None) -> str:
+    """Return the nearest numbered Markdown section for a retrieval hit."""
+    source = str(text or "")
+    headings = [
+        (match.start(), len(match.group(1)), match.group(2).strip())
+        for match in re.finditer(r"(?m)^(#{1,6})\s+(.+?)\s*$", source)
+    ]
+    if not headings:
+        return ""
+    positions = [
+        source.casefold().find(str(term).casefold())
+        for term in (matched_terms or [])
+        if str(term).strip()
+    ]
+    positions = [position for position in positions if position >= 0]
+    pivot = min(positions) if positions else 0
+    preceding = [heading for heading in headings if heading[0] <= pivot]
+    top_level = [heading for heading in preceding if heading[1] <= 2]
+    heading = (top_level or preceding or headings)[-1]
+    title = heading[2]
+    numbered = re.match(
+        r"^(?:第)?([一二三四五六七八九十百零〇两\d]+)(?:节|[、.．])\s*(.+)$",
+        title,
+    )
+    if not numbered:
+        return title
+    number, name = numbered.groups()
+    ordinal = number
+    if ordinal.isdigit():
+        digits = {
+            "0": "零",
+            "1": "一",
+            "2": "二",
+            "3": "三",
+            "4": "四",
+            "5": "五",
+            "6": "六",
+            "7": "七",
+            "8": "八",
+            "9": "九",
+        }
+        if len(ordinal) == 1:
+            ordinal = digits[ordinal]
+        elif ordinal == "10":
+            ordinal = "十"
+        elif len(ordinal) == 2 and ordinal.startswith("1"):
+            ordinal = "十" + (digits[ordinal[1]] if ordinal[1] != "0" else "")
+    return f"第{ordinal}节 {name.strip()}"
+
+
 def _learning_action_sentence(excerpt: str) -> str:
     sentences = [
         item.strip()
@@ -739,15 +959,228 @@ def _learning_action_sentence(excerpt: str) -> str:
     return _learning_excerpt(ranked[0] if ranked else excerpt, 180)
 
 
+def _delivery_action_direction(text: str) -> str:
+    """Classify a suggestion/excerpt into a coarse投放动作方向，用于经验底线校验。"""
+    lowered = str(text or "").lower()
+    if any(
+        term in lowered
+        for term in (
+            "暂停",
+            "停投",
+            "停掉",
+            "控量",
+            "降预算",
+            "减预算",
+            "收缩",
+            "压预算",
+            "砍",
+            "删除",
+            "降价",
+            "停止放量",
+            "暂缓放量",
+        )
+    ):
+        return "cut"
+    if any(
+        term in lowered
+        for term in ("观察", "保持", "维持", "暂缓", "不操作", "先检查", "回看", "排查")
+    ):
+        return "hold"
+    if any(
+        term in lowered
+        for term in (
+            "放量",
+            "追投",
+            "加预算",
+            "提预算",
+            "扩量",
+            "提高出价",
+            "拉满",
+            "放大",
+            "加投",
+        )
+    ):
+        return "scale"
+    return ""
+
+
+def _general_delivery_suggestions(question: str) -> list[str]:
+    """大模型之外的本地通用投放知识框架，独立于用户上传的经验。"""
+    text = str(question or "").lower()
+    suggestions: list[str] = []
+
+    if any(term in text for term in ("roi", "投产", "转化", "亏", "低于", "下降", "下滑")):
+        suggestions.append(
+            "先核对数据口径与统计周期，把“整体 ROI 低”拆成单计划、单素材、单时段去看，避免一刀切全量关停。"
+        )
+        suggestions.append(
+            "优先排查高消耗低转化的素材与人群，替换或收窄定向；同时回看成交下滑时段的话术与货品承接。"
+        )
+    if any(term in text for term in ("成本", "客单", "单价", "出价", "升高", "上涨")):
+        suggestions.append(
+            "订单成本升高时，先区分是大盘竞价抬升、出价调整还是素材衰减造成，再决定是否控量。"
+        )
+        suggestions.append(
+            "保留 ROI 达标的计划与素材，优先停掉高消耗、高成本、零成交的消耗点，而不是整体砍预算。"
+        )
+    if any(term in text for term in ("订单", "成交", "出单", "转化")):
+        suggestions.append(
+            "成交或订单下降时，先看流量结构、进人质量和直播间承接，定位是流量问题还是转化问题。"
+        )
+    if any(term in text for term in ("放量", "追投", "加预算", "扩量")):
+        suggestions.append(
+            "放量应小步推进，优先加给近期 ROI 达标的计划或素材，并设好止损边界。"
+        )
+    if any(term in text for term in ("流量", "进人", "曝光", "点击")):
+        suggestions.append(
+            "流量异常先区分付费与自然流量占比，确认是否断档、定向是否过窄，或素材点击率是否衰减。"
+        )
+
+    if not suggestions:
+        suggestions = [
+            "先明确问题发生的时间段、计划和素材，把问题定位到可操作的对象。",
+            "按“消耗→点击→成交”链路逐层检查，优先处理消耗高但转化差的环节。",
+            "所有动作小步验证，设置明确的止损边界，避免情绪化大起大落。",
+        ]
+    return suggestions
+
+
+LEARNING_PROFILE_FILENAME = "delivery-profile.json"
+LEARNING_PROFILE_MAX_TEXT = 24000
+
+PROFILE_METRIC_TERMS = (
+    ("roi", ("roi", "投产", "投产比")),
+    ("cost", ("订单成本", "转化成本", "客单", "成本")),
+    ("budget", ("预算", "消耗")),
+    ("order", ("成交", "订单", "出单", "转化")),
+    ("watch", ("观看", "停留", "进入", "在线", "看播")),
+    ("flow", ("流量", "曝光", "点击", "千次")),
+)
+
+PROFILE_GUARDRAIL_TERMS = (
+    "底线",
+    "绝对",
+    "绝不",
+    "禁止",
+    "严禁",
+    "红线",
+    "不能碰",
+    "永远不",
+    "不允许",
+    "一律",
+    "必须停止",
+    "必须停",
+    "宁可",
+)
+
+
+def _extract_json_object(text: str) -> dict[str, Any]:
+    """从模型输出中稳健地取出第一个 JSON 对象。"""
+    source = str(text or "").strip()
+    if not source:
+        return {}
+    start = source.find("{")
+    end = source.rfind("}")
+    if start < 0 or end <= start:
+        return {}
+    try:
+        value = json.loads(source[start : end + 1])
+    except (json.JSONDecodeError, ValueError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def _split_profile_sentences(text: str) -> list[str]:
+    compact = re.sub(r"[ \t\u3000]+", " ", str(text or "")).strip()
+    parts = [item.strip() for item in re.split(r"(?<=[。！？；;])|\n+", compact)]
+    return [item for item in parts if len(item) >= 4]
+
+
+def _profile_metric(text: str) -> str:
+    lowered = str(text or "").lower()
+    for metric, terms in PROFILE_METRIC_TERMS:
+        if any(term in lowered for term in terms):
+            return metric
+    return ""
+
+
+def _profile_threshold(text: str) -> str:
+    match = re.search(r"(\d+(?:\.\d+)?)\s*(%|％|元|倍|个|单|人|分|秒)?", str(text or ""))
+    if not match:
+        return ""
+    number = match.group(1)
+    unit = match.group(2) or ""
+    return f"{number}{unit}"
+
+
+def _profile_habit_category(text: str) -> str:
+    lowered = str(text or "").lower()
+    if re.search(r"暂停|停投|停掉|关停|停止", lowered):
+        return "暂停"
+    if any(
+        term in lowered
+        for term in ("缩量", "控量", "降预算", "减预算", "收缩", "压预算", "砍预算", "控成本")
+    ) or re.search(r"(降|减|砍|收缩|压)\s*(?:\d+(?:\.\d+)?\s*%?\s*)?预算", lowered):
+        return "缩量"
+    if any(
+        term in lowered
+        for term in ("加预算", "提预算", "放量", "追投", "加投", "扩量", "拉满", "放大", "追量")
+    ) or re.search(r"(加|提|追加)\s*(?:\d+(?:\.\d+)?\s*%?\s*)?预算", lowered):
+        return "加预算"
+    return ""
+
+
+def _strip_profile_label(sentence: str) -> str:
+    """去掉“投放习惯：”“操作逻辑：”“底线：”这类短前缀标签。"""
+    match = re.match(r"^[^，。；;！？\d]{1,12}：", str(sentence or ""))
+    if not match:
+        return sentence
+    return sentence[match.end() :].strip()
+
+
+def _profile_logic_split(sentence: str) -> tuple[str, str]:
+    for marker in ("则", "就", "应", "先", "立即", "马上", "时", "后"):
+        index = sentence.find(marker)
+        if index > 0 and index < len(sentence) - 1:
+            return (
+                sentence[: index + 1].strip(),
+                sentence[index + 1 :].strip().lstrip("，,；;：: "),
+            )
+    return sentence, ""
+
+
+def _profile_item_id(category: str, text: str) -> str:
+    return hashlib.sha1(f"{category}:{text}".encode("utf-8")).hexdigest()[:12]
+
+
+def _profile_item_text(category: str, item: dict[str, Any]) -> str:
+    if category == "habits":
+        return " ".join(
+            str(item.get(key) or "")
+            for key in ("condition", "action", "evidence")
+        )
+    if category == "logic":
+        return " ".join(
+            str(item.get(key) or "")
+            for key in ("trigger", "action", "evidence")
+        )
+    return " ".join(
+        str(item.get(key) or "")
+        for key in ("rule", "evidence")
+    )
+
+
 class LearningDocumentStore:
     """Persist internal product-learning documents below one project root."""
 
-    def __init__(self, root: Path) -> None:
+    def __init__(self, root: Path, ai_client: Any | None = None) -> None:
         self.root = root.resolve()
         self.data_dir = self.root / "data"
         self.documents_dir = self.data_dir / "learning-documents"
         self.metadata_path = self.data_dir / "learning-documents.json"
         self.index_path = self.data_dir / "learning-index.json"
+        self.profile_path = self.data_dir / LEARNING_PROFILE_FILENAME
+        self.ai_client = ai_client
         self._lock = threading.RLock()
         self._retrieval_cache: tuple[
             str,
@@ -908,6 +1341,7 @@ class LearningDocumentStore:
                 "updatedAt": index_payload.get("updatedAt"),
                 "mode": "local_tfidf_ngram",
             },
+            "profile": self.profile_summary(),
             "limits": {
                 "maxBytes": LEARNING_DOCUMENT_MAX_BYTES,
                 "extensions": sorted(LEARNING_DOCUMENT_EXTENSIONS),
@@ -1107,10 +1541,12 @@ class LearningDocumentStore:
                 continue
             coverage = len(set(matched)) / max(1, len(set(query_tokens)))
             score *= 0.55 + coverage
-            if score >= 2.0 and (
-                len(set(matched)) >= 2
-                or any(token in {"roi", "gpm", "cpm", "gmv"} for token in matched)
-            ):
+            matched_set = set(matched)
+            has_metric_anchor = bool(matched_set & {"roi", "gpm", "cpm", "gmv"})
+            if (
+                score >= 2.0
+                and (len(matched_set) >= 2 or has_metric_anchor)
+            ) or (has_metric_anchor and score >= 0.8):
                 scored.append((score, corpus_index, matched[:12]))
         scored.sort(reverse=True, key=lambda item: item[0])
 
@@ -1121,11 +1557,22 @@ class LearningDocumentStore:
             if per_document[document_id] >= 2:
                 continue
             excerpt = _learning_excerpt(str(chunk.get("text") or ""), 320)
+            document_name = str(record.get("name") or "")
+            section_label = _learning_section_label(
+                str(chunk.get("text") or ""),
+                matched,
+            )
             hits.append(
                 {
                     "documentId": document_id,
-                    "documentName": str(record.get("name") or ""),
+                    "documentName": document_name,
                     "chunkIndex": int(chunk.get("index") or 0),
+                    "sectionLabel": section_label,
+                    "citationLabel": (
+                        f"{document_name} {section_label}".strip()
+                        if section_label
+                        else document_name
+                    ),
                     "score": round(score, 3),
                     "relevance": round(min(99.0, score / (score + 7) * 100), 1),
                     "matchedTerms": matched,
@@ -1146,6 +1593,170 @@ class LearningDocumentStore:
                 f"命中 {len(hits)} 段已学习资料"
                 if hits
                 else "已学习资料中未找到足够相关的片段"
+            ),
+        }
+
+    def answer(
+        self,
+        question: str,
+        history: list[dict[str, Any]] | None = None,
+        context: str = "",
+    ) -> dict[str, Any]:
+        """先给出通用投放知识建议，再把命中片段作为底线校验参考返回。"""
+        question_text = str(question or "").strip()[:2000]
+        if not question_text:
+            raise LearningDocumentError("请输入想询问的问题")
+
+        conversation_context: list[str] = []
+        for item in (history or [])[-8:]:
+            if not isinstance(item, dict) or item.get("role") != "user":
+                continue
+            content = re.sub(r"\s+", " ", str(item.get("content") or "")).strip()
+            if content:
+                conversation_context.append(content[:600])
+
+        search_query = " ".join([*conversation_context[-2:], question_text])
+        context_result = self.search(search_query, limit=3)
+        hits = context_result.get("hits") or []
+        index = context_result.get("index") or {}
+        document_count = int(index.get("documentCount") or 0)
+
+        general = _general_delivery_suggestions(question_text)
+        general_direction_counts: Counter = Counter(
+            direction
+            for direction in (_delivery_action_direction(item) for item in general)
+            if direction
+        )
+        dominant_direction = (
+            general_direction_counts.most_common(1)[0][0]
+            if general_direction_counts
+            else ""
+        )
+
+        profile_matches: list[dict[str, Any]] = []
+        try:
+            profile_matches = self.profile_matches(search_query, limit=8)
+        except Exception:
+            profile_matches = []
+
+        checks: list[dict[str, Any]] = []
+        answer_lines: list[str] = []
+        if context.strip():
+            answer_lines.append(f"当前数据：{context.strip()}")
+        answer_lines.append("【通用知识建议】")
+        for position, suggestion in enumerate(general, start=1):
+            answer_lines.append(f"{position}. {suggestion}")
+        answer_lines.append("")
+
+        if profile_matches:
+            answer_lines.append(
+                f"【你的投放经验】从你的文档里提炼出 {len(profile_matches)} 条相关规律："
+            )
+            for item_index, item in enumerate(profile_matches, start=1):
+                category = item.get("category")
+                source = item.get("source") if isinstance(item.get("source"), dict) else {}
+                source_name = str(source.get("documentName") or "未命名文档")
+                if category == "guardrails":
+                    label = "底线规则"
+                    body = str(item.get("rule") or "").strip()
+                elif category == "habits":
+                    label = f"投放习惯 · {str(item.get('category') or '')}"
+                    parts = [
+                        str(item.get("condition") or "").strip(),
+                        str(item.get("action") or "").strip(),
+                    ]
+                    body = " → ".join(part for part in parts if part)
+                else:
+                    label = "操作逻辑"
+                    trigger = str(item.get("trigger") or "指标变化").strip()
+                    action = str(item.get("action") or "").strip()
+                    body = f"看到 {trigger} → {action}" if action else trigger
+                evidence = str(item.get("evidence") or "").strip()
+                line = f"{item_index}. [{label}] {body}（来源：《{source_name}》）"
+                if evidence and evidence != body:
+                    line += f"；原文：{evidence}"
+                answer_lines.append(line)
+                checks.append(
+                    {
+                        "category": category,
+                        "citationLabel": source_name,
+                        "excerpt": evidence or body,
+                        "conflict": False,
+                        "note": "来自投放画像",
+                    }
+                )
+            answer_lines.append("")
+        elif not document_count:
+            answer_lines.append(
+                "【你的投放经验】还没有上传投放经验 / 操作记录，本次只能给出通用投放思路框架。"
+            )
+        elif not hits:
+            answer_lines.append(
+                "【你的投放经验】本次没有命中你的过往经验，以上为通用投放知识建议。"
+            )
+        else:
+            answer_lines.append(
+                f"【你的投放经验 · 原文片段】命中 {len(hits)} 段你的投放经验："
+            )
+            for item_index, hit in enumerate(hits, start=1):
+                excerpt = str(hit.get("excerpt") or "").strip()
+                label = hit.get("citationLabel") or hit.get("documentName") or "未命名文档"
+                experience_direction = _delivery_action_direction(excerpt)
+                conflict = False
+                note = "仅作参考，未能判断动作方向"
+                if experience_direction:
+                    if dominant_direction and experience_direction != dominant_direction:
+                        conflict = True
+                        note = "这和过往的投放习惯不符"
+                    else:
+                        note = "与通用建议方向一致"
+                checks.append(
+                    {
+                        "citationLabel": label,
+                        "excerpt": excerpt,
+                        "conflict": conflict,
+                        "note": note,
+                    }
+                )
+                flag = "冲突" if conflict else "一致" if note == "与通用建议方向一致" else "参考"
+                answer_lines.append(
+                    f"{item_index}. [{flag}]《{label}》：{excerpt}（{note}）"
+                )
+            answer_lines.append("")
+
+        answer_lines.append(
+            "说明：以上已明确区分【通用知识建议】与【你的投放经验】；"
+            "经验来自已上传文档的提炼总结，只做参考，不是唯一答案。"
+        )
+
+        answer_text = "\n".join(answer_lines)
+
+        return {
+            "ok": True,
+            "status": context_result.get("status") or "no_match",
+            "question": question_text,
+            "answer": answer_text,
+            "citations": hits,
+            "generalSuggestions": general,
+            "experienceChecks": checks,
+            "experienceProfile": profile_matches,
+            "index": index,
+            "mode": "local_grounded_extraction",
+            "confidence": (
+                min(
+                    95,
+                    int(
+                        round(
+                            sum(float(item.get("relevance") or 0) for item in hits)
+                            / len(hits)
+                        )
+                    ),
+                )
+                if hits
+                else 0
+            ),
+            "disclaimer": (
+                "回答已区分【通用知识建议】与【你的投放经验】；经验来自已上传文档的提炼总结，仅作参考。"
             ),
         }
 
@@ -1191,8 +1802,506 @@ class LearningDocumentStore:
             index_payload["updatedAt"] = metadata["updatedAt"]
             atomic_write_json(self.index_path, index_payload)
             atomic_write_json(self.metadata_path, metadata)
+            profile = self._load_profile_raw()
+            documents = profile.get("documents")
+            if isinstance(documents, dict) and safe_id in documents:
+                documents.pop(safe_id, None)
+                profile["updatedAt"] = metadata["updatedAt"]
+                profile["lastError"] = _profile_last_error(profile)
+                atomic_write_json(self.profile_path, profile)
             self._retrieval_cache = None
         return self._public_document(record)
+
+
+def _profile_last_error(profile: dict[str, Any]) -> str:
+    errors: list[str] = []
+    for doc in (profile.get("documents") or {}).values():
+        if not isinstance(doc, dict) or not doc.get("error"):
+            continue
+        name = str(doc.get("name") or "未命名")
+        errors.append(f"《{name}》：{doc.get('error')}")
+    return "；".join(errors)[:500]
+
+
+def _profile_mode_label(mode: str) -> str:
+    return {
+        "deepseek": "大模型提炼",
+        "mixed": "大模型 + 本地规则",
+        "local_fallback": "大模型不可用 · 本地规则兜底",
+        "local_heuristic": "本地规则提炼",
+    }.get(mode or "", "未提炼")
+
+
+class _ProfileHelpers:
+    """Mix-in helpers shared by the learning store profile methods."""
+
+    def _load_profile_raw(self) -> dict[str, Any]:
+        if not self.profile_path.exists():
+            return {
+                "version": 1,
+                "updatedAt": None,
+                "mode": "",
+                "summary": "",
+                "documents": {},
+                "lastError": "",
+            }
+        try:
+            payload = json.loads(self.profile_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return {
+                "version": 1,
+                "updatedAt": None,
+                "mode": "",
+                "summary": "",
+                "documents": {},
+                "lastError": "",
+            }
+        if not isinstance(payload, dict):
+            payload = {}
+        documents = payload.get("documents")
+        if not isinstance(documents, dict):
+            documents = {}
+            payload["documents"] = documents
+        return payload
+
+    def _profile_document_text(self, record: dict[str, Any]) -> str:
+        target = self.documents_dir / str(record.get("storedFilename") or "")
+        if not target.is_file():
+            return ""
+        try:
+            analysis = self._analyze_document(
+                target.read_bytes(),
+                str(record.get("extension") or ""),
+            )
+            return str(analysis.get("text") or "")
+        except Exception:
+            return ""
+
+    def _local_profile_extract(
+        self,
+        text: str,
+        document_name: str,
+    ) -> dict[str, Any]:
+        sentences = _split_profile_sentences(text)
+        habits: list[dict[str, Any]] = []
+        logic: list[dict[str, Any]] = []
+        guardrails: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for raw_sentence in sentences:
+            sentence = _strip_profile_label(raw_sentence)
+            if any(term in raw_sentence.lower() for term in PROFILE_GUARDRAIL_TERMS):
+                rule = _learning_excerpt(sentence, 240)
+                key = _profile_item_id("guardrails", rule)
+                if key not in seen:
+                    seen.add(key)
+                    guardrails.append(
+                        {
+                            "rule": rule,
+                            "severity": "hard",
+                            "metric": _profile_metric(sentence),
+                            "threshold": _profile_threshold(sentence),
+                            "confidence": "medium",
+                            "evidence": rule,
+                        }
+                    )
+                continue
+            category = _profile_habit_category(raw_sentence)
+            if category:
+                trigger, action = _profile_logic_split(sentence)
+                evidence = _learning_excerpt(sentence, 240)
+                key = _profile_item_id("habits", evidence)
+                if key not in seen:
+                    seen.add(key)
+                    habits.append(
+                        {
+                            "category": category,
+                            "condition": trigger or evidence,
+                            "action": action or category,
+                            "metric": _profile_metric(sentence),
+                            "threshold": _profile_threshold(sentence),
+                            "confidence": "medium",
+                            "evidence": evidence,
+                        }
+                    )
+                continue
+            metric = _profile_metric(sentence)
+            threshold = _profile_threshold(sentence)
+            if metric and threshold:
+                trigger, action = _profile_logic_split(sentence)
+                if action:
+                    evidence = _learning_excerpt(sentence, 240)
+                    key = _profile_item_id("logic", evidence)
+                    if key not in seen:
+                        seen.add(key)
+                        logic.append(
+                            {
+                                "trigger": trigger,
+                                "action": action,
+                                "metric": metric,
+                                "threshold": threshold,
+                                "confidence": "low",
+                                "evidence": evidence,
+                            }
+                        )
+        return {
+            "habits": habits,
+            "logic": logic,
+            "guardrails": guardrails,
+            "summary": (
+                f"已从《{document_name}》按本地规则提炼 {len(habits)} 条投放习惯、"
+                f"{len(logic)} 条操作逻辑、{len(guardrails)} 条底线规则"
+                "（未调用大模型，DeepSeek 不可用时的兜底提炼）。"
+            ),
+            "mode": "local_heuristic",
+            "error": "",
+        }
+
+    def _deepseek_profile_extract(
+        self,
+        text: str,
+        document_name: str,
+    ) -> dict[str, Any] | None:
+        client = self.ai_client
+        if client is None or not client.status().get("configured"):
+            return None
+        source = re.sub(r"\s+", " ", str(text or "")).strip()
+        if not source:
+            return None
+        source = source[:LEARNING_PROFILE_MAX_TEXT]
+        schema = {
+            "habits": [
+                {
+                    "category": "加预算|缩量|暂停|观察",
+                    "condition": "触发这个习惯的数据条件",
+                    "action": "习惯性会做的动作",
+                    "confidence": "high|medium|low",
+                    "evidence": "原文摘录，用于溯源",
+                }
+            ],
+            "logic": [
+                {
+                    "trigger": "看到什么数据变化",
+                    "action": "会做什么动作",
+                    "confidence": "high|medium|low",
+                    "evidence": "原文摘录，用于溯源",
+                }
+            ],
+            "guardrails": [
+                {
+                    "rule": "绝对不能碰的底线规则",
+                    "severity": "hard|soft",
+                    "evidence": "原文摘录，用于溯源",
+                }
+            ],
+            "summary": "一句话概括这份文档体现的投放风格",
+        }
+        result = client.generate(
+            [
+                {
+                    "role": "system",
+                    "content": (
+                        "你是资深千川投放专家，负责把用户的投放经验文档提炼成结构化“投放画像”。"
+                        "只输出一个 JSON 对象，不要输出解释、markdown 代码块或其他文字。"
+                        "要真正理解规律后总结，而不是照抄句子；只有 evidence 字段允许引用原文短句。"
+                        "没有对应类别的内容时，该数组返回空列表。"
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        f"文档名称：{document_name}\n"
+                        "请严格按下面的 schema 输出 JSON（确保 JSON 合法）：\n"
+                        f"{json.dumps(schema, ensure_ascii=False, indent=2)}\n\n"
+                        f"文档内容：\n{source}"
+                    ),
+                },
+            ],
+            purpose="product",
+            temperature=0.1,
+            max_tokens=4200,
+            json_mode=True,
+        )
+        if not result.get("ok"):
+            return {
+                "habits": [],
+                "logic": [],
+                "guardrails": [],
+                "summary": "",
+                "mode": "local_fallback",
+                "error": str(result.get("error") or "DeepSeek 调用失败"),
+            }
+        parsed = _extract_json_object(result.get("text") or "")
+        if not parsed:
+            return {
+                "habits": [],
+                "logic": [],
+                "guardrails": [],
+                "summary": "",
+                "mode": "local_fallback",
+                "error": "DeepSeek 未返回可解析的 JSON，已回退本地规则",
+            }
+
+        def _items(key: str) -> list[dict[str, Any]]:
+            value = parsed.get(key)
+            return [
+                item for item in value if isinstance(item, dict)
+            ] if isinstance(value, list) else []
+
+        return {
+            "habits": _items("habits"),
+            "logic": _items("logic"),
+            "guardrails": _items("guardrails"),
+            "summary": str(parsed.get("summary") or "").strip(),
+            "mode": "deepseek",
+            "model": str(result.get("responseModel") or result.get("model") or ""),
+            "error": "",
+        }
+
+    def _extract_profile_for_document(
+        self,
+        text: str,
+        document_name: str,
+    ) -> dict[str, Any]:
+        deepseek_result = self._deepseek_profile_extract(text, document_name)
+        if deepseek_result and deepseek_result.get("mode") == "deepseek":
+            return deepseek_result
+        fallback = self._local_profile_extract(text, document_name)
+        if deepseek_result:
+            fallback["error"] = deepseek_result.get("error") or fallback.get("error")
+            fallback["mode"] = "local_fallback"
+        return fallback
+
+    def refresh_profile(self) -> dict[str, Any]:
+        with self._lock:
+            metadata = self._load()
+            index_payload = self._load_index()
+            if self._ensure_indexes(metadata, index_payload):
+                atomic_write_json(self.index_path, index_payload)
+                atomic_write_json(self.metadata_path, metadata)
+            active = {
+                str(item.get("id")): item
+                for item in metadata["documents"]
+                if item.get("id")
+            }
+            ready_ids = {
+                document_id
+                for document_id, record in active.items()
+                if record.get("learningReady")
+            }
+            profile = self._load_profile_raw()
+            documents = profile.get("documents")
+            if not isinstance(documents, dict):
+                documents = {}
+                profile["documents"] = documents
+            stale_removed = False
+            for stale in list(documents):
+                if stale not in ready_ids:
+                    documents.pop(stale, None)
+                    stale_removed = True
+            todo: list[tuple[str, dict[str, Any]]] = []
+            for document_id in ready_ids:
+                record = active[document_id]
+                sha = str(record.get("sha256") or "")
+                cached = documents.get(document_id)
+                cached = cached if isinstance(cached, dict) else {}
+                if cached.get("profileReady") and cached.get("sha256") == sha:
+                    continue
+                todo.append((document_id, record))
+
+        results: list[tuple[str, dict[str, Any], dict[str, Any] | None]] = []
+        for document_id, record in todo:
+            text = self._profile_document_text(record)
+            if not text.strip():
+                results.append((document_id, record, None))
+                continue
+            extracted = self._extract_profile_for_document(
+                text,
+                str(record.get("name") or ""),
+            )
+            results.append((document_id, record, extracted))
+
+        if todo or stale_removed:
+            with self._lock:
+                profile = self._load_profile_raw()
+                documents = profile.get("documents")
+                if not isinstance(documents, dict):
+                    documents = {}
+                    profile["documents"] = documents
+                for stale in list(documents):
+                    if stale not in ready_ids:
+                        documents.pop(stale, None)
+                for document_id, record, extracted in results:
+                    if not extracted:
+                        documents.pop(document_id, None)
+                        continue
+                    documents[document_id] = {
+                        "sha256": str(record.get("sha256") or ""),
+                        "name": str(record.get("name") or ""),
+                        "updatedAt": now_iso(),
+                        "profileReady": True,
+                        **extracted,
+                    }
+                profile["documents"] = documents
+                modes = {
+                    str(doc.get("mode") or "")
+                    for doc in documents.values()
+                    if isinstance(doc, dict)
+                }
+                if not modes:
+                    profile["mode"] = ""
+                elif modes == {"deepseek"}:
+                    profile["mode"] = "deepseek"
+                elif "deepseek" in modes:
+                    profile["mode"] = "mixed"
+                elif "local_fallback" in modes:
+                    profile["mode"] = "local_fallback"
+                else:
+                    profile["mode"] = "local_heuristic"
+                profile["updatedAt"] = now_iso()
+                profile["lastError"] = _profile_last_error(profile)
+                atomic_write_json(self.profile_path, profile)
+        return profile
+
+    def _profile_public_view(self, payload: dict[str, Any]) -> dict[str, Any]:
+        documents = payload.get("documents")
+        documents = documents if isinstance(documents, dict) else {}
+        habits: list[dict[str, Any]] = []
+        logic: list[dict[str, Any]] = []
+        guardrails: list[dict[str, Any]] = []
+        for document_id, doc in documents.items():
+            if not isinstance(doc, dict):
+                continue
+            source = {
+                "documentId": document_id,
+                "documentName": str(doc.get("name") or ""),
+            }
+            for item in doc.get("habits") or []:
+                if isinstance(item, dict):
+                    habits.append(
+                        {
+                            **item,
+                            "id": _profile_item_id(
+                                "habits",
+                                _profile_item_text("habits", item),
+                            ),
+                            "source": source,
+                        }
+                    )
+            for item in doc.get("logic") or []:
+                if isinstance(item, dict):
+                    logic.append(
+                        {
+                            **item,
+                            "id": _profile_item_id(
+                                "logic",
+                                _profile_item_text("logic", item),
+                            ),
+                            "source": source,
+                        }
+                    )
+            for item in doc.get("guardrails") or []:
+                if isinstance(item, dict):
+                    guardrails.append(
+                        {
+                            **item,
+                            "id": _profile_item_id(
+                                "guardrails",
+                                _profile_item_text("guardrails", item),
+                            ),
+                            "source": source,
+                        }
+                    )
+        return {
+            "ok": True,
+            "version": 1,
+            "updatedAt": payload.get("updatedAt"),
+            "mode": payload.get("mode") or "",
+            "modeLabel": _profile_mode_label(str(payload.get("mode") or "")),
+            "summary": str(payload.get("summary") or "").strip(),
+            "lastError": str(payload.get("lastError") or ""),
+            "documentCount": len(documents),
+            "stats": {
+                "habitCount": len(habits),
+                "logicCount": len(logic),
+                "guardrailCount": len(guardrails),
+                "documentCount": len(documents),
+            },
+            "habits": habits,
+            "logic": logic,
+            "guardrails": guardrails,
+        }
+
+    def profile(self) -> dict[str, Any]:
+        """读取投放画像；必要时会触发新文档的提炼。"""
+        return self._profile_public_view(self.refresh_profile())
+
+    def profile_cached(self) -> dict[str, Any]:
+        """只读已提炼好的投放画像，不触发提炼，供对话和诊断使用。"""
+        return self._profile_public_view(self._load_profile_raw())
+
+    def profile_summary(self) -> dict[str, Any]:
+        payload = self._load_profile_raw()
+        documents = payload.get("documents")
+        documents = documents if isinstance(documents, dict) else {}
+        habit_count = 0
+        logic_count = 0
+        guardrail_count = 0
+        for doc in documents.values():
+            if not isinstance(doc, dict):
+                continue
+            habit_count += len(doc.get("habits") or [])
+            logic_count += len(doc.get("logic") or [])
+            guardrail_count += len(doc.get("guardrails") or [])
+        return {
+            "ok": True,
+            "updatedAt": payload.get("updatedAt"),
+            "mode": payload.get("mode") or "",
+            "modeLabel": _profile_mode_label(str(payload.get("mode") or "")),
+            "documentCount": len(documents),
+            "habitCount": habit_count,
+            "logicCount": logic_count,
+            "guardrailCount": guardrail_count,
+            "lastError": str(payload.get("lastError") or ""),
+        }
+
+    def profile_matches(self, query: str, limit: int = 6) -> list[dict[str, Any]]:
+        query_text = str(query or "").strip()
+        if not query_text:
+            return []
+        payload = self.profile_cached()
+        query_tokens = set(_learning_tokens(query_text))
+        scored: list[tuple[int, str, dict[str, Any]]] = []
+        for category in ("guardrails", "habits", "logic"):
+            for item in payload.get(category) or []:
+                text = _profile_item_text(category, item)
+                tokens = set(_learning_tokens(text))
+                overlap = query_tokens & tokens
+                if not overlap:
+                    continue
+                score = len(overlap)
+                if category == "guardrails":
+                    score += 2
+                elif category == "habits":
+                    score += 1
+                scored.append((score, category, item))
+        scored.sort(key=lambda entry: entry[0], reverse=True)
+        safe_limit = max(1, min(12, int(limit or 6)))
+        return [
+            {"category": category, "score": score, **item}
+            for score, category, item in scored[:safe_limit]
+        ]
+
+
+# Attach the profile mix-in onto the learning store so it behaves like a normal
+# store method without having to move the class above LearningDocumentStore.
+for _profile_method_name in dir(_ProfileHelpers):
+    if _profile_method_name.startswith("__"):
+        continue
+    setattr(
+        LearningDocumentStore,
+        _profile_method_name,
+        getattr(_ProfileHelpers, _profile_method_name),
+    )
 
 
 def build_learning_strategy_query(payload: dict[str, Any]) -> str:
@@ -1255,30 +2364,155 @@ def enrich_campaign_with_learning(
         return enriched
     enriched["learning"] = context
     hits = context.get("hits") or []
-    if not hits or not enriched.get("ok"):
+    profile_matches: list[dict[str, Any]] = []
+    try:
+        profile_matches = learning_store.profile_matches(query, limit=8)
+    except Exception:
+        profile_matches = []
+    enriched["learningProfile"] = {
+        "ok": True,
+        "query": query,
+        "matches": profile_matches,
+    }
+    if not enriched.get("ok"):
         return enriched
 
     decision = enriched.get("decision")
     if not isinstance(decision, dict):
         return enriched
+    if not hits and not profile_matches:
+        return enriched
+
     base_reason = str(decision.get("reason") or "")
     decision["baseReason"] = base_reason
     decision["learningApplied"] = True
+    decision["learningMode"] = "guardrail"
     decision["learningEvidence"] = hits[:2]
-    decision["learningAdvice"] = _learning_action_sentence(
-        str(hits[0].get("suggestedAction") or hits[0].get("excerpt") or "")
+    decision["learningProfile"] = profile_matches[:6]
+    decision_direction = _delivery_action_direction(
+        " ".join(
+            [
+                str(decision.get("action") or ""),
+                base_reason,
+                str(decision.get("guardrail") or ""),
+            ]
+        )
     )
-    base_confidence = int(to_number(decision.get("confidence")) or 0)
-    decision["confidence"] = min(96, base_confidence + min(8, 2 + len(hits) * 2))
+    checks: list[dict[str, Any]] = []
+    conflict = False
+    for hit in hits[:2]:
+        excerpt = str(hit.get("excerpt") or "").strip()
+        experience_direction = _delivery_action_direction(excerpt)
+        is_conflict = bool(
+            decision_direction
+            and experience_direction
+            and decision_direction != experience_direction
+        )
+        conflict = conflict or is_conflict
+        checks.append(
+            {
+                "citationLabel": (
+                    hit.get("citationLabel")
+                    or hit.get("documentName")
+                    or "未命名文档"
+                ),
+                "excerpt": excerpt,
+                "conflict": is_conflict,
+                "consistent": not is_conflict,
+            }
+        )
+    profile_checks: list[dict[str, Any]] = []
+    for item in profile_matches[:6]:
+        category = item.get("category")
+        text = _profile_item_text(category, item)
+        direction = _delivery_action_direction(text)
+        is_conflict = bool(
+            decision_direction and direction and decision_direction != direction
+        )
+        conflict = conflict or is_conflict
+        source = item.get("source") if isinstance(item.get("source"), dict) else {}
+        profile_checks.append(
+            {
+                "category": category,
+                "text": _learning_excerpt(text, 240),
+                "source": source,
+                "conflict": is_conflict,
+                "consistent": not is_conflict,
+            }
+        )
+    decision["learningConflict"] = conflict
+    decision["learningChecks"] = checks
+    decision["learningProfileChecks"] = profile_checks
+    decision["learningProfileApplied"] = bool(profile_matches)
+    decision["learningCheckNote"] = (
+        "经验底线校验：这和过往的投放习惯不符。"
+        if conflict
+        else "经验底线校验：与过往投放习惯一致。"
+    )
+    decision["learningAdvice"] = decision["learningCheckNote"]
     expected = [
         str(item)
         for item in decision.get("expected") or []
         if str(item).strip()
     ]
-    if "按学习资料复核执行边界" not in expected:
-        expected.append("按学习资料复核执行边界")
+    guardrail_note = (
+        "已标注与过往习惯的冲突" if conflict else "经验底线校验通过"
+    )
+    if guardrail_note not in expected:
+        expected.append(guardrail_note)
     decision["expected"] = expected[:5]
     return enriched
+
+
+def build_chat_data_context(store: Any, account_id: str | None = None) -> str:
+    """从当前快照生成一段紧凑的账号数据，供大模型结合当前数据作答。"""
+    try:
+        dashboard = store.dashboard()
+    except Exception:
+        return ""
+    accounts = dashboard.get("accounts") or []
+    if not accounts:
+        return ""
+    normalized = str(account_id or "").strip()
+    account = next(
+        (
+            item
+            for item in accounts
+            if normalized
+            and normalized
+            in {
+                str(item.get("id")),
+                str(item.get("advertiserId")),
+                str(item.get("qianchuanId")),
+                str(item.get("awemeId")),
+            }
+        ),
+        accounts[0],
+    )
+    rows = account.get("data") or []
+    parts = [f"当前账号：{account.get('name') or '未命名账号'}"]
+    if not rows:
+        parts.append("暂无可用数据")
+        return "；".join(parts) + "。"
+    latest = rows[-1] if isinstance(rows[-1], dict) else {}
+    spend = to_number(latest.get("spend"))
+    gmv = to_number(latest.get("gmv"))
+    orders = to_number(latest.get("orders"))
+    roi = round(gmv / spend, 2) if spend else None
+    cost = round(spend / orders, 2) if spend and orders else None
+    if latest.get("date"):
+        parts.append(f"数据日期 {latest.get('date')}")
+    if spend is not None:
+        parts.append(f"消耗 ¥{spend:,.2f}")
+    if gmv is not None:
+        parts.append(f"净成交 ¥{gmv:,.2f}")
+    if orders is not None:
+        parts.append(f"订单 {orders:.0f} 单")
+    if roi is not None:
+        parts.append(f"净成交ROI {roi:.2f}")
+    if cost is not None:
+        parts.append(f"订单成本 ¥{cost:.2f}")
+    return "；".join(parts) + "。"
 
 
 def load_config() -> dict[str, Any]:
@@ -1711,6 +2945,57 @@ def to_number(value: Any) -> float | None:
         return None
 
 
+def pick_number(source: Any, fields: tuple[str, ...]) -> float | None:
+    if not isinstance(source, dict):
+        return None
+    return to_number(pick_value(source, list(fields)))
+
+
+def settled_transaction_metrics(
+    source: Any,
+    *,
+    money_divisor: float = 1.0,
+) -> dict[str, Any]:
+    """Return net-settled canonical metrics and gross values for audit only."""
+    if not isinstance(source, dict):
+        return {"gmvScope": "net"}
+    divisor = float(money_divisor or 1.0)
+
+    def money(value: float | None) -> float | None:
+        return round(value / divisor, 2) if value is not None and divisor else value
+
+    spend = pick_number(source, ("stat_cost", "stat_cost_for_roi2"))
+    gmv = money(pick_number(source, NET_GMV_FIELDS))
+    orders = pick_number(source, NET_ORDER_FIELDS)
+    roi = pick_number(source, NET_ROI_FIELDS)
+    order_cost = money(pick_number(source, NET_ORDER_COST_FIELDS))
+    gross_gmv = money(pick_number(source, GROSS_GMV_FIELDS))
+    gross_orders = pick_number(source, GROSS_ORDER_FIELDS)
+    gross_roi = pick_number(source, GROSS_ROI_FIELDS)
+    gross_order_cost = money(pick_number(source, GROSS_ORDER_COST_FIELDS))
+    if roi is None and gmv is not None and spend:
+        roi = round(gmv / spend, 6)
+    if order_cost is None and spend is not None and orders:
+        order_cost = round(spend / orders, 2)
+    if gross_roi is None and gross_gmv is not None and spend:
+        gross_roi = round(gross_gmv / spend, 6)
+    if gross_order_cost is None and spend is not None and gross_orders:
+        gross_order_cost = round(spend / gross_orders, 2)
+    return {
+        "spend": spend,
+        "gmv": gmv,
+        "orders": orders,
+        "roi": roi,
+        "orderCost": order_cost,
+        "grossGmv": gross_gmv,
+        "grossOrders": gross_orders,
+        "grossRoi": gross_roi,
+        "grossOrderCost": gross_order_cost,
+        "gmvScope": "net",
+        "grossGmvScope": "gross_including_refund",
+    }
+
+
 def report_value(source: Any, field: str) -> Any:
     """Read a value from Qianchuan report metric/dimension envelopes."""
     if not isinstance(source, dict):
@@ -1894,8 +3179,10 @@ def normalize_uni_promotion_material_report(
             return 0.0
 
         spend = metric("stat_cost_for_roi2", "stat_cost_for_roi2_fork")
-        gmv = metric("total_pay_order_gmv_for_roi2", "total_pay_order_gmv_for_roi2_fork")
-        orders = metric("total_pay_order_count_for_roi2", "total_pay_order_count_for_roi2_fork")
+        gmv = metric(*NET_GMV_FIELDS)
+        orders = metric(*NET_ORDER_FIELDS)
+        gross_gmv = metric(*GROSS_GMV_FIELDS)
+        gross_orders = metric(*GROSS_ORDER_FIELDS)
         impressions = metric(
             "live_show_count_for_roi2_v2",
             "live_show_count_exclude_video_for_roi2",
@@ -1920,6 +3207,9 @@ def normalize_uni_promotion_material_report(
                 "spend": 0.0,
                 "gmv": 0.0,
                 "orders": 0.0,
+                "grossGmv": 0.0,
+                "grossOrders": 0.0,
+                "gmvScope": "net",
                 "impressions": 0.0,
                 "clicks": 0.0,
                 "ctr": 0.0,
@@ -1947,6 +3237,8 @@ def normalize_uni_promotion_material_report(
         item["spend"] += spend
         item["gmv"] += gmv
         item["orders"] += orders
+        item["grossGmv"] += gross_gmv
+        item["grossOrders"] += gross_orders
         item["impressions"] += impressions
         item["clicks"] += clicks
         item["_completionWeight"] += weight
@@ -1959,6 +3251,8 @@ def normalize_uni_promotion_material_report(
         item["spend"] = round(item["spend"], 2)
         item["gmv"] = round(item["gmv"], 2)
         item["orders"] = round(item["orders"], 4)
+        item["grossGmv"] = round(item["grossGmv"], 2)
+        item["grossOrders"] = round(item["grossOrders"], 4)
         item["impressions"] = round(item["impressions"], 2)
         item["clicks"] = round(item["clicks"], 2)
         item["ctr"] = round(item["clicks"] / item["impressions"] * 100, 4) if item["impressions"] else 0.0
@@ -2009,15 +3303,31 @@ def normalize_daily_rows(
         spend = to_number(pick_value(row, field_map.get("spend", DEFAULT_FIELD_MAP["spend"])))
         gmv = to_number(pick_value(row, field_map.get("gmv", DEFAULT_FIELD_MAP["gmv"])))
         orders = to_number(pick_value(row, field_map.get("orders", DEFAULT_FIELD_MAP["orders"])))
-        if spend is None and gmv is None and orders is None:
+        gross_gmv = to_number(
+            pick_value(row, field_map.get("grossGmv", DEFAULT_FIELD_MAP["grossGmv"]))
+        )
+        gross_orders = to_number(
+            pick_value(row, field_map.get("grossOrders", DEFAULT_FIELD_MAP["grossOrders"]))
+        )
+        if spend is None and gmv is None and orders is None and gross_gmv is None:
             continue
         normalized = by_date.setdefault(
             row_date,
-            {"date": row_date, "spend": 0.0, "gmv": 0.0, "orders": 0.0},
+            {
+                "date": row_date,
+                "spend": 0.0,
+                "gmv": 0.0,
+                "orders": 0.0,
+                "gmvScope": "net",
+            },
         )
         normalized["spend"] += spend or 0.0
         normalized["gmv"] += gmv or 0.0
         normalized["orders"] += orders or 0.0
+        if gross_gmv is not None:
+            normalized["grossGmv"] = normalized.get("grossGmv", 0.0) + gross_gmv
+        if gross_orders is not None:
+            normalized["grossOrders"] = normalized.get("grossOrders", 0.0) + gross_orders
         viewers = to_number(pick_value(row, field_map.get("viewers", DEFAULT_FIELD_MAP["viewers"])))
         if viewers is not None:
             normalized["viewers"] = normalized.get("viewers", 0.0) + viewers
@@ -2028,6 +3338,10 @@ def normalize_daily_rows(
         row["spend"] = round(row["spend"], 2)
         row["gmv"] = round(row["gmv"], 2)
         row["orders"] = round(row["orders"], 4)
+        if "grossGmv" in row:
+            row["grossGmv"] = round(row["grossGmv"], 2)
+        if "grossOrders" in row:
+            row["grossOrders"] = round(row["grossOrders"], 4)
         if "viewers" in row:
             row["viewers"] = round(row["viewers"], 4)
         result.append(row)
@@ -2168,22 +3482,42 @@ def normalize_campaign_daily_rows(
         spend = to_number(pick_value(row, field_map.get("spend", DEFAULT_FIELD_MAP["spend"])))
         gmv = to_number(pick_value(row, field_map.get("gmv", DEFAULT_FIELD_MAP["gmv"])))
         orders = to_number(pick_value(row, field_map.get("orders", DEFAULT_FIELD_MAP["orders"])))
-        if spend is None and gmv is None and orders is None:
+        gross_gmv = to_number(
+            pick_value(row, field_map.get("grossGmv", DEFAULT_FIELD_MAP["grossGmv"]))
+        )
+        gross_orders = to_number(
+            pick_value(row, field_map.get("grossOrders", DEFAULT_FIELD_MAP["grossOrders"]))
+        )
+        if spend is None and gmv is None and orders is None and gross_gmv is None:
             continue
         key = (campaign_id, row_date)
         normalized = by_campaign_date.setdefault(
             key,
-            {"date": row_date, "spend": 0.0, "gmv": 0.0, "orders": 0.0},
+            {
+                "date": row_date,
+                "spend": 0.0,
+                "gmv": 0.0,
+                "orders": 0.0,
+                "gmvScope": "net",
+            },
         )
         normalized["spend"] += spend or 0.0
         normalized["gmv"] += gmv or 0.0
         normalized["orders"] += orders or 0.0
+        if gross_gmv is not None:
+            normalized["grossGmv"] = normalized.get("grossGmv", 0.0) + gross_gmv
+        if gross_orders is not None:
+            normalized["grossOrders"] = normalized.get("grossOrders", 0.0) + gross_orders
 
     by_campaign: dict[str, list[dict[str, Any]]] = {}
     for (campaign_id, _row_date), row in sorted(by_campaign_date.items()):
         row["spend"] = round(row["spend"], 2)
         row["gmv"] = round(row["gmv"], 2)
         row["orders"] = round(row["orders"], 4)
+        if "grossGmv" in row:
+            row["grossGmv"] = round(row["grossGmv"], 2)
+        if "grossOrders" in row:
+            row["grossOrders"] = round(row["grossOrders"], 4)
         by_campaign.setdefault(campaign_id, []).append(row)
     return by_campaign, campaign_names
 
@@ -2515,6 +3849,10 @@ class QianchuanMCPClient:
             "page_info": {"page": 1, "page_size": 100},
             "fields": [
                 "stat_cost",
+                *NET_GMV_FIELDS,
+                *NET_ORDER_FIELDS,
+                *NET_ROI_FIELDS,
+                *NET_ORDER_COST_FIELDS,
                 "pay_order_amount",
                 "pay_order_count",
                 "total_pay_order_gmv_for_roi2",
@@ -2629,9 +3967,13 @@ class QianchuanMCPClient:
             "end_date": end_time,
             "fields": [
                 "stat_cost",
-                "total_pay_order_gmv_for_roi2",
-                "total_pay_order_count_for_roi2",
-                "total_prepay_and_pay_order_roi2",
+                *NET_GMV_FIELDS,
+                *NET_ORDER_FIELDS,
+                *NET_ROI_FIELDS,
+                *NET_ORDER_COST_FIELDS,
+                *GROSS_GMV_FIELDS,
+                *GROSS_ORDER_FIELDS,
+                *GROSS_ROI_FIELDS,
             ],
             "marketing_goal": "ALL",
             "order_platform": "ALL",
@@ -2661,6 +4003,8 @@ class QianchuanMCPClient:
                 item
                 for item in self.iter_dicts(payload)
                 if "stat_cost" in item
+                or any(field in item for field in NET_GMV_FIELDS)
+                or any(field in item for field in NET_ORDER_FIELDS)
                 or "total_pay_order_gmv_for_roi2" in item
                 or "total_pay_order_count_for_roi2" in item
             ),
@@ -3083,8 +4427,11 @@ class QianchuanClient:
                     "start": start.isoformat(),
                     "end": end.isoformat(),
                     "spend": self._campaign_money(stats.get("stat_cost")),
-                    "gmv": self._campaign_money(stats.get("total_pay_order_gmv_for_roi2")),
-                    "orders": to_number(stats.get("total_pay_order_count_for_roi2")) or 0.0,
+                    "gmv": self._campaign_money(pick_number(stats, NET_GMV_FIELDS)),
+                    "orders": pick_number(stats, NET_ORDER_FIELDS) or 0.0,
+                    "grossGmv": self._campaign_money(pick_number(stats, GROSS_GMV_FIELDS)),
+                    "grossOrders": pick_number(stats, GROSS_ORDER_FIELDS) or 0.0,
+                    "gmvScope": "net",
                 }
         except QianchuanAPIError:
             pass
@@ -3094,7 +4441,11 @@ class QianchuanClient:
         while current >= start:
             day = current.isoformat()
             cached_has_day = any(
-                any(str(row.get("date"))[:10] == day for row in plan.get("data") or [])
+                any(
+                    str(row.get("date"))[:10] == day
+                    and row.get("gmvScope") == "net"
+                    for row in plan.get("data") or []
+                )
                 for plan in plans_by_id.values()
             )
             if cached_has_day and current < refresh_start:
@@ -3126,8 +4477,11 @@ class QianchuanClient:
                     {
                         "date": day,
                         "spend": self._campaign_money(stats.get("stat_cost")),
-                        "gmv": self._campaign_money(stats.get("total_pay_order_gmv_for_roi2")),
-                        "orders": to_number(stats.get("total_pay_order_count_for_roi2")) or 0.0,
+                        "gmv": self._campaign_money(pick_number(stats, NET_GMV_FIELDS)),
+                        "orders": pick_number(stats, NET_ORDER_FIELDS) or 0.0,
+                        "grossGmv": self._campaign_money(pick_number(stats, GROSS_GMV_FIELDS)),
+                        "grossOrders": pick_number(stats, GROSS_ORDER_FIELDS) or 0.0,
+                        "gmvScope": "net",
                     }
                 )
             if interval:
@@ -3152,6 +4506,9 @@ class QianchuanClient:
                     "spend": period["spend"],
                     "gmv": period["gmv"],
                     "orders": period["orders"],
+                    "grossGmv": period.get("grossGmv"),
+                    "grossOrders": period.get("grossOrders"),
+                    "gmvScope": "net",
                 }]
                 plan["aggregateOnly"] = True
             else:
@@ -3167,10 +4524,13 @@ class QianchuanClient:
     ) -> list[dict[str, Any]]:
         metrics = [
             "stat_cost",
-            "total_pay_order_gmv_for_roi2",
-            "total_pay_order_count_for_roi2",
-            "total_cost_per_pay_order_for_roi2",
-            "total_prepay_and_pay_order_roi2",
+            *NET_GMV_FIELDS[:1],
+            *NET_ORDER_FIELDS[:1],
+            *NET_ORDER_COST_FIELDS[:1],
+            *NET_ROI_FIELDS[:1],
+            *GROSS_GMV_FIELDS,
+            *GROSS_ORDER_FIELDS,
+            *GROSS_ROI_FIELDS,
         ]
         params = {
             "advertiser_id": advertiser_id,
@@ -3196,12 +4556,14 @@ class QianchuanClient:
             row_date = str(row.get("stat_datetime") or "")[:10]
             if row_date < start_date or row_date > end_date:
                 continue
+            transaction = settled_transaction_metrics(row)
             result.append(
                 {
                     "date": row_date,
+                    **transaction,
                     "spend": to_number(row.get("stat_cost")) or 0.0,
-                    "gmv": to_number(row.get("total_pay_order_gmv_for_roi2")) or 0.0,
-                    "orders": to_number(row.get("total_pay_order_count_for_roi2")) or 0.0,
+                    "gmv": transaction.get("gmv") or 0.0,
+                    "orders": transaction.get("orders") or 0.0,
                 }
             )
         return sorted(result, key=lambda item: item["date"])
@@ -3329,11 +4691,14 @@ class QianchuanClient:
                     "duration": str(video.get("video_duration") or "—"),
                     "spend": material_metric("stat_cost_for_roi2", "stat_cost", "cost", "spend"),
                     "gmv": material_metric(
-                        "total_pay_order_gmv_for_roi2", "pay_order_amount", "gmv", "user_pay_amount"
+                        *NET_GMV_FIELDS
                     ),
                     "orders": material_metric(
-                        "total_pay_order_count_for_roi2", "pay_order_count", "order_count", "orders"
+                        *NET_ORDER_FIELDS
                     ),
+                    "grossGmv": material_metric(*GROSS_GMV_FIELDS),
+                    "grossOrders": material_metric(*GROSS_ORDER_FIELDS),
+                    "gmvScope": "net",
                     "impressions": material_metric(
                         "live_show_count_for_roi2_v2",
                         "live_show_count_exclude_video_for_roi2",
@@ -3711,6 +5076,9 @@ class QianchuanClient:
                         "live_cost_per_product",
                         "live_product_price",
                         "live_product_Inventory",
+                        *NET_GMV_FIELDS,
+                        *NET_ORDER_FIELDS,
+                        *NET_ROI_FIELDS,
                         "live_pay_order_gmv_alias",
                         "luban_live_pay_order_gmv",
                         "live_pay_order_count_alias",
@@ -3739,9 +5107,16 @@ class QianchuanClient:
                     "price": self._live_money(row.get("live_product_price")),
                     "stock": to_number(row.get("live_product_Inventory")),
                     "cost": self._live_money(row.get("live_cost_per_product")),
-                    "gmv": self._live_money(row.get("live_pay_order_gmv_alias")),
-                    "orders": to_number(row.get("live_pay_order_count_alias")) or 0,
-                    "roi": to_number(row.get("live_pay_order_roi_per_product")),
+                    "gmv": self._live_money(pick_number(row, NET_GMV_FIELDS)),
+                    "orders": pick_number(row, NET_ORDER_FIELDS) or 0,
+                    "roi": pick_number(row, NET_ROI_FIELDS),
+                    "grossGmv": self._live_money(
+                        to_number(row.get("live_pay_order_gmv_alias"))
+                    ),
+                    "grossOrders": to_number(
+                        row.get("live_pay_order_count_alias")
+                    ),
+                    "gmvScope": "net",
                 }
             )
         return products
@@ -3757,6 +5132,8 @@ def make_seed_snapshot() -> dict[str, Any]:
         "syncStatus": "degraded",
         "mode": "seed",
         "historyDays": HISTORY_DAYS,
+        "transactionScope": "net",
+        "transactionScopeLabel": "净成交（剔除1小时内退款）",
         "accounts": [
             {
                 **DEFAULT_ACCOUNT,
@@ -3764,6 +5141,8 @@ def make_seed_snapshot() -> dict[str, Any]:
                 "status": "待同步",
                 "source": "千川全域推广 · 已确认快照",
                 "dataCutoff": cutoff,
+                "transactionScope": "net",
+                "transactionScopeLabel": "净成交（剔除1小时内退款）",
                 "data": copy.deepcopy(SEED_ROWS),
                 "raw": [],
                 "plans": [],
@@ -3786,6 +5165,15 @@ def account_last_date(account: dict[str, Any]) -> str | None:
     return max(dates) if dates else None
 
 
+def daily_rows_have_activity(rows: list[dict[str, Any]]) -> bool:
+    return any(
+        (to_number(row.get(key)) or 0.0) > 0
+        for row in rows
+        if isinstance(row, dict)
+        for key in ("spend", "gmv", "orders")
+    )
+
+
 class DashboardStore:
     def __init__(self, snapshot_path: Path = SNAPSHOT_PATH):
         self.snapshot_path = snapshot_path
@@ -3800,11 +5188,23 @@ class DashboardStore:
         self.live_cache: dict[str, tuple[float, dict[str, Any]]] = {}
         self.live_trade_cache: dict[str, tuple[float, dict[str, Any]]] = {}
         self.campaign_cache: dict[str, tuple[float, dict[str, Any]]] = {}
+        self.mcp_overlay_inflight: set[str] = set()
+        self.mcp_overlay_retry_after: dict[str, float] = {}
         self.five_dimension_inflight: set[str] = set()
         self.five_dimension_retry_after: dict[str, float] = {}
         self.five_dimension_last_error: dict[str, str] = {}
         self.live_screen_path = snapshot_path.parent / LIVE_SCREEN_STATE_PATH.name
         self.live_history_path = snapshot_path.parent / LIVE_SCREEN_HISTORY_PATH.name
+        self.live_refresh_request_path = (
+            snapshot_path.parent / LIVE_SCREEN_REFRESH_REQUEST_NAME
+        )
+        self.buyin_live_path = snapshot_path.parent / BUYIN_LIVE_STATE_PATH.name
+        self.buyin_audience_history_path = (
+            snapshot_path.parent / BUYIN_AUDIENCE_HISTORY_PATH.name
+        )
+        self.buyin_refresh_request_path = (
+            snapshot_path.parent / BUYIN_LIVE_REFRESH_REQUEST_NAME
+        )
         self.live_history_backup_path = self.live_history_path.with_suffix(".bak.json")
         self.live_history_cache_lock = threading.RLock()
         self.live_history_memory: dict[str, Any] | None = None
@@ -3840,7 +5240,203 @@ class DashboardStore:
 
     def dashboard(self) -> dict[str, Any]:
         with self.lock:
-            return copy.deepcopy(self.snapshot)
+            snapshot = copy.deepcopy(self.snapshot)
+        return self._apply_source_isolated_today(snapshot)
+
+    def _apply_source_isolated_today(
+        self,
+        snapshot: dict[str, Any],
+        state_override: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Prefer cached MCP data, with a clearly labelled screen fallback."""
+        state = (
+            copy.deepcopy(state_override)
+            if isinstance(state_override, dict)
+            else load_json(self.live_screen_path, {})
+        )
+        screen_metrics = state.get("metrics") if isinstance(state, dict) else None
+        room = state.get("room") if isinstance(state, dict) else None
+        screen_available = (
+            isinstance(screen_metrics, dict)
+            and bool(screen_metrics)
+            and isinstance(room, dict)
+            and bool(state.get("live"))
+            and str(state.get("status") or "") in {"ok", "partial"}
+        )
+        if not screen_available:
+            return snapshot
+        applied = False
+        for account in snapshot.get("accounts") or []:
+            mcp_payload: dict[str, Any] = {}
+            with self.live_lock:
+                cached = self.campaign_cache.get(str(account.get("id") or ""))
+                if cached and time.time() - cached[0] < 60:
+                    candidate = cached[1]
+                    if (
+                        isinstance(candidate, dict)
+                        and candidate.get("ok")
+                        and candidate.get("mcpAvailable") is True
+                    ):
+                        mcp_payload = candidate
+            mcp_metrics = (
+                mcp_payload.get("metrics")
+                if isinstance(mcp_payload.get("metrics"), dict)
+                else {}
+            )
+            use_mcp = any(
+                to_number(mcp_metrics.get(key)) is not None
+                for key in ("spend", "gmv", "orders", "roi")
+            )
+            if (
+                not use_mcp
+                and self.snapshot_path.resolve() == SNAPSHOT_PATH.resolve()
+            ):
+                account_id = str(account.get("id") or "")
+                now = time.time()
+                with self.live_lock:
+                    can_refresh = (
+                        account_id
+                        and account_id not in self.mcp_overlay_inflight
+                        and now >= self.mcp_overlay_retry_after.get(account_id, 0.0)
+                    )
+                    if can_refresh:
+                        self.mcp_overlay_inflight.add(account_id)
+                if can_refresh:
+                    threading.Thread(
+                        target=self._refresh_mcp_overlay,
+                        args=(account_id,),
+                        name=f"mcp-overlay-{account_id}",
+                        daemon=True,
+                    ).start()
+            source_metrics = mcp_metrics if use_mcp else screen_metrics
+            aweme_id = str(
+                (mcp_payload.get("room") or {}).get("awemeId")
+                if use_mcp
+                else room.get("awemeId")
+                or ""
+            )
+            matching_awemes = [
+                aweme
+                for aweme in account.get("awemes") or []
+                if str(aweme.get("id") or "") == aweme_id
+            ]
+            if not matching_awemes and aweme_id:
+                continue
+            if not matching_awemes:
+                matching_awemes = (account.get("awemes") or [])[:1]
+            source_label = (
+                "千川 MCP · 主数据源"
+                if use_mcp
+                else "大屏直抓（MCP暂不可用）"
+            )
+            source_row = {
+                "date": date.today().isoformat(),
+                "spend": to_number(source_metrics.get("spend")),
+                "gmv": to_number(source_metrics.get("gmv")),
+                "orders": to_number(source_metrics.get("orders")),
+                "roi": to_number(source_metrics.get("roi")),
+                "orderCost": to_number(
+                    source_metrics.get("orderCost", source_metrics.get("cost"))
+                ),
+                "gmvScope": "mcp" if use_mcp else "screen_net",
+                "metricSource": "mcp" if use_mcp else "live_screen_fallback",
+                "source": source_label,
+                "realtime": True,
+                "syncedAt": (
+                    mcp_payload.get("syncedAt")
+                    if use_mcp
+                    else state.get("syncedAt") or now_iso()
+                ),
+            }
+            if source_row["spend"] is None and source_row["gmv"] is None:
+                continue
+            previous_account_row = next(
+                (
+                    row
+                    for row in account.get("data") or []
+                    if str(row.get("date") or "")[:10] == source_row["date"]
+                ),
+                {},
+            )
+            account_source_row = {
+                **source_row,
+                "grossGmv": previous_account_row.get("grossGmv"),
+                "grossOrders": previous_account_row.get("grossOrders"),
+            }
+            account["data"] = upsert_daily_row(
+                account.get("data") or [],
+                account_source_row,
+                preserve_positive_on_zero=False,
+            )
+            for aweme in matching_awemes:
+                previous_aweme_row = next(
+                    (
+                        row
+                        for row in aweme.get("data") or []
+                        if str(row.get("date") or "")[:10] == source_row["date"]
+                    ),
+                    {},
+                )
+                aweme_source_row = {
+                    **source_row,
+                    "grossGmv": previous_aweme_row.get("grossGmv"),
+                    "grossOrders": previous_aweme_row.get("grossOrders"),
+                }
+                aweme["data"] = upsert_daily_row(
+                    aweme.get("data") or [],
+                    aweme_source_row,
+                    preserve_positive_on_zero=False,
+                )
+                aweme["realtimeSource"] = source_label
+            account["source"] = source_label
+            account["realtime"] = {
+                "date": date.today().isoformat(),
+                "syncedAt": source_row["syncedAt"],
+                "ok": True,
+                "source": source_label,
+            }
+            account["reconciliation"] = self._build_reconciliation(account)
+            applied = True
+        if applied:
+            used_mcp = any(
+                str(row.get("metricSource") or "") == "mcp"
+                for account in snapshot.get("accounts") or []
+                for row in account.get("data") or []
+                if str(row.get("date") or "")[:10] == date.today().isoformat()
+            )
+            snapshot["transactionScope"] = "mcp" if used_mcp else "screen_fallback"
+            snapshot["transactionScopeLabel"] = (
+                "MCP主数据源"
+                if used_mcp
+                else "大屏直抓（MCP暂不可用）"
+            )
+            snapshot["sourceIsolation"] = {
+                "active": True,
+                "roomId": str(room.get("id") or ""),
+                "awemeId": aweme_id,
+                "source": (
+                    "千川 MCP · 主数据源"
+                    if used_mcp
+                    else "大屏直抓（MCP暂不可用）"
+                ),
+            }
+            realtime = snapshot.setdefault("realtime", {})
+            realtime["status"] = "success"
+            sources = realtime.setdefault("sources", {})
+            sources["mcp_primary" if used_mcp else "live_screen_fallback"] = 1
+            sources["author_fallback"] = 0
+            realtime["updatedAt"] = source_row["syncedAt"]
+        return snapshot
+
+    def _refresh_mcp_overlay(self, account_id: str) -> None:
+        try:
+            self.campaign_diagnostics(account_id)
+        except Exception:
+            pass
+        finally:
+            with self.live_lock:
+                self.mcp_overlay_inflight.discard(account_id)
+                self.mcp_overlay_retry_after[account_id] = time.time() + 30
 
     def _get_mcp_client(self) -> QianchuanMCPClient | None:
         config = load_mcp_config()
@@ -3944,6 +5540,8 @@ class DashboardStore:
             "status": previous_account.get("status") or "待同步",
             "source": previous_account.get("source") or "千川全域推广",
             "dataCutoff": last_date,
+            "transactionScope": "net",
+            "transactionScopeLabel": "净成交（剔除1小时内退款）",
             "data": data,
             "raw": copy.deepcopy(previous_account.get("raw") or []),
             "plans": copy.deepcopy(previous_account.get("plans") or []),
@@ -4137,12 +5735,14 @@ class DashboardStore:
             row = {
                 "date": realtime_date,
                 "spend": round((to_number(stats.get("stat_cost")) or 0.0) / divisor, 2),
-                "gmv": round(
-                    (to_number(stats.get("total_pay_order_gmv_for_roi2")) or 0.0)
-                    / divisor,
+                "gmv": round((pick_number(stats, NET_GMV_FIELDS) or 0.0) / divisor, 2),
+                "orders": pick_number(stats, NET_ORDER_FIELDS) or 0.0,
+                "grossGmv": round(
+                    (pick_number(stats, GROSS_GMV_FIELDS) or 0.0) / divisor,
                     2,
                 ),
-                "orders": to_number(stats.get("total_pay_order_count_for_roi2")) or 0.0,
+                "grossOrders": pick_number(stats, GROSS_ORDER_FIELDS) or 0.0,
+                "gmvScope": "net",
                 "realtime": True,
                 "syncedAt": now_iso(),
             }
@@ -4609,6 +6209,10 @@ class DashboardStore:
                             history_cached = (
                                 datetime.now(timezone.utc).astimezone() - parsed_history_at
                             ).total_seconds() < self.aweme_cache_seconds
+                            history_cached = history_cached and all(
+                                row.get("gmvScope") == "net"
+                                for row in previous_history_data
+                            )
                         except (TypeError, ValueError):
                             history_cached = False
                     history_synced_now = False
@@ -4930,17 +6534,68 @@ class DashboardStore:
                     continue
                 item = by_date.setdefault(
                     row_date,
-                    {"date": row_date, "spend": 0.0, "gmv": 0.0, "orders": 0.0},
+                    {
+                        "date": row_date,
+                        "spend": 0.0,
+                        "gmv": 0.0,
+                        "orders": 0.0,
+                        "grossGmv": 0.0,
+                        "grossOrders": 0.0,
+                        "gmvScope": "net",
+                    },
                 )
                 item["spend"] += to_number(row.get("spend")) or 0.0
                 item["gmv"] += to_number(row.get("gmv")) or 0.0
                 item["orders"] += to_number(row.get("orders")) or 0.0
+                item["grossGmv"] += to_number(row.get("grossGmv")) or 0.0
+                item["grossOrders"] += to_number(row.get("grossOrders")) or 0.0
         result = []
         for row_date in sorted(by_date):
             row = by_date[row_date]
             row["spend"] = round(row["spend"], 2)
             row["gmv"] = round(row["gmv"], 2)
             row["orders"] = round(row["orders"], 4)
+            row["grossGmv"] = round(row["grossGmv"], 2)
+            row["grossOrders"] = round(row["grossOrders"], 4)
+            result.append(row)
+        return result
+
+    def _awemes_to_daily(
+        self,
+        account: dict[str, Any],
+        start_date: str,
+        end_date: str,
+    ) -> list[dict[str, Any]]:
+        """Aggregate official author rows as a transparent net fallback."""
+        by_date: dict[str, dict[str, Any]] = {}
+        for aweme in account.get("awemes") or []:
+            for row in aweme.get("data") or []:
+                if not isinstance(row, dict):
+                    continue
+                row_date = str(row.get("date") or "")[:10]
+                if not row_date or row_date < start_date or row_date > end_date:
+                    continue
+                item = by_date.setdefault(
+                    row_date,
+                    {
+                        "date": row_date,
+                        "spend": 0.0,
+                        "gmv": 0.0,
+                        "orders": 0.0,
+                        "grossGmv": 0.0,
+                        "grossOrders": 0.0,
+                        "gmvScope": "net",
+                    },
+                )
+                for key in ("spend", "gmv", "orders", "grossGmv", "grossOrders"):
+                    item[key] += to_number(row.get(key)) or 0.0
+        result = []
+        for row_date in sorted(by_date):
+            row = by_date[row_date]
+            for key in ("spend", "gmv", "grossGmv"):
+                row[key] = round(row[key], 2)
+            for key in ("orders", "grossOrders"):
+                row[key] = round(row[key], 4)
             result.append(row)
         return result
 
@@ -4994,7 +6649,10 @@ class DashboardStore:
                 key: round(value, 4) for key, value in aweme_totals.items()
             },
             "difference": difference,
-            "source": "总账户使用千川广告主账户报表；账号拆分使用抖音号归因报表",
+            "source": (
+                f"总账户来源：{account.get('source') or '千川账户报表'}；"
+                "账号拆分使用抖音号净成交归因报表"
+            ),
             "ok": all(abs(value) < 0.01 for value in difference.values()),
         }
 
@@ -5190,11 +6848,26 @@ class DashboardStore:
                             realtime_date,
                         )
                     )
+                    if realtime_from_plans and not daily_rows_have_activity(
+                        realtime_from_plans
+                    ):
+                        realtime_from_plans = []
+                    realtime_from_awemes = (
+                        []
+                        if realtime_normalized or realtime_from_plans
+                        else self._awemes_to_daily(
+                            account,
+                            realtime_date,
+                            realtime_date,
+                        )
+                    )
                     realtime_row = (
                         copy.deepcopy(realtime_normalized[-1])
                         if realtime_normalized
                         else copy.deepcopy(realtime_from_plans[-1])
                         if realtime_from_plans
+                        else copy.deepcopy(realtime_from_awemes[-1])
+                        if realtime_from_awemes
                         else {
                             "date": realtime_date,
                             "spend": 0.0,
@@ -5211,6 +6884,8 @@ class DashboardStore:
                         if realtime_normalized
                         else "千川计划接口 · 今日累计"
                         if realtime_from_plans
+                        else "抖音号维度净成交归因汇总 · 今日累计"
+                        if realtime_from_awemes
                         else "千川账户维度报表 · 今日无数据"
                     )
                 except QianchuanAPIError as exc:
@@ -5219,6 +6894,20 @@ class DashboardStore:
                         realtime_date,
                         realtime_date,
                     )
+                    if today_from_plans and not daily_rows_have_activity(
+                        today_from_plans
+                    ):
+                        today_from_plans = []
+                    realtime_from_awemes = (
+                        []
+                        if today_from_plans
+                        else self._awemes_to_daily(
+                            account,
+                            realtime_date,
+                            realtime_date,
+                        )
+                    )
+                    today_from_plans = today_from_plans or realtime_from_awemes
                     if today_from_plans:
                         realtime_row = today_from_plans[-1]
                         realtime_row.update(
@@ -5229,7 +6918,17 @@ class DashboardStore:
                             realtime_row,
                         )
                         realtime_account_ok = True
-                        realtime_account_source = "千川计划接口 · 今日累计"
+                        realtime_account_source = (
+                            "千川计划接口 · 今日累计"
+                            if daily_rows_have_activity(
+                                self._plans_to_daily(
+                                    account.get("plans") or [],
+                                    realtime_date,
+                                    realtime_date,
+                                )
+                            )
+                            else "抖音号维度净成交归因汇总 · 今日累计"
+                        )
                         account_errors.append(
                             {
                                 "scope": "account_realtime",
@@ -5270,6 +6969,12 @@ class DashboardStore:
                 account_succeeded = True
             elif plans_ok and account.get("plans"):
                 derived = self._plans_to_daily(account["plans"], start_date, end_date)
+                if derived and not daily_rows_have_activity(derived):
+                    derived = []
+                source_label = "千川全域推广 · 计划日报汇总"
+                if not derived:
+                    derived = self._awemes_to_daily(account, start_date, end_date)
+                    source_label = "千川全域推广 · 抖音号净成交归因汇总"
                 if derived:
                     existing_realtime_rows = [
                         copy.deepcopy(row)
@@ -5281,7 +6986,7 @@ class DashboardStore:
                     account["data"] = derived
                     account["dataCutoff"] = derived[-1]["date"]
                     account["status"] = "数据已同步 · 计划汇总"
-                    account["source"] = "千川全域推广 · 计划日报汇总"
+                    account["source"] = source_label
                     success_count += 1
                     account_succeeded = True
                     account_errors.append(
@@ -5334,11 +7039,18 @@ class DashboardStore:
             for account in accounts
             if isinstance(account, dict)
         ]
-        realtime_source_counts = {"official_account": 0, "plan_fallback": 0, "failed": 0}
+        realtime_source_counts = {
+            "official_account": 0,
+            "plan_fallback": 0,
+            "author_fallback": 0,
+            "failed": 0,
+        }
         for entry in realtime_entries:
             source = str(entry.get("source") or "")
             if entry.get("ok") and "账户维度" in source:
                 realtime_source_counts["official_account"] += 1
+            elif entry.get("ok") and "抖音号维度" in source:
+                realtime_source_counts["author_fallback"] += 1
             elif entry.get("ok"):
                 realtime_source_counts["plan_fallback"] += 1
             else:
@@ -5346,6 +7058,7 @@ class DashboardStore:
         realtime_updated_count = (
             realtime_source_counts["official_account"]
             + realtime_source_counts["plan_fallback"]
+            + realtime_source_counts["author_fallback"]
         )
         realtime_status = (
             "success"
@@ -5369,6 +7082,8 @@ class DashboardStore:
             "syncBackoffSeconds": max(0, int(self.backoff_until - time.time())),
             "lastSyncAt": self.last_sync_at,
             "historyDays": HISTORY_DAYS,
+            "transactionScope": "net",
+            "transactionScopeLabel": "净成交（剔除1小时内退款）",
             "requestedStartDate": start_date,
             "requestedEndDate": end_date,
             "realtime": {
@@ -5499,9 +7214,525 @@ class DashboardStore:
         status = str(state.get("status") or "unknown")
         return {
             **copy.deepcopy(state),
-            "ok": status in {"ok", "partial", "stale"} and not stale,
+            "ok": status in {"ok", "partial", "stale", "not_live"} and not stale,
             "stale": stale,
             "ageSeconds": round(age_seconds, 2) if age_seconds is not None else None,
+        }
+
+    def buyin_live_status(self) -> dict[str, Any]:
+        """Return the independent Juliang Buyin live-control capture status."""
+        state = load_json(self.buyin_live_path, {})
+        if not isinstance(state, dict) or not state:
+            return {
+                "status": "missing",
+                "ok": False,
+                "stale": True,
+                "live": False,
+                "source": "puppeteer-core_buyin_live",
+                "sourceLabel": "巨量百应直播中控台 · 尚未采集",
+                "error": "百应直播中控台采集器尚未写入状态，请运行 login-buyin.bat",
+                "path": str(self.buyin_live_path),
+            }
+        heartbeat = str(state.get("heartbeatAt") or "").strip()
+        age_seconds: float | None = None
+        if heartbeat:
+            try:
+                parsed = datetime.fromisoformat(heartbeat.replace("Z", "+00:00"))
+                age_seconds = max(
+                    0.0,
+                    (datetime.now(parsed.tzinfo) - parsed).total_seconds(),
+                )
+            except (TypeError, ValueError):
+                age_seconds = None
+        interval = max(5, int(to_number(state.get("intervalSeconds")) or 10))
+        stale = age_seconds is None or age_seconds > max(30, interval * 3 + 5)
+        status = str(state.get("status") or "unknown")
+        page_url = str(state.get("pageUrl") or "").strip()
+        buyin_room_id = ""
+        try:
+            parsed_page = urllib.parse.urlparse(page_url)
+            if parsed_page.hostname == "compass.jinritemai.com":
+                buyin_room_id = str(
+                    (urllib.parse.parse_qs(parsed_page.query).get("live_room_id") or [""])[0]
+                ).strip()
+        except ValueError:
+            buyin_room_id = ""
+        current_live = self.live_screen_status()
+        current_room_id = str((current_live.get("room") or {}).get("id") or "").strip()
+        current_live_status = str(current_live.get("status") or "")
+        room_mismatch = bool(
+            buyin_room_id
+            and current_room_id
+            and current_room_id != "0"
+            and buyin_room_id != current_room_id
+        )
+        confirmed_not_live = current_live_status == "not_live"
+        has_values = bool(
+            (isinstance(state.get("metrics"), dict) and state.get("metrics"))
+            or (
+                isinstance(state.get("channels"), dict)
+                and isinstance(state["channels"].get("items"), list)
+                and state["channels"]["items"]
+            )
+            or (isinstance(state.get("extras"), list) and state.get("extras"))
+        )
+        return {
+            **copy.deepcopy(state),
+            "ok": status in {"ok", "partial", "stale", "login_saved"} and not stale,
+            "stale": stale,
+            "available": (
+                has_values
+                and not stale
+                and status in {"ok", "partial", "stale", "login_saved"}
+                and not confirmed_not_live
+                and not room_mismatch
+            ),
+            "currentRoomVerified": (
+                bool(buyin_room_id)
+                and bool(current_room_id)
+                and buyin_room_id == current_room_id
+            ),
+            "roomMismatch": room_mismatch,
+            "confirmedNotLive": confirmed_not_live,
+            "ageSeconds": round(age_seconds, 2) if age_seconds is not None else None,
+        }
+
+    def recording_status(self) -> dict[str, Any]:
+        state = load_json(RECORDER_STATE_PATH, {})
+        if not isinstance(state, dict) or not state:
+            return {
+                "ok": False,
+                "status": "missing",
+                "updatedAt": None,
+                "retentionDays": recording_store.RETENTION_DAYS,
+                "recordingsDirectory": str(RECORDINGS_DIR),
+                "error": "录像器尚未写入状态",
+            }
+        return {
+            **copy.deepcopy(state),
+            "paused": bool(
+                load_json(DATA_DIR / "live-recorder-pause.json", {}).get("paused")
+            ),
+            "retentionDays": recording_store.RETENTION_DAYS,
+            "recordingsDirectory": str(RECORDINGS_DIR),
+        }
+
+    def asr_status(self) -> dict[str, Any]:
+        state = load_json(DATA_DIR / "live-asr-state.json", {})
+        if not isinstance(state, dict) or not state:
+            return {
+                "ok": False,
+                "status": "missing",
+                "engine": "faster-whisper",
+                "model": "large-v3",
+                "modelPath": str(EXTERNAL_ROOT / "models" / "whisper-large-v3"),
+                "audioSource": "直播流 TS 分段 · ffmpeg 16k mono · 降噪",
+                "error": "ASR 服务尚未写入状态",
+            }
+        return copy.deepcopy(state)
+
+    @staticmethod
+    def _speaker_display_label(speaker: str) -> str:
+        value = str(speaker or "").strip()
+        match = re.search(r"(\d+)$", value)
+        if match:
+            return f"主播 {int(match.group(1)) + 1}"
+        return value or "未知主播"
+
+    def _current_speaker_context(self) -> dict[str, Any]:
+        state = load_json(DATA_DIR / "live-asr-state.json", {})
+        if not isinstance(state, dict):
+            state = {}
+        speaker = str(state.get("currentSpeaker") or "").strip()
+        if not speaker:
+            return {
+                "available": False,
+                "speaker": "",
+                "label": "尚未识别",
+                "at": "",
+                "note": "本地 Whisper 转写尚未产出说话人标签",
+            }
+        at = str(state.get("currentSpeakerAt") or "").strip()
+        return {
+            "available": True,
+            "speaker": speaker,
+            "label": self._speaker_display_label(speaker),
+            "at": at,
+            "note": "最近转写到的说话人（本地 Whisper 转写存在延迟）",
+        }
+
+    def review_sessions(
+        self,
+        account_id: str | None = None,
+        day: str | None = None,
+    ) -> dict[str, Any]:
+        history = self._load_live_history()
+        account = self._account_for(account_id)
+        recording_account_id = (
+            str(account.get("id"))
+            if account
+            else account_id
+        )
+        available_dates = recording_store.available_review_dates(
+            recording_account_id,
+            RECORDINGS_DIR,
+            REVIEW_ARCHIVE_DIR,
+        )
+        requested_day = str(day or "").strip()
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", requested_day):
+            requested_day = ""
+        selected_day = (
+            requested_day
+            if requested_day in available_dates
+            else available_dates[-1] if available_dates else None
+        )
+        sessions = recording_store.review_sessions(
+            history,
+            account_id=recording_account_id,
+            recordings_dir=RECORDINGS_DIR,
+            archive_dir=REVIEW_ARCHIVE_DIR,
+            day=selected_day,
+        )
+        audience_history = load_json(self.buyin_audience_history_path, {})
+        matched_audience_points = recording_store.attach_buyin_audience(
+            sessions,
+            audience_history if isinstance(audience_history, dict) else {},
+        )
+        for session in sessions:
+            session["summary"] = recording_store.review_overview_summary(session)
+        if sessions:
+            recording_store.archive_daily_sessions(sessions, REVIEW_ARCHIVE_DIR)
+        mcp_time_series = copy.deepcopy(MCP_LIVE_15_MINUTE_CAPABILITY)
+        for session in sessions:
+            session["mcpTimeSeriesAttempted"] = True
+            session["mcpTimeSeriesAvailable"] = False
+            session["mcpTimeSeriesStatus"] = mcp_time_series["status"]
+            session["mcpTimeSeriesError"] = mcp_time_series["reason"]
+            session["mcpTimeSeriesProbeWindows"] = copy.deepcopy(
+                mcp_time_series["probeWindows"]
+            )
+        for session in sessions:
+            if (
+                not session.get("videoExpired")
+                and str(session.get("date") or "").strip()
+            ):
+                if recording_store.has_daily_recording(
+                    recording_account_id,
+                    str(session.get("date") or ""),
+                    RECORDINGS_DIR,
+                ):
+                    session["videoUrl"] = (
+                        "/api/review/daily-playlist?account="
+                        + urllib.parse.quote(str(recording_account_id or ""), safe="")
+                        + "&date="
+                        + urllib.parse.quote(str(session.get("date") or ""), safe="")
+                    )
+                    session["videoType"] = "daily_hls"
+                else:
+                    session["videoUrl"] = ""
+                    session["videoType"] = ""
+                    session["videoExpired"] = True
+                    session["recordingStatus"] = "archived_analysis"
+        status = self.recording_status()
+        asr = self.asr_status()
+        return {
+            "ok": True,
+            "account": account_id or "",
+            "recordingAccountId": recording_account_id or "",
+            "sessions": sessions,
+            "sessionCount": len(sessions),
+            "selectedDate": selected_day or "",
+            "availableDates": available_dates,
+            "availableDateCount": len(available_dates),
+            "audienceHistory": {
+                "source": "buyin_compass_live_screen_dom",
+                "sourceLabel": "巨量百应直播大屏·专业版 · 用户画像",
+                "snapshotCount": len(
+                    audience_history.get("items") or []
+                ) if isinstance(audience_history, dict) else 0,
+                "matchedPoints": matched_audience_points,
+            },
+            "mcpTimeSeries": mcp_time_series,
+            "recorder": status,
+            "asr": asr,
+            "retentionDays": recording_store.RETENTION_DAYS,
+            "recordingsDirectory": str(RECORDINGS_DIR),
+            "source": "local_review_archive_plus_qianchuan_live_history",
+            "sourceLabel": "本地永久复盘归档 + 千川直播大屏 5 分钟历史",
+            "analysisProcess": [
+                "读取临时录像和永久复盘归档",
+                "按 roomId 与日期聚合千川直播大屏 5 分钟历史",
+                "用增量 ROI、有消耗无订单、在线回落规则生成问题/优势",
+                (
+                    "本地 Whisper tiny 转写后按约 5 秒指标窗口关联话术"
+                    if asr.get("modelReady")
+                    else "本地 Whisper 尚未就绪时话术留空，不补造"
+                ),
+                "复盘 JSON/Markdown 落盘成功后删除原始录像",
+            ],
+            "syncedAt": now_iso(),
+        }
+
+    def script_analysis(
+        self,
+        account_id: str | None = None,
+        day: str | None = None,
+        session_id: str | None = None,
+    ) -> dict[str, Any]:
+        """话术页真实数据：Whisper 完整长句 + 5 分钟出单窗口归因。"""
+        history = self._load_live_history()
+        account = self._account_for(account_id)
+        recording_account_id = (
+            str(account.get("id")) if account else account_id
+        )
+        records = recording_store.script_session_sources(
+            RECORDINGS_DIR,
+            REVIEW_ARCHIVE_DIR / "sessions",
+        )
+        if recording_account_id:
+            records = [
+                (directory, manifest, source)
+                for directory, manifest, source in records
+                if str(manifest.get("accountId") or "") == recording_account_id
+            ]
+        if day and re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(day)):
+            records = [
+                (directory, manifest, source)
+                for directory, manifest, source in records
+                if str(manifest.get("date") or "") == day
+            ]
+        available_dates = sorted(
+            {
+                str(manifest.get("date") or "")
+                for _directory, manifest, _source in records
+                if str(manifest.get("date") or "")
+            },
+            reverse=True,
+        )
+        if not records:
+            return {
+                "ok": True,
+                "available": False,
+                "reason": "no_recording",
+                "account": recording_account_id or "",
+                "selectedDate": day or "",
+                "availableDates": available_dates,
+                "availableSessions": [],
+                "session": None,
+                "phrases": [],
+                "quality": [],
+                "low": [],
+                "summary": "该账号还没有可分析的本地录像，话术暂不生成。",
+                "source": "本地录像未产出",
+                "asr": self.asr_status(),
+                "syncedAt": now_iso(),
+            }
+        records.sort(
+            key=lambda item: str(item[1].get("startedAt") or ""),
+            reverse=True,
+        )
+        requested_session = str(session_id or "").strip()
+        selected = next(
+            (
+                item
+                for item in records
+                if requested_session
+                and str(item[1].get("id") or item[0].name) == requested_session
+            ),
+            None,
+        )
+        if selected is None:
+            selected = next(
+                (
+                    item
+                    for item in records
+                    if recording_store.has_asr_transcript(item[0])
+                ),
+                records[0],
+            )
+        directory, manifest, session_source = selected
+        day_str = str(manifest.get("date") or "")
+        room_id = str(manifest.get("roomId") or "")
+        days = history.get("days") if isinstance(history, dict) else {}
+        rooms = (days or {}).get(day_str, {}) if isinstance(days, dict) else {}
+        samples = rooms.get(room_id, []) if isinstance(rooms, dict) else []
+        series = [item for item in samples if isinstance(item, dict)]
+        analysis = recording_store.build_script_analysis(
+            directory,
+            manifest,
+            series,
+        )
+        if session_source == "archive":
+            analysis["source"] = (
+                str(analysis.get("source") or "本地 Whisper 转写")
+                + " · 永久复盘归档"
+            )
+        return {
+            "ok": True,
+            "account": recording_account_id or "",
+            "selectedDate": str(manifest.get("date") or ""),
+            "selectedSessionId": str(manifest.get("id") or directory.name),
+            "availableDates": available_dates,
+            "availableSessions": [
+                {
+                    "id": str(item_manifest.get("id") or item_directory.name),
+                    "date": str(item_manifest.get("date") or ""),
+                    "startedAt": str(item_manifest.get("startedAt") or ""),
+                    "status": str(item_manifest.get("status") or ""),
+                    "source": item_source,
+                    "hasTranscript": recording_store.has_asr_transcript(
+                        item_directory
+                    ),
+                }
+                for item_directory, item_manifest, item_source in records
+            ],
+            **analysis,
+            "sessionSource": session_source,
+            "asr": self.asr_status(),
+            "syncedAt": now_iso(),
+        }
+
+    def request_buyin_live_refresh(
+        self,
+        timeout_seconds: float = 35.0,
+    ) -> dict[str, Any]:
+        """Request one immediate Buyin capture and wait for that exact cycle."""
+        initial_status = self.buyin_live_status()
+        if str(initial_status.get("status") or "") in {
+            "missing",
+            "config_required",
+            "login_required",
+        }:
+            return {
+                "ok": False,
+                "completed": False,
+                "captureStatus": initial_status.get("status") or "missing",
+                "live": initial_status,
+                "error": str(
+                    initial_status.get("error")
+                    or "百应直播中控台尚未就绪，请运行 login-buyin.bat"
+                ),
+                "syncedAt": now_iso(),
+            }
+        request_id = uuid.uuid4().hex
+        requested_at = now_iso()
+        atomic_write_json(
+            self.buyin_refresh_request_path,
+            {
+                "requestId": request_id,
+                "requestedAt": requested_at,
+            },
+        )
+        deadline = time.monotonic() + max(1.0, timeout_seconds)
+        saw_agent = False
+        last_status: dict[str, Any] = {}
+        while time.monotonic() < deadline:
+            last_status = self.buyin_live_status()
+            saw_agent = saw_agent or not last_status.get("stale", True)
+            if str(last_status.get("captureRequestId") or "") == request_id:
+                with self.live_lock:
+                    self.campaign_cache.clear()
+                return {
+                    "ok": bool(last_status.get("available")),
+                    "completed": True,
+                    "requestId": request_id,
+                    "requestedAt": requested_at,
+                    "completedAt": last_status.get("syncedAt") or now_iso(),
+                    "captureStatus": last_status.get("status") or "unknown",
+                    "live": last_status,
+                    "error": "" if last_status.get("available") else (
+                        str(last_status.get("error") or "百应本轮没有可核验数据")
+                    ),
+                }
+            time.sleep(0.1)
+        request_still_pending = load_json(self.buyin_refresh_request_path, {})
+        pending = (
+            isinstance(request_still_pending, dict)
+            and request_still_pending.get("requestId") == request_id
+        )
+        return {
+            "ok": False,
+            "completed": False,
+            "requestId": request_id,
+            "requestedAt": requested_at,
+            "pending": pending,
+            "sawAgentHeartbeat": saw_agent,
+            "captureStatus": last_status.get("status") or "timeout",
+            "error": (
+                "百应采集器尚未完成本次抓取"
+                if saw_agent
+                else "百应采集器未回传新鲜心跳，请先运行 login-buyin.bat"
+            ),
+        }
+
+    def request_live_screen_refresh(
+        self,
+        account_id: str | None = None,
+        timeout_seconds: float = 35.0,
+    ) -> dict[str, Any]:
+        """Ask the headless agent for one capture and wait for that exact result."""
+        request_id = uuid.uuid4().hex
+        requested_at = now_iso()
+        atomic_write_json(
+            self.live_refresh_request_path,
+            {
+                "requestId": request_id,
+                "requestedAt": requested_at,
+                "accountId": account_id or "",
+            },
+        )
+        deadline = time.monotonic() + max(1.0, timeout_seconds)
+        saw_agent = False
+        last_status: dict[str, Any] = {}
+        while time.monotonic() < deadline:
+            last_status = self.live_screen_status()
+            saw_agent = saw_agent or not last_status.get("stale", True)
+            if str(last_status.get("captureRequestId") or "") == request_id:
+                account = self._account_for(account_id)
+                five_cache_key = (
+                    f"five:{account.get('id')}"
+                    if account
+                    else f"five:{account_id or ''}"
+                )
+                with self.live_lock:
+                    self.live_cache.clear()
+                    self.five_dimension_last_error.pop(five_cache_key, None)
+                payload = self.live_snapshot(account_id, force=True)
+                with self.lock:
+                    dashboard = copy.deepcopy(self.snapshot)
+                dashboard = self._apply_source_isolated_today(
+                    dashboard,
+                    state_override=last_status,
+                )
+                return {
+                    "ok": True,
+                    "completed": True,
+                    "requestId": request_id,
+                    "requestedAt": requested_at,
+                    "completedAt": last_status.get("syncedAt") or now_iso(),
+                    "captureStatus": last_status.get("status") or "unknown",
+                    "live": payload,
+                    "dashboard": dashboard,
+                }
+            time.sleep(0.1)
+        request_still_pending = load_json(self.live_refresh_request_path, {})
+        pending = (
+            isinstance(request_still_pending, dict)
+            and request_still_pending.get("requestId") == request_id
+        )
+        return {
+            "ok": False,
+            "completed": False,
+            "requestId": request_id,
+            "requestedAt": requested_at,
+            "pending": pending,
+            "sawAgentHeartbeat": saw_agent,
+            "captureStatus": last_status.get("status") or "timeout",
+            "error": (
+                "采集器尚未完成本次抓取"
+                if saw_agent
+                else "直播大屏采集器未回传新鲜心跳"
+            ),
         }
 
     @staticmethod
@@ -5562,6 +7793,11 @@ class DashboardStore:
                     "label": str(item.get("label") or item.get("key") or ""),
                     "value": item.get("value"),
                     "unit": str(item.get("unit") or ""),
+                    "trafficCount": item.get("trafficCount"),
+                    "trafficShare": item.get("trafficShare"),
+                    "gmv": item.get("gmv"),
+                    "gmvShare": item.get("gmvShare"),
+                    "gpm": item.get("gpm"),
                 }
                 for item in flow_state
                 if isinstance(item, dict)
@@ -5573,10 +7809,39 @@ class DashboardStore:
             ]
         if isinstance(five_dimension, dict):
             values = five_dimension.get("values") or {}
+            # The live board does not expose every funnel field. Keep its real
+            # values first, then fill only missing fields from the independently
+            # sourced five-dimension result so the history does not lose direct
+            # Today Live API values between archive points.
+            five_dimension_fields = {
+                "watch": "watch",
+                "watchOneMinute": "stay",
+                "comments": "comments",
+            }
+            for sample_key, funnel_key in five_dimension_fields.items():
+                if sample.get(sample_key) is not None:
+                    continue
+                value = to_number(values.get(funnel_key))
+                if value is not None:
+                    sample[sample_key] = round(value, 6)
             exposure = to_number(values.get("exposure"))
             watch = to_number(values.get("watch"))
             if exposure and watch is not None:
                 sample["entryRate"] = round(watch / exposure * 100, 4)
+        board_funnel = state.get("funnel")
+        if isinstance(board_funnel, dict):
+            sample["funnel"] = {
+                "source": board_funnel.get("source"),
+                "sourceLabel": board_funnel.get("sourceLabel"),
+                "show": board_funnel.get("show"),
+                "watch": board_funnel.get("watch"),
+                "click": board_funnel.get("click"),
+                "orders": board_funnel.get("orders"),
+                "rates": copy.deepcopy(board_funnel.get("rates") or {}),
+                "capturedAt": board_funnel.get("capturedAt"),
+            }
+        else:
+            sample["funnel"] = None
         return sample
 
     def capture_live_screen_history(
@@ -5823,7 +8088,8 @@ class DashboardStore:
         return None
 
     def _account_for(self, account_id: str | None = None) -> dict[str, Any] | None:
-        accounts = self.dashboard().get("accounts") or []
+        with self.lock:
+            accounts = copy.deepcopy(self.snapshot.get("accounts") or [])
         return next(
             (
                 item
@@ -5838,10 +8104,14 @@ class DashboardStore:
             accounts[0] if accounts else None,
         )
 
-    def _account_aweme_ids(self, account: dict[str, Any]) -> list[str]:
+    def _account_aweme_ids(
+        self,
+        account: dict[str, Any],
+        config: dict[str, Any] | None = None,
+    ) -> list[str]:
         if account.get("awemeId"):
             return [str(account.get("awemeId"))]
-        config = load_config()
+        config = config or load_config()
         config_account = next(
             (
                 item
@@ -5862,6 +8132,7 @@ class DashboardStore:
         account_id: str | None,
         screen_metrics: dict[str, Any],
         *,
+        official_live: dict[str, Any] | None = None,
         background: bool = True,
     ) -> dict[str, Any]:
         """Build the funnel from screen data immediately and enrich MCP in background."""
@@ -5891,6 +8162,7 @@ class DashboardStore:
             return self._five_dimension_payload(
                 screen_metrics,
                 {},
+                official_live=official_live,
                 mcp_error=last_error or "千川 MCP 未配置",
                 mcp_status="disabled",
             )
@@ -5900,6 +8172,7 @@ class DashboardStore:
                 advertiser_id,
                 list(aweme_ids),
                 copy.deepcopy(screen_metrics),
+                copy.deepcopy(official_live),
                 client,
             )
             with self.live_lock:
@@ -5909,6 +8182,7 @@ class DashboardStore:
             return self._five_dimension_payload(
                 screen_metrics,
                 {},
+                official_live=official_live,
                 mcp_error=self.five_dimension_last_error.get(cache_key, ""),
                 mcp_status="error",
             )
@@ -5923,6 +8197,7 @@ class DashboardStore:
                             advertiser_id,
                             list(aweme_ids),
                             copy.deepcopy(screen_metrics),
+                            copy.deepcopy(official_live),
                             client,
                         ),
                         name=f"five-dimension-{account.get('id')}",
@@ -5942,6 +8217,7 @@ class DashboardStore:
         return self._five_dimension_payload(
             screen_metrics,
             {},
+            official_live=official_live,
             mcp_error=(
                 last_error
                 or ("MCP 后台查询中，当前先返回直播大屏数据" if in_flight else "")
@@ -5955,6 +8231,7 @@ class DashboardStore:
         screen_metrics: dict[str, Any],
         mcp_record: dict[str, Any],
         *,
+        official_live: dict[str, Any] | None = None,
         mcp_error: str = "",
         mcp_pending: bool = False,
         mcp_status: str = "ready",
@@ -5988,10 +8265,8 @@ class DashboardStore:
                 "comments",
             ),
             "orders": (
+                *NET_ORDER_FIELDS,
                 "pay_order_count",
-                "total_pay_order_count_for_roi2",
-                "luban_live_pay_order_count",
-                "live_pay_order_count_alias",
                 "orders",
             ),
         }
@@ -6000,6 +8275,27 @@ class DashboardStore:
             if value is not None:
                 values[key] = value
                 sources[key] = "mcp:qianchuan_report_live_get_v1"
+        official_metrics = (
+            official_live.get("metrics")
+            if isinstance(official_live, dict)
+            and isinstance(official_live.get("metrics"), dict)
+            and str(official_live.get("status") or "") not in {"missing", "zero_pending"}
+            else {}
+        )
+        official_aliases = {
+            "exposure": ("exposure",),
+            "watch": ("watchCount",),
+            "stay": ("watchOneMinute",),
+            "comments": ("comments",),
+            "orders": ("orders",),
+        }
+        for key, keys in official_aliases.items():
+            if key in values:
+                continue
+            value = first_number(official_metrics, keys)
+            if value is not None:
+                values[key] = value
+                sources[key] = "official:qianchuan_today_live"
         fallback = {
             "exposure": "exposure",
             "watch": "watchCount",
@@ -6020,11 +8316,11 @@ class DashboardStore:
         watch = to_number(values.get("watch"))
         payload = {
             "status": status,
-            "source": "mcp_first_screen_fallback",
+            "source": "mcp_official_screen_fallback",
             "sourceLabel": (
-                "五维四率：MCP 优先，缺失字段回退直播大屏"
+                "五维四率：MCP 优先，官方直播字段补充，缺失回退直播大屏"
                 if mcp_status == "ready"
-                else "五维四率：直播大屏即时返回，MCP 后台更新"
+                else "五维四率：官方直播字段补充，缺失回退直播大屏，MCP 后台更新"
             ),
             "values": values,
             "sources": sources,
@@ -6047,6 +8343,7 @@ class DashboardStore:
         advertiser_id: str,
         aweme_ids: list[str],
         screen_metrics: dict[str, Any],
+        official_live: dict[str, Any] | None,
         client: QianchuanMCPClient,
     ) -> None:
         mcp_record: dict[str, Any] = {}
@@ -6073,6 +8370,7 @@ class DashboardStore:
         payload = self._five_dimension_payload(
             screen_metrics,
             mcp_record,
+            official_live=official_live,
             mcp_error=mcp_error,
             mcp_status=mcp_status,
         )
@@ -6129,6 +8427,48 @@ class DashboardStore:
                     continue
                 seen.add(marker)
                 groups[group].append({key: raw_label, "value": number})
+        return {key: value for key, value in groups.items() if value}
+
+    @staticmethod
+    def _buyin_user_dimensions(state: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+        supplied = state.get("users")
+        if isinstance(supplied, dict) and supplied:
+            return copy.deepcopy(supplied)
+        groups: dict[str, list[dict[str, Any]]] = {
+            "gender": [],
+            "age": [],
+            "city": [],
+        }
+        city_pattern = re.compile(
+            r"北京|上海|广州|深圳|杭州|成都|重庆|武汉|西安|苏州|南京|天津|"
+            r"长沙|郑州|东莞|佛山|宁波|青岛|合肥|福州|厦门|昆明|济南|大连|"
+            r"沈阳|哈尔滨|长春|石家庄|太原|南昌|贵阳|南宁|海口|兰州|"
+            r"乌鲁木齐|呼和浩特|银川|西宁|拉萨"
+        )
+        for item in state.get("extras") or []:
+            if not isinstance(item, dict):
+                continue
+            label = str(item.get("label") or "").strip()
+            value = to_number(item.get("value"))
+            if not label or value is None:
+                continue
+            if "男" in label:
+                groups["gender"].append({"gender_type": "1", "value": value})
+            elif "女" in label:
+                groups["gender"].append({"gender_type": "2", "value": value})
+            age_match = re.search(
+                r"(\d{1,2}\s*[-~至]\s*\d{1,2}|\d{1,2}\s*\+|未成年|中老年)",
+                label,
+            )
+            if age_match:
+                groups["age"].append(
+                    {"age_type": age_match.group(1).replace(" ", ""), "value": value}
+                )
+            city_match = city_pattern.search(label)
+            if city_match:
+                groups["city"].append(
+                    {"city_name": city_match.group(0), "value": value}
+                )
         return {key: value for key, value in groups.items() if value}
 
     def _campaign_history_basis(self, account: dict[str, Any]) -> dict[str, Any]:
@@ -6233,34 +8573,27 @@ class DashboardStore:
         spend = money("stat_cost")
         gmv = self._first_number(
             record,
-            (
-                "total_pay_order_gmv_for_roi2",
-                "pay_order_amount",
-                "luban_live_pay_order_gmv",
-                "live_pay_order_gmv_alias",
-            ),
+            NET_GMV_FIELDS,
         )
+        gmv_scope = "net"
+        if gmv is None:
+            gmv = self._first_number(record, GROSS_GMV_FIELDS)
+            if gmv is not None:
+                gmv_scope = "mcp_reported"
         if gmv is not None:
             gmv = round(gmv / divisor, 2)
         orders = self._first_number(
             record,
-            (
-                "pay_order_count",
-                "total_pay_order_count_for_roi2",
-                "luban_live_pay_order_count",
-                "live_pay_order_count_alias",
-                "orders",
-            ),
+            NET_ORDER_FIELDS,
         )
+        if orders is None:
+            orders = self._first_number(record, GROSS_ORDER_FIELDS)
         roi = self._first_number(
             record,
-            (
-                "total_prepay_and_pay_order_roi2",
-                "live_pay_order_gmv_roi",
-                "ad_live_prepay_and_pay_order_gmv_roi",
-                "roi",
-            ),
+            NET_ROI_FIELDS,
         )
+        if roi is None:
+            roi = self._first_number(record, GROSS_ROI_FIELDS)
         if roi is None and spend and gmv is not None:
             roi = gmv / spend
         watch = self._first_number(
@@ -6308,16 +8641,210 @@ class DashboardStore:
             "follows": follows,
             "aov": round(gmv / orders, 2) if gmv is not None and orders else None,
             "cost": round(spend / orders, 2) if spend is not None and orders else None,
+            "grossGmv": round(
+                (self._first_number(record, GROSS_GMV_FIELDS) or 0.0) / divisor,
+                2,
+            )
+            if self._first_number(record, GROSS_GMV_FIELDS) is not None
+            else None,
+            "grossOrders": self._first_number(record, GROSS_ORDER_FIELDS),
+            "gmvScope": gmv_scope,
         }
         flows = self._mcp_flow_map(payload_raw)
         users = self._mcp_user_dimensions(payload_raw)
+        source_kind = "qianchuan_mcp_realtime"
+        source_label = f"千川 MCP · {tool} · 实时取数"
+        fallback_from_mcp = False
+        buyin_used = False
+        buyin_supplemented = False
+        qianchuan_screen_used = False
+        screen_state: dict[str, Any] = {}
+        buyin_state = self.buyin_live_status()
+        buyin_values = (
+            buyin_state.get("metrics")
+            if isinstance(buyin_state.get("metrics"), dict)
+            else {}
+        )
+        buyin_channels = (
+            buyin_state.get("channels")
+            if isinstance(buyin_state.get("channels"), dict)
+            else {}
+        )
+        buyin_available = bool(buyin_state.get("available"))
+        buyin_net_ready = (
+            buyin_available
+            and str(buyin_state.get("gmvScope") or "") == "net"
+            and to_number(buyin_values.get("spend")) is not None
+            and to_number(buyin_values.get("gmv")) is not None
+        )
+        flow_details: list[dict[str, Any]] = []
+        selected_flow_breakdown: dict[str, Any] | None = None
+        field_sources: dict[str, str] = {
+            key: "qianchuan_mcp"
+            for key, value in metrics.items()
+            if value is not None
+        }
+        mcp_error = error
+        mcp_flow_present = bool(flows)
+        core_keys = ("spend", "gmv", "orders", "roi")
+        mcp_has_core = any(metrics.get(key) is not None for key in core_keys)
+        if not mcp_has_core and buyin_net_ready:
+            fallback_from_mcp = True
+            buyin_used = True
+            source_kind = "buyin_live_screen_fallback"
+            source_label = "巨量百应直播中控台（MCP暂不可用）"
+            for key in (
+                "spend",
+                "gmv",
+                "orders",
+                "roi",
+                "gpm",
+                "online",
+                "watchCount",
+                "productClicks",
+                "comments",
+                "follows",
+                "exposure",
+                "watchOneMinute",
+                "clickRate",
+                "conversionRate",
+                "averageWatch",
+                "refundRate",
+                "refundAmount",
+                "interactionRate",
+            ):
+                value = to_number(buyin_values.get(key))
+                if value is None:
+                    continue
+                metrics[key] = value
+                field_sources[key] = "buyin_live_screen"
+            spend_value = to_number(metrics.get("spend"))
+            orders_value = to_number(metrics.get("orders"))
+            if spend_value is not None and orders_value:
+                metrics["cost"] = round(spend_value / orders_value, 2)
+                field_sources["cost"] = "buyin_live_screen_calculated"
+            gmv_value = to_number(metrics.get("gmv"))
+            if (
+                metrics.get("roi") is None
+                and spend_value
+                and gmv_value is not None
+            ):
+                metrics["roi"] = round(gmv_value / spend_value, 4)
+                field_sources["roi"] = "buyin_live_screen_calculated"
+            metrics["gmvScope"] = "net"
+            error = ""
+        if not any(metrics.get(key) is not None for key in core_keys):
+            screen_state = self.live_screen_status()
+            screen_values = (
+                screen_state.get("metrics")
+                if isinstance(screen_state.get("metrics"), dict)
+                else {}
+            )
+            if screen_state.get("live") and screen_values:
+                fallback_from_mcp = True
+                qianchuan_screen_used = True
+                source_kind = "live_screen_fallback"
+                source_label = "千川大屏直抓（MCP与百应暂不可用）"
+                metrics.update(
+                    {
+                        "spend": to_number(screen_values.get("spend")),
+                        "gmv": to_number(screen_values.get("gmv")),
+                        "orders": to_number(screen_values.get("orders")),
+                        "roi": to_number(screen_values.get("roi")),
+                        "gpm": to_number(screen_values.get("gpm")),
+                        "online": to_number(screen_values.get("online")),
+                        "watchCount": to_number(screen_values.get("watchCount")),
+                        "productClicks": to_number(
+                            screen_values.get("productClicks")
+                        ),
+                        "comments": to_number(screen_values.get("comments")),
+                        "follows": to_number(screen_values.get("follows")),
+                        "cost": to_number(screen_values.get("orderCost")),
+                        "gmvScope": "screen_displayed",
+                    }
+                )
+                for key in (
+                    "spend",
+                    "gmv",
+                    "orders",
+                    "roi",
+                    "gpm",
+                    "online",
+                    "watchCount",
+                    "productClicks",
+                    "comments",
+                    "follows",
+                    "cost",
+                ):
+                    if metrics.get(key) is not None:
+                        field_sources[key] = "qianchuan_live_screen"
+                if not flows:
+                    screen_flows = screen_state.get("flows")
+                    if isinstance(screen_flows, list):
+                        flows = {
+                            str(item.get("key")): float(item.get("value"))
+                            for item in screen_flows
+                            if isinstance(item, dict)
+                            and item.get("key")
+                            and to_number(item.get("value")) is not None
+                        }
+                flow_breakdown = screen_state.get("flowBreakdown")
+                if (
+                    isinstance(flow_breakdown, dict)
+                    and isinstance(flow_breakdown.get("items"), list)
+                ):
+                    flow_details = copy.deepcopy(flow_breakdown["items"])
+                    selected_flow_breakdown = copy.deepcopy(flow_breakdown)
+                elif isinstance(screen_flows, list):
+                    flow_details = copy.deepcopy(screen_flows)
+                error = ""
+        if flows and "flows" not in field_sources:
+            field_sources["flows"] = (
+                "qianchuan_live_screen"
+                if qianchuan_screen_used
+                else "qianchuan_mcp"
+            )
+        if not mcp_flow_present and buyin_available and isinstance(
+            buyin_channels.get("items"), list
+        ) and buyin_channels["items"]:
+            buyin_supplemented = True
+            selected_flow_breakdown = copy.deepcopy(buyin_channels)
+            flow_details = copy.deepcopy(buyin_channels["items"])
+            flows = {
+                str(item.get("key")): float(item.get("trafficShare"))
+                for item in buyin_channels["items"]
+                if isinstance(item, dict)
+                and item.get("key")
+                and to_number(item.get("trafficShare")) is not None
+            }
+            field_sources["flows"] = "buyin_live_screen"
+        if not users and buyin_available:
+            buyin_users = self._buyin_user_dimensions(buyin_state)
+            if isinstance(buyin_users, dict) and buyin_users:
+                users = copy.deepcopy(buyin_users)
+                buyin_supplemented = True
+                field_sources["users"] = "buyin_live_screen"
+        if not flow_details and flows:
+            if "flows" not in field_sources:
+                field_sources["flows"] = "qianchuan_mcp"
+            flow_details = [
+                {
+                    "key": str(key),
+                    "label": str(key),
+                    "trafficShare": to_number(value),
+                    "gmvShare": None,
+                    "gpm": None,
+                }
+                for key, value in flows.items()
+            ]
         missing_reasons: list[str] = []
         solutions: list[str] = []
+        mcp_missing_fields: list[str] = []
         for field, label in (
             ("spend", "消耗"),
-            ("gmv", "成交金额"),
-            ("orders", "成交订单"),
-            ("roi", "ROI"),
+            ("gmv", "净成交金额"),
+            ("orders", "净成交订单"),
+            ("roi", "净成交ROI"),
             ("gpm", "GPM"),
             ("online", "在线人数"),
             ("productClicks", "商品点击"),
@@ -6332,12 +8859,20 @@ class DashboardStore:
                 solutions.append(
                     f"确认 {QianchuanMCPClient.LIVE_REPORT_TOOL} 已开放{label}字段，{unit_hint}。"
                 )
+            elif field_sources.get(field) == "qianchuan_mcp":
+                continue
+            if field_sources.get(field) != "qianchuan_mcp":
+                mcp_missing_fields.append(field)
         if not flows:
             missing_reasons.append("MCP 未返回流量渠道拆分")
             solutions.append("申请直播流量来源字段读取权限，或检查 MCP 工具是否返回 AllEcomFlowSource。")
+        elif field_sources.get("flows") != "qianchuan_mcp":
+            mcp_missing_fields.append("flows")
         if not users:
             missing_reasons.append("MCP 未返回用户画像维度")
             solutions.append("申请直播用户洞察字段读取权限，补充性别、年龄、地域维度。")
+        elif field_sources.get("users") != "qianchuan_mcp":
+            mcp_missing_fields.append("users")
         history = self._campaign_history_basis(account)
         history_points = self.live_history_snapshot(account_id, bucket_minutes=5)
         anomalies: list[dict[str, Any]] = []
@@ -6381,12 +8916,12 @@ class DashboardStore:
         cost_value = to_number(metrics.get("cost"))
         if not usable:
             decision = {
-                "action": "等待 MCP 实时数据",
+                "action": "等待实时数据",
                 "percent": 0,
                 "confidence": 0,
-                "reason": error or "MCP 未返回可用直播投放指标。",
+                "reason": error or "MCP、百应与千川大屏均未返回可用直播投放指标。",
                 "guardrail": "数据恢复前不执行放量、追投或控量。",
-                "expected": ["不操作", "先修复 MCP 取数"],
+                "expected": ["不操作", "检查 MCP、百应与千川大屏取数"],
             }
         elif cost_value is not None and cost_value > CAMPAIGN_TARGET_COST:
             decision = {
@@ -6424,27 +8959,82 @@ class DashboardStore:
                 "guardrail": "连续两个 5 分钟窗口未改善时不恢复预算。",
                 "expected": ["保持监控", "优化素材和人群", "等待 ROI 回升"],
             }
-        payload = {
-            "ok": bool(record),
-            "status": "ok" if record and not missing_reasons else "partial" if record else "error",
-            "source": "qianchuan_mcp_realtime",
-            "sourceLabel": f"千川 MCP · {tool} · 实时取数",
-            "tool": tool,
-            "room": {
+        speaker_context = self._current_speaker_context()
+        if speaker_context.get("available"):
+            decision["reason"] = (
+                str(decision.get("reason") or "")
+                + f" 当前最近转写到的说话人是{speaker_context['label']}，"
+                "建议结合其话术节奏判断流量承接与成交转化。"
+            )
+        if record:
+            payload_room = {
                 "id": str(record.get("room_id") or ""),
                 "title": record.get("room_title"),
                 "status": record.get("room_status"),
                 "startTime": record.get("start_time"),
                 "awemeId": str(record.get("aweme_id") or ""),
                 "awemeName": record.get("aweme_name"),
-            },
+            }
+        elif buyin_used and isinstance(buyin_state.get("room"), dict):
+            payload_room = copy.deepcopy(buyin_state["room"])
+        elif (
+            qianchuan_screen_used
+            and isinstance(screen_state.get("room"), dict)
+        ):
+            payload_room = copy.deepcopy(screen_state["room"])
+        else:
+            payload_room = {}
+        payload = {
+            "ok": bool(record) or fallback_from_mcp,
+            "status": (
+                "ok"
+                if (record or fallback_from_mcp) and not missing_reasons
+                else "partial"
+                if record or fallback_from_mcp
+                else "error"
+            ),
+            "source": source_kind,
+            "sourceLabel": source_label,
+            "tool": tool,
+            "room": copy.deepcopy(payload_room),
+            "mcpAvailable": bool(record),
+            "fallbackFromMCP": fallback_from_mcp,
+            "buyinAvailable": buyin_available,
+            "buyinUsed": buyin_used,
+            "buyinSupplemented": buyin_supplemented,
+            "qianchuanScreenUsed": qianchuan_screen_used,
+            "mcpError": mcp_error,
             "metrics": metrics,
             "moneyDivisor": divisor,
             "flows": flows,
+            "flowDetails": flow_details,
+            "flowBreakdown": copy.deepcopy(selected_flow_breakdown),
+            "flowValueKind": (
+                "native"
+                if isinstance(selected_flow_breakdown, dict)
+                and selected_flow_breakdown.get("source")
+                == "buyin_compass_live_screen_dom"
+                else "buyin_reported"
+                if field_sources.get("flows") == "buyin_live_screen"
+                else "calculated"
+                if qianchuan_screen_used
+                else "mcp_returned"
+            ),
+            "flowSourceLabel": (
+                selected_flow_breakdown.get("sourceLabel")
+                if isinstance(selected_flow_breakdown, dict)
+                else "千川 MCP"
+                if flows
+                else ""
+            ),
             "users": users,
+            "fieldSources": field_sources,
+            "mcpMissingFields": mcp_missing_fields,
+            "buyin": copy.deepcopy(buyin_state),
             "history": history,
             "anomalies": anomalies,
             "decision": decision,
+            "currentSpeaker": speaker_context,
             "targets": {
                 "cost": CAMPAIGN_TARGET_COST,
                 "productPrice": CAMPAIGN_PRODUCT_PRICE,
@@ -6452,15 +9042,133 @@ class DashboardStore:
             },
             "missingReasons": missing_reasons,
             "solutions": solutions,
-            "error": error,
+            "error": "",
             "syncedAt": now_iso(),
         }
         with self.live_lock:
             self.campaign_cache[cache_key] = (time.time(), copy.deepcopy(payload))
         return copy.deepcopy(payload)
 
+    @staticmethod
+    def _official_live_metrics(
+        room: dict[str, Any] | None,
+        money_divisor: float,
+    ) -> dict[str, Any]:
+        if not isinstance(room, dict) or not room:
+            return {
+                "status": "missing",
+                "metrics": {},
+                "fieldSources": {},
+                "missingMetrics": [
+                    "spend",
+                    "gmv",
+                    "orders",
+                    "roi",
+                    "watchCount",
+                    "watchOneMinute",
+                    "productClicks",
+                    "comments",
+                    "follows",
+                    "deliveryPlans",
+                    "online",
+                    "peakOnline",
+                    "gpm",
+                    "orderCost",
+                    "grossGmv",
+                    "grossOrders",
+                    "grossRoi",
+                ],
+                "source": "qianchuan_open_api_today_live",
+                "sourceLabel": "千川今日直播间 Open API · 直接字段",
+            }
+        field_sources: dict[str, str] = {}
+        metrics: dict[str, Any] = {}
+
+        def first(key: str, field_names: tuple[str, ...], convert: Any = to_number) -> None:
+            for field_name in field_names:
+                if field_name not in room or room.get(field_name) is None:
+                    continue
+                value = convert(room.get(field_name))
+                if value is None:
+                    continue
+                metrics[key] = value
+                field_sources[key] = field_name
+                return
+
+        def money(value: Any) -> float | None:
+            number = to_number(value)
+            if number is None:
+                return None
+            divisor = float(money_divisor or 1)
+            return round(number / divisor, 2) if divisor else number
+
+        first("spend", ("stat_cost",), money)
+        first(
+            "gmv",
+            NET_GMV_FIELDS,
+            money,
+        )
+        first(
+            "orders",
+            NET_ORDER_FIELDS,
+        )
+        first(
+            "roi",
+            NET_ROI_FIELDS,
+        )
+        first("orderCost", NET_ORDER_COST_FIELDS, money)
+        first("grossGmv", GROSS_GMV_FIELDS, money)
+        first("grossOrders", GROSS_ORDER_FIELDS)
+        first("grossRoi", GROSS_ROI_FIELDS)
+        first("watchCount", ("total_live_watch_cnt",))
+        first("watchOneMinute", ("live_watch_one_minute_count",))
+        first("productClicks", ("live_click_product_count_alias",))
+        first("comments", ("total_live_comment_cnt",))
+        first("follows", ("total_live_follow_cnt",))
+        first("deliveryPlans", ("room_delivery",))
+
+        expected = (
+            "spend",
+            "gmv",
+            "orders",
+            "roi",
+            "watchCount",
+            "watchOneMinute",
+            "productClicks",
+            "comments",
+            "follows",
+            "deliveryPlans",
+            "online",
+            "peakOnline",
+            "gpm",
+            "orderCost",
+            "grossGmv",
+            "grossOrders",
+            "grossRoi",
+        )
+        missing = [key for key in expected if key not in metrics]
+        zeroed = bool(room) and all(
+            to_number(metrics.get(key)) in {None, 0}
+            for key in ("spend", "gmv", "orders", "watchCount")
+        )
+        return {
+            "status": "zero_pending" if zeroed else "ok",
+            "metrics": metrics,
+            "fieldSources": field_sources,
+            "missingMetrics": missing,
+            "zeroValueWarning": zeroed,
+            "source": "qianchuan_open_api_today_live",
+            "sourceLabel": "千川今日直播间 Open API · 直接字段",
+            "gmvScope": "net",
+            "note": (
+                "官方接口当前返回累计值为 0，不能据此覆盖大屏实时值"
+                if zeroed
+                else "官方接口直接返回字段；缺失字段不回退计算"
+            ),
+        }
+
     def discover_live_room(self, account_id: str | None = None) -> dict[str, Any]:
-        """Return the currently living Qianchuan room from the official Open API."""
+        """Check every configured Douyin account and return the current live room."""
         dashboard = self.dashboard()
         accounts = dashboard.get("accounts") or []
         account = next(
@@ -6477,7 +9185,15 @@ class DashboardStore:
             accounts[0] if accounts else None,
         )
         if not account:
-            return {"live": False, "error": "没有可用广告账户", "rooms": []}
+            return {
+                "live": False,
+                "status": "discovery_error",
+                "statusLabel": "直播状态读取失败",
+                "discoveryComplete": False,
+                "error": "没有可用广告账户",
+                "rooms": [],
+                "checkedAccounts": [],
+            }
         config = load_config()
         config_account = next(
             (
@@ -6487,36 +9203,96 @@ class DashboardStore:
             ),
             {},
         )
-        aweme_ids = (
-            [str(account.get("awemeId"))]
-            if account.get("awemeId")
-            else config_account.get("awemeIds")
-            or account.get("awemeIds")
-            or DEFAULT_ACCOUNT["awemeIds"]
+        configured_accounts = (
+            config_account.get("awemeAccounts")
+            or account.get("awemeAccounts")
+            or DEFAULT_ACCOUNT["awemeAccounts"]
         )
+        aweme_names = {
+            str(item.get("id")): str(item.get("name") or item.get("id"))
+            for item in configured_accounts
+            if isinstance(item, dict) and item.get("id")
+        }
+        aweme_ids = list(dict.fromkeys(self._account_aweme_ids(account, config)))
         token, _token_info, credential_errors = resolve_access_token(config)
         if not token:
             return {
                 "live": False,
+                "status": "discovery_error",
+                "statusLabel": "直播状态读取失败",
+                "discoveryComplete": False,
                 "error": (
                     credential_errors[0]["message"]
                     if credential_errors
                     else "未配置千川凭证"
                 ),
                 "rooms": [],
+                "checkedAccounts": [
+                    {
+                        "awemeId": aweme_id,
+                        "name": aweme_names.get(aweme_id, aweme_id),
+                        "status": "error",
+                        "roomId": "",
+                        "error": credential_errors[0]["message"] if credential_errors else "未配置千川凭证",
+                    }
+                    for aweme_id in aweme_ids
+                ],
+                "source": "qianchuan_open_api_today_live",
+                "sourceLabel": "千川今日直播间 Open API",
+                "syncedAt": now_iso(),
             }
         client = QianchuanClient(config, token)
         rooms: list[dict[str, Any]] = []
         errors: list[dict[str, Any]] = []
+        checked_accounts: list[dict[str, Any]] = []
         advertiser_id = str(account.get("advertiserId") or account.get("qianchuanId"))
         today = date.today().isoformat()
         for aweme_id in aweme_ids:
+            aweme_id = str(aweme_id)
+            aweme_name = aweme_names.get(aweme_id, aweme_id)
+            account_rooms: list[dict[str, Any]] = []
             try:
-                rooms.extend(
-                    client.fetch_live_rooms(advertiser_id, str(aweme_id), today)
-                )
+                account_rooms = client.fetch_live_rooms(advertiser_id, aweme_id, today)
+                for room in account_rooms:
+                    if not isinstance(room, dict):
+                        continue
+                    room.setdefault("aweme_id", aweme_id)
+                    room.setdefault("aweme_name", aweme_name)
+                    rooms.append(room)
             except QianchuanAPIError as exc:
-                errors.append({"awemeId": str(aweme_id), "message": str(exc)})
+                error = {
+                    "awemeId": aweme_id,
+                    "awemeName": aweme_name,
+                    "message": str(exc),
+                }
+                errors.append(error)
+                checked_accounts.append(
+                    {
+                        "awemeId": aweme_id,
+                        "name": aweme_name,
+                        "status": "error",
+                        "roomId": "",
+                        "error": str(exc),
+                    }
+                )
+                continue
+            living_room = next(
+                (
+                    room
+                    for room in account_rooms
+                    if str(room.get("room_status") or "").upper() == "LIVING"
+                ),
+                None,
+            )
+            checked_accounts.append(
+                {
+                    "awemeId": aweme_id,
+                    "name": aweme_name,
+                    "status": "live" if living_room else "not_live",
+                    "roomId": str((living_room or {}).get("room_id") or ""),
+                    "error": "",
+                }
+            )
         living = next(
             (
                 room
@@ -6525,17 +9301,41 @@ class DashboardStore:
             ),
             None,
         )
+        if living:
+            status = "live"
+            status_label = "直播中"
+        elif errors:
+            status = "discovery_incomplete" if len(errors) < len(aweme_ids) else "discovery_error"
+            status_label = "直播状态读取不完整" if len(errors) < len(aweme_ids) else "直播状态读取失败"
+        else:
+            status = "not_live"
+            status_label = "未开播"
+        living_aweme_id = str(
+            (living or {}).get("aweme_id")
+            or (living or {}).get("awemeId")
+            or ""
+        )
+        official_live = self._official_live_metrics(
+            living if isinstance(living, dict) else None,
+            float(config.get("live", {}).get("moneyDivisor") or 100000),
+        )
         return {
             "live": bool(living),
+            "status": status,
+            "statusLabel": status_label,
+            "discoveryComplete": not errors,
             "advertiserId": advertiser_id,
             "roomId": str((living or {}).get("room_id") or ""),
-            "awemeId": str(
-                (living or {}).get("aweme_id")
-                or (living or {}).get("awemeId")
+            "awemeId": living_aweme_id,
+            "awemeName": str(
+                (living or {}).get("aweme_name")
+                or aweme_names.get(living_aweme_id)
                 or ""
             ),
             "room": copy.deepcopy(living) if living else None,
+            "officialLive": official_live,
             "rooms": copy.deepcopy(rooms),
+            "checkedAccounts": checked_accounts,
             "errors": errors,
             "source": "qianchuan_open_api_today_live",
             "sourceLabel": "千川今日直播间 Open API",
@@ -6574,19 +9374,14 @@ class DashboardStore:
         room = discovered["room"]
         api_metrics = {
             "spend": client._live_money(room.get("stat_cost")),
-            "gmv": client._live_money(
-                room.get("live_pay_order_gmv_alias")
-                or room.get("luban_live_pay_order_gmv")
+            "gmv": client._live_money(pick_value(room, list(NET_GMV_FIELDS))),
+            "orders": pick_number(room, NET_ORDER_FIELDS) or 0,
+            "roi": pick_number(room, NET_ROI_FIELDS),
+            "grossGmv": client._live_money(
+                pick_value(room, list(GROSS_GMV_FIELDS))
             ),
-            "orders": to_number(
-                room.get("live_pay_order_count_alias")
-                or room.get("luban_live_pay_order_count")
-            )
-            or 0,
-            "roi": to_number(
-                room.get("live_pay_order_gmv_roi")
-                or room.get("ad_live_prepay_and_pay_order_gmv_roi")
-            ),
+            "grossOrders": pick_number(room, GROSS_ORDER_FIELDS) or 0,
+            "gmvScope": "net",
             "watchCount": to_number(room.get("total_live_watch_cnt")) or 0,
             "productClicks": to_number(room.get("live_click_product_count_alias")) or 0,
             "watchOneMinute": to_number(room.get("live_watch_one_minute_count")) or 0,
@@ -6600,9 +9395,9 @@ class DashboardStore:
         )
         labels = {
             "spend": "消耗",
-            "gmv": "成交金额",
-            "orders": "成交订单",
-            "roi": "ROI",
+            "gmv": "净成交金额",
+            "orders": "净成交订单",
+            "roi": "净成交ROI",
             "watchCount": "累计观看",
             "productClicks": "商品点击",
         }
@@ -6709,17 +9504,9 @@ class DashboardStore:
                 )
                 record = report.get("record") or {}
                 spend = round(to_number(record.get("stat_cost")) or 0.0, 2)
-                gmv = round(
-                    to_number(record.get("total_pay_order_gmv_for_roi2")) or 0.0,
-                    2,
-                )
-                orders = round(
-                    to_number(record.get("total_pay_order_count_for_roi2")) or 0.0,
-                    4,
-                )
-                roi = to_number(
-                    record.get("total_prepay_and_pay_order_roi2")
-                )
+                gmv = round(pick_number(record, NET_GMV_FIELDS) or 0.0, 2)
+                orders = round(pick_number(record, NET_ORDER_FIELDS) or 0.0, 4)
+                roi = pick_number(record, NET_ROI_FIELDS)
                 if roi is None:
                     roi = gmv / spend if spend else 0.0
                 payload = {
@@ -6735,6 +9522,15 @@ class DashboardStore:
                         "spend": spend,
                         "gmv": gmv,
                         "orders": orders,
+                        "grossGmv": round(
+                            pick_number(record, GROSS_GMV_FIELDS) or 0.0,
+                            2,
+                        ),
+                        "grossOrders": round(
+                            pick_number(record, GROSS_ORDER_FIELDS) or 0.0,
+                            4,
+                        ),
+                        "gmvScope": "net",
                         "roi": round(float(roi or 0.0), 4),
                     },
                     "raw": copy.deepcopy(record),
@@ -6779,7 +9575,12 @@ class DashboardStore:
             ) if payload.get("metrics") else self.live_trade_cache.get(cache_key, (0, payload))
         return copy.deepcopy(payload)
 
-    def live_snapshot(self, account_id: str | None = None) -> dict[str, Any]:
+    def live_snapshot(
+        self,
+        account_id: str | None = None,
+        *,
+        force: bool = False,
+    ) -> dict[str, Any]:
         account = self._account_for(account_id)
         if not account:
             return {
@@ -6791,10 +9592,11 @@ class DashboardStore:
         config = load_config()
         live_config = config.get("live", DEFAULT_LIVE_CONFIG)
         cache_seconds = max(5, int(live_config.get("cacheSeconds", 10)))
-        with self.live_lock:
-            cached = self.live_cache.get(cache_key)
-            if cached and time.time() - cached[0] < cache_seconds:
-                return copy.deepcopy(cached[1])
+        if not force:
+            with self.live_lock:
+                cached = self.live_cache.get(cache_key)
+                if cached and time.time() - cached[0] < cache_seconds:
+                    return copy.deepcopy(cached[1])
 
         behavior = self.live_screen_status()
         behavior_metrics = (
@@ -6808,11 +9610,16 @@ class DashboardStore:
             if value is not None
         }
         try:
-            five_dimension = self.live_five_dimension(account.get("id"), metrics)
+            five_dimension = self.live_five_dimension(
+                account.get("id"),
+                metrics,
+                official_live=behavior.get("officialLive"),
+            )
         except Exception as exc:
             five_dimension = self._five_dimension_payload(
                 metrics,
                 {},
+                official_live=behavior.get("officialLive"),
                 mcp_error=f"MCP 五维补充失败，已使用直播大屏数据：{exc}",
                 mcp_status="error",
             )
@@ -6824,6 +9631,15 @@ class DashboardStore:
         )
         screen_status = str(behavior.get("status") or "missing")
         login_required = screen_status == "login_required"
+        not_live = screen_status == "not_live"
+        discovery_failed = screen_status in {"discovery_error", "discovery_incomplete"}
+        screen_source_label = (
+            "未开播"
+            if not_live
+            else "直播状态读取失败"
+            if discovery_failed
+            else "千川直播大屏页面 · 直接抓取"
+        )
         screen_ready = (
             screen_status in {"ok", "partial", "stale"}
             and not bool(behavior.get("stale"))
@@ -6837,7 +9653,7 @@ class DashboardStore:
         live = screen_ready and bool(metrics)
 
         errors: list[dict[str, Any]] = []
-        if not trade_ok:
+        if not trade_ok and not not_live:
             errors.append(
                 {
                     "scope": "screen_trade",
@@ -6856,7 +9672,7 @@ class DashboardStore:
                     ),
                 }
             )
-        if not behavior_ok:
+        if not behavior_ok and not not_live:
             errors.append(
                 {
                     "scope": "screen_behavior",
@@ -6887,11 +9703,28 @@ class DashboardStore:
             key = str(item.get("key") or "").strip()
             if key and value is not None:
                 flow_map[key] = value
+        official_live = behavior.get("officialLive")
+        if not isinstance(official_live, dict):
+            official_live = {
+                "status": "missing",
+                "metrics": {},
+                "fieldSources": {},
+                "missingMetrics": [],
+                "source": "qianchuan_open_api_today_live",
+                "sourceLabel": "千川今日直播间 Open API · 直接字段",
+                "note": "本轮采集器尚未回传官方直播字段",
+            }
+        else:
+            official_live = copy.deepcopy(official_live)
         trade_channel = {
             "ok": trade_ok,
-            "status": "ok" if trade_ok else "error" if not metrics else "partial",
+            "status": (
+                "not_live"
+                if not_live
+                else "ok" if trade_ok else "error" if not metrics else "partial"
+            ),
             "source": "puppeteer-core_screen_direct",
-            "sourceLabel": "千川直播大屏页面 · 直接抓取",
+            "sourceLabel": screen_source_label,
             "metrics": {
                 key: metrics[key]
                 for key in trade_keys
@@ -6900,7 +9733,7 @@ class DashboardStore:
             "missingMetrics": missing_trade,
             "error": (
                 ""
-                if trade_ok
+                if trade_ok or not_live
                 else "登录已过期，请重新登录"
                 if login_required
                 else "大屏交易字段抓取失败，未使用 MCP 兜底"
@@ -6909,9 +9742,13 @@ class DashboardStore:
         }
         behavior_channel = {
             "ok": behavior_ok,
-            "status": "ok" if behavior_ok else "error" if not metrics else "partial",
+            "status": (
+                "not_live"
+                if not_live
+                else "ok" if behavior_ok else "error" if not metrics else "partial"
+            ),
             "source": "puppeteer-core_screen_direct",
-            "sourceLabel": "千川直播大屏页面 · 直接抓取",
+            "sourceLabel": screen_source_label,
             "metrics": {
                 key: metrics[key]
                 for key in behavior_keys
@@ -6920,20 +9757,25 @@ class DashboardStore:
             "missingMetrics": missing_behavior,
             "error": (
                 ""
-                if behavior_ok
+                if behavior_ok or not_live
                 else "登录已过期，请重新登录"
                 if login_required
                 else "大屏行为字段抓取失败"
             ),
             "syncedAt": behavior.get("syncedAt") or now_iso(),
         }
+        buyin_behavior = self.buyin_live_status()
         payload = {
             "live": live,
             "room": room,
             "metrics": metrics,
             "fiveDimension": five_dimension,
+            "funnel": copy.deepcopy(behavior.get("funnel")),
+            "trend": copy.deepcopy(behavior.get("trend")),
             "flows": {"AllEcomFlowSource": flow_map} if flow_map else {},
             "flowItems": copy.deepcopy(flow_items),
+            "flowBreakdown": copy.deepcopy(behavior.get("flowBreakdown")),
+            "buyin": copy.deepcopy(buyin_behavior),
             "users": {},
             "products": [],
             "stream": {
@@ -6945,17 +9787,28 @@ class DashboardStore:
             "syncedAt": now_iso(),
             "date": date.today().isoformat(),
             "captureStatus": screen_status,
+            "detectionStatus": behavior.get("detectionStatus"),
+            "checkedAccounts": copy.deepcopy(behavior.get("checkedAccounts") or []),
             "loginRequired": login_required,
             "source": "qianchuan_live_screen_direct",
-            "sourceLabel": "千川直播大屏 · 页面直接抓取",
+            "sourceLabel": (
+                "未开播"
+                if not_live
+                else "直播状态读取失败"
+                if discovery_failed
+                else "千川直播大屏 · 页面直接抓取"
+            ),
             "peakOnlineSource": behavior.get("peakOnlineSource"),
             "peakObservedAt": behavior.get("peakObservedAt"),
-            "tradeRefundPolicy": "screen_displayed",
-            "tradeRefundPolicyLabel": "直播大屏页面当前展示口径",
+            "officialLive": official_live,
+            "tradeRefundPolicy": "after_refund_1h",
+            "tradeRefundPolicyLabel": "净成交（剔除1小时内退款）",
+            "gmvScope": "net",
             "behaviorPolicy": "screen_cumulative",
             "channels": {
                 "trade": trade_channel,
                 "behavior": behavior_channel,
+                "official": official_live,
                 "screen": copy.deepcopy(behavior),
             },
             "history": history,
@@ -6971,6 +9824,8 @@ class DashboardStore:
             "error": (
                 ""
                 if live
+                else "未开播"
+                if not_live
                 else "登录已过期，请重新登录"
                 if login_required
                 else str(behavior.get("error") or "直播大屏抓取失败")
@@ -7052,16 +9907,10 @@ class DashboardStore:
                         return round(number / divisor, 2) if number is not None and divisor else 0.0
 
                     live_orders = to_number(
-                        live_room.get("pay_order_count")
-                        or live_room.get("total_pay_order_count_for_roi2")
-                        or live_room.get("luban_live_pay_order_count")
-                        or live_room.get("live_pay_order_count_alias")
+                        pick_value(live_room, list(NET_ORDER_FIELDS))
                     ) or 0
                     live_gmv = mcp_money(
-                        live_room.get("pay_order_amount")
-                        or live_room.get("total_pay_order_gmv_for_roi2")
-                        or live_room.get("luban_live_pay_order_gmv")
-                        or live_room.get("live_pay_order_gmv_alias")
+                        pick_value(live_room, list(NET_GMV_FIELDS))
                     )
                     live_spend = mcp_money(live_room.get("stat_cost"))
                     live_watch = to_number(
@@ -7107,12 +9956,17 @@ class DashboardStore:
                             "watchOneMinute": live_watch_one_minute,
                             "orders": live_orders,
                             "gmv": live_gmv,
-                            "ordersBeforeRefund": live_orders,
-                            "gmvBeforeRefund": live_gmv,
                             "roi": to_number(
-                                live_room.get("live_pay_order_gmv_roi")
-                                or live_room.get("ad_live_prepay_and_pay_order_gmv_roi")
+                                pick_value(live_room, list(NET_ROI_FIELDS))
                             ) or (live_gmv / live_spend if live_spend else 0),
+                            "grossGmv": mcp_money(
+                                pick_value(live_room, list(GROSS_GMV_FIELDS))
+                            ),
+                            "grossOrders": to_number(
+                                pick_value(live_room, list(GROSS_ORDER_FIELDS))
+                            )
+                            or 0,
+                            "gmvScope": "net",
                             "cvr": to_number(
                                 live_room.get("ecp_convert_rate")
                                 or live_room.get("live_pay_order_rate")
@@ -7138,8 +9992,8 @@ class DashboardStore:
                         "reportMode": report_mode,
                         "source": "qianchuan_mcp_live_screen",
                         "sourceLabel": f"千川 MCP · {mcp_live['tool']}",
-                        "refundPolicy": "before_refund",
-                        "refundPolicyLabel": "退款前",
+                        "refundPolicy": "after_refund_1h",
+                        "refundPolicyLabel": "净成交（剔除1小时内退款）",
                         "mcp": {
                             "tool": mcp_live["tool"],
                             "arguments": mcp_live.get("arguments") or {},
@@ -7185,8 +10039,8 @@ class DashboardStore:
                 "date": room_date,
                 "source": "qianchuan_live_screen",
                 "sourceLabel": "千川直播大屏数据",
-                "refundPolicy": "before_refund",
-                "refundPolicyLabel": "退款前",
+                "refundPolicy": "after_refund_1h",
+                "refundPolicyLabel": "净成交（剔除1小时内退款）",
             }
             with self.live_lock:
                 self.live_cache[cache_key] = (time.time(), payload)
@@ -7212,12 +10066,10 @@ class DashboardStore:
             errors.append({"scope": "products", "message": str(exc)})
 
         live_orders = to_number(
-            live_room.get("luban_live_pay_order_count")
-            or live_room.get("live_pay_order_count_alias")
+            pick_value(live_room, list(NET_ORDER_FIELDS))
         ) or 0
         live_gmv = client._live_money(
-            live_room.get("luban_live_pay_order_gmv")
-            or live_room.get("live_pay_order_gmv_alias")
+            pick_value(live_room, list(NET_GMV_FIELDS))
         )
         metrics = {
             "spend": client._live_money(live_room.get("stat_cost")),
@@ -7225,11 +10077,17 @@ class DashboardStore:
             "watchOneMinute": to_number(live_room.get("live_watch_one_minute_count")) or 0,
             "orders": live_orders,
             "gmv": live_gmv,
-            "ordersBeforeRefund": live_orders,
-            "gmvBeforeRefund": live_gmv,
             "roi": to_number(
-                live_room.get("live_pay_order_gmv_roi") or live_room.get("ad_live_prepay_and_pay_order_gmv_roi")
+                pick_value(live_room, list(NET_ROI_FIELDS))
             ),
+            "grossGmv": client._live_money(
+                pick_value(live_room, list(GROSS_GMV_FIELDS))
+            ),
+            "grossOrders": to_number(
+                pick_value(live_room, list(GROSS_ORDER_FIELDS))
+            )
+            or 0,
+            "gmvScope": "net",
             "cvr": to_number(live_room.get("ecp_convert_rate") or live_room.get("live_pay_order_rate")),
             "productClicks": to_number(live_room.get("live_click_product_count_alias")) or 0,
             "comments": to_number(live_room.get("total_live_comment_cnt")) or 0,
@@ -7263,8 +10121,8 @@ class DashboardStore:
             "date": room_date,
             "source": "qianchuan_live_screen",
             "sourceLabel": "千川直播大屏数据",
-            "refundPolicy": "before_refund",
-            "refundPolicyLabel": "退款前",
+            "refundPolicy": "after_refund_1h",
+            "refundPolicyLabel": "净成交（剔除1小时内退款）",
         }
         with self.live_lock:
             self.live_cache[cache_key] = (time.time(), payload)
@@ -7321,6 +10179,23 @@ class LiveStreamRegistry:
             raise ValueError("仅接受千川直播画面使用的抖音 CDN 地址")
         return value
 
+    @classmethod
+    def _preferred_url(cls, url: str) -> str:
+        """Prefer the signed origin in redirect URLs whose CDN host has a bad certificate."""
+        parsed = urllib.parse.urlparse(url)
+        host = (parsed.hostname or "").lower()
+        if not host.endswith(".bytefcdnrd.com"):
+            return url
+        query = urllib.parse.parse_qs(parsed.query)
+        origin = str((query.get("fp_user_url") or [""])[0]).strip()
+        if not origin or origin == url:
+            return url
+        try:
+            validated = cls._validate_url(origin)
+        except ValueError:
+            return url
+        return validated
+
     def heartbeat(self, room_id: Any = None) -> dict[str, Any]:
         now = time.time()
         refreshed_room = ""
@@ -7343,7 +10218,7 @@ class LiveStreamRegistry:
 
     def register(self, payload: dict[str, Any]) -> dict[str, Any]:
         room_id = self._room_id(payload.get("roomId") or payload.get("room_id"))
-        url = self._validate_url(payload.get("url"))
+        url = self._preferred_url(self._validate_url(payload.get("url")))
         stream_type = self._stream_type(url, payload.get("type"))
         captured_at = time.time()
         with self.lock:
@@ -7580,12 +10455,14 @@ def make_handler(
     directory: Path,
     transcoder: StreamTranscoder | None = None,
     stream_registry: LiveStreamRegistry | None = None,
+    ai_client: deepseek_client.DeepSeekClient | None = None,
 ):
     if transcoder is None:
         transcoder = StreamTranscoder(HLS_DIR)
     if stream_registry is None:
         stream_registry = LiveStreamRegistry()
-    learning_documents = LearningDocumentStore(directory)
+    ai_client = ai_client or deepseek_client.DeepSeekClient()
+    learning_documents = LearningDocumentStore(directory, ai_client)
     class DashboardHandler(SimpleHTTPRequestHandler):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, directory=str(directory), **kwargs)
@@ -7615,6 +10492,69 @@ def make_handler(
             self.end_headers()
             self.wfile.write(body)
 
+        def _serve_recording_file(self, request_path: str, head_only: bool = False) -> None:
+            recordings_root = (directory / "recordings").resolve()
+            relative = urllib.parse.unquote(request_path).lstrip("/")
+            target = (directory / relative).resolve()
+            if recordings_root not in target.parents or not target.is_file():
+                self.send_error(404, "Recording not found")
+                return
+            file_size = target.stat().st_size
+            start = 0
+            end = max(0, file_size - 1)
+            partial = False
+            range_header = self.headers.get("Range", "").strip()
+            if range_header.startswith("bytes=") and "," not in range_header:
+                raw_range = range_header[6:].strip()
+                try:
+                    raw_start, raw_end = raw_range.split("-", 1)
+                    if raw_start:
+                        start = int(raw_start)
+                        end = int(raw_end) if raw_end else end
+                    elif raw_end:
+                        suffix = max(1, int(raw_end))
+                        start = max(0, file_size - suffix)
+                    if start < 0 or end < start or start >= file_size:
+                        raise ValueError("invalid range")
+                    end = min(end, file_size - 1)
+                    partial = True
+                except (TypeError, ValueError):
+                    self.send_response(416)
+                    self.send_header("Content-Range", f"bytes */{file_size}")
+                    self.end_headers()
+                    return
+            length = end - start + 1
+            content_type = mimetypes.guess_type(str(target))[0] or "application/octet-stream"
+            self.send_response(206 if partial else 200)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(length))
+            self.send_header("Accept-Ranges", "bytes")
+            self.send_header("Cache-Control", "no-cache")
+            if partial:
+                self.send_header("Content-Range", f"bytes {start}-{end}/{file_size}")
+            self.end_headers()
+            if head_only:
+                return
+            try:
+                with target.open("rb") as handle:
+                    handle.seek(start)
+                    remaining = length
+                    while remaining > 0:
+                        chunk = handle.read(min(64 * 1024, remaining))
+                        if not chunk:
+                            break
+                        self.wfile.write(chunk)
+                        remaining -= len(chunk)
+            except (BrokenPipeError, ConnectionResetError):
+                return
+
+        def do_HEAD(self) -> None:
+            path = urllib.parse.urlparse(self.path).path
+            if path.startswith("/recordings/"):
+                self._serve_recording_file(path, head_only=True)
+                return
+            super().do_HEAD()
+
         def _relay_live_flv(self, room_id: str) -> None:
             try:
                 stream = stream_registry.resolve(room_id)
@@ -7634,7 +10574,13 @@ def make_handler(
                 },
             )
             try:
-                upstream = urllib.request.urlopen(request, timeout=20)
+                # The signed Douyin CDN redirect host does not match its certificate.
+                # TLS verification is relaxed only for this allowlisted media URL.
+                upstream = urllib.request.urlopen(
+                    request,
+                    timeout=20,
+                    context=LIVE_STREAM_SSL_CONTEXT,
+                )
             except (urllib.error.URLError, TimeoutError, OSError) as exc:
                 self._send_json(502, {"error": "live_stream_upstream_failed", "message": str(exc)})
                 return
@@ -7692,6 +10638,134 @@ def make_handler(
 
         def do_GET(self) -> None:
             path = urllib.parse.urlparse(self.path).path
+            if path == "/api/script/analysis":
+                query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+                account_id = (query.get("account") or [None])[0]
+                requested_day = (query.get("date") or [None])[0]
+                requested_session = (query.get("session") or [None])[0]
+                try:
+                    self._send_json(
+                        200,
+                        store.script_analysis(
+                            account_id,
+                            requested_day,
+                            requested_session,
+                        ),
+                    )
+                except Exception as exc:
+                    self._send_json(
+                        200,
+                        {
+                            "ok": False,
+                            "available": False,
+                            "reason": "error",
+                            "error": f"话术分析读取失败：{exc}",
+                            "phrases": [],
+                            "quality": [],
+                            "low": [],
+                            "syncedAt": now_iso(),
+                        },
+                    )
+                return
+            if path == "/api/review/sessions":
+                query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+                account_id = (query.get("account") or [None])[0]
+                requested_day = (query.get("date") or [None])[0]
+                try:
+                    self._send_json(
+                        200,
+                        store.review_sessions(account_id, requested_day),
+                    )
+                except Exception as exc:
+                    self._send_json(
+                        500,
+                        {"ok": False, "error": f"复盘数据读取失败：{exc}"},
+                    )
+                return
+            if path == "/api/review/recorder":
+                self._send_json(200, store.recording_status())
+                return
+            if path == "/api/review/asr":
+                self._send_json(200, store.asr_status())
+                return
+            if path == "/api/review/daily-playlist":
+                query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+                requested_account = (query.get("account") or [""])[0]
+                day = (query.get("date") or [""])[0]
+                account = store._account_for(requested_account)
+                account_key = str(account.get("id") if account else requested_account)
+                playlist = recording_store.daily_playlist(
+                    account_key,
+                    day,
+                    RECORDINGS_DIR,
+                )
+                if not playlist:
+                    self.send_error(404, "Daily recording not found")
+                    return
+                body = playlist.encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/vnd.apple.mpegurl")
+                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Cache-Control", "no-cache")
+                self.end_headers()
+                if self.command != "HEAD":
+                    self.wfile.write(body)
+                return
+            if path == "/api/speakers":
+                self._send_json(200, {"ok": True, "speakers": load_speakers()})
+                return
+            if path == "/api/speakers/map":
+                query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+                session_id = (query.get("sessionId") or [""])[0]
+                self._send_json(
+                    200,
+                    {
+                        "ok": True,
+                        "sessionId": session_id,
+                        **load_session_speaker_map(session_id),
+                    },
+                )
+                return
+            if path.startswith("/speaker-faces/"):
+                filename = urllib.parse.unquote(path[len("/speaker-faces/"):]).split("/")[0]
+                target = (SPEAKER_FACES_DIR / filename).resolve()
+                if SPEAKER_FACES_DIR.resolve() not in target.parents or not target.is_file():
+                    self.send_error(404, "Face image not found")
+                    return
+                body = target.read_bytes()
+                self.send_response(200)
+                self.send_header(
+                    "Content-Type",
+                    mimetypes.guess_type(str(target))[0] or "image/jpeg",
+                )
+                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Cache-Control", "no-cache")
+                self.end_headers()
+                self.wfile.write(body)
+                return
+            if path.startswith("/recordings/"):
+                self._serve_recording_file(path)
+                return
+            if path == "/api/ai/config":
+                status = ai_client.status()
+                self._send_json(
+                    200,
+                    {
+                        "ok": True,
+                        **status,
+                        "policy": {
+                            "developmentModel": "deepseek-v4-pro",
+                            "productModel": "deepseek-flash",
+                            "productFeatures": [
+                                "AI 诊断报告",
+                                "投放建议",
+                                "问题定位",
+                                "知识库自然语言回答",
+                            ],
+                        },
+                    },
+                )
+                return
             if path == "/api/learning/documents":
                 try:
                     self._send_json(200, learning_documents.payload())
@@ -7721,6 +10795,17 @@ def make_handler(
                     self._send_json(
                         500,
                         {"ok": False, "error": f"学习资料检索失败：{exc}"},
+                    )
+                return
+            if path == "/api/learning/profile":
+                try:
+                    self._send_json(200, learning_documents.profile())
+                except LearningDocumentError as exc:
+                    self._send_json(exc.status, {"ok": False, "error": str(exc)})
+                except Exception as exc:
+                    self._send_json(
+                        500,
+                        {"ok": False, "error": f"投放画像读取失败：{exc}"},
                     )
                 return
             if path == "/api/learning/documents/download":
@@ -7829,6 +10914,9 @@ def make_handler(
                 screen.pop("matches", None)
                 self._send_json(200, screen)
                 return
+            if path == "/api/live/buyin":
+                self._send_json(200, store.buyin_live_status())
+                return
             if path == "/api/live/discover":
                 query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
                 account_id = (query.get("account") or [None])[0]
@@ -7880,6 +10968,7 @@ def make_handler(
                         payload,
                         learning_documents,
                     )
+                    payload["aiConfig"] = ai_client.status()
                     self._send_json(
                         200,
                         payload,
@@ -7958,6 +11047,8 @@ def make_handler(
                         "pollIntervalSeconds": dashboard.get("pollIntervalSeconds"),
                         "syncBackoffSeconds": dashboard.get("syncBackoffSeconds"),
                         "dataCutoff": dashboard.get("dataCutoff"),
+                        "transactionScope": dashboard.get("transactionScope"),
+                        "transactionScopeLabel": dashboard.get("transactionScopeLabel"),
                         "realtime": dashboard.get("realtime"),
                         "realtimeUpdatedAt": (dashboard.get("realtime") or {}).get("updatedAt"),
                         "mcpConfigured": bool(load_mcp_config().get("url")),
@@ -7967,6 +11058,14 @@ def make_handler(
                             for key, value in store.live_screen_status().items()
                             if key not in {"metrics", "matches"}
                         },
+                        "buyinLiveCapture": {
+                            key: value
+                            for key, value in store.buyin_live_status().items()
+                            if key not in {"metrics", "extras", "channels", "matches"}
+                        },
+                        "liveRecorder": store.recording_status(),
+                        "localAsr": store.asr_status(),
+                        "deepseek": ai_client.status(),
                         "syncRequest": store.sync_state(),
                         "reconciliation": next(
                             (
@@ -8011,6 +11110,197 @@ def make_handler(
         def do_POST(self) -> None:
             path = urllib.parse.urlparse(self.path).path
             origin = self._capture_origin()
+            if path == "/api/speakers":
+                try:
+                    length = int(self.headers.get("Content-Length", "0") or 0)
+                except ValueError:
+                    length = 0
+                if length <= 0:
+                    self._send_json(400, {"ok": False, "error": "图片内容为空"})
+                    return
+                content = self.rfile.read(length)
+                raw_name = self.headers.get("X-Speaker-Name", "")
+                raw_file = self.headers.get("X-File-Name", "")
+                ext = os.path.splitext(raw_file)[1] or ".jpg"
+                try:
+                    record = save_speaker_face(raw_name, ext, content)
+                    self._send_json(
+                        201,
+                        {"ok": True, "speaker": record, "speakers": load_speakers()},
+                    )
+                except ValueError as exc:
+                    self._send_json(400, {"ok": False, "error": str(exc)})
+                except Exception as exc:
+                    self._send_json(500, {"ok": False, "error": f"正脸上传失败：{exc}"})
+                return
+            if path == "/api/speakers/map":
+                body = self._read_json()
+                try:
+                    session_id = str(body.get("sessionId") or "")
+                    speaker = str(body.get("speaker") or "")
+                    speaker_id = str(body.get("speakerId") or "")
+                    reference = next(
+                        (
+                            item
+                            for item in load_speakers()
+                            if str(item.get("id")) == speaker_id
+                        ),
+                        {
+                            "id": speaker_id,
+                            "name": str(body.get("name") or ""),
+                            "face": "",
+                        },
+                    )
+                    payload = save_session_speaker_map(session_id, speaker, reference)
+                    self._send_json(200, {"ok": True, **payload})
+                except ValueError as exc:
+                    self._send_json(400, {"ok": False, "error": str(exc)})
+                except Exception as exc:
+                    self._send_json(500, {"ok": False, "error": f"说话人对应保存失败：{exc}"})
+                return
+            if path == "/api/assistant/chat":
+                try:
+                    length = int(self.headers.get("Content-Length", "0") or 0)
+                except ValueError:
+                    self._send_json(400, {"ok": False, "error": "无效的请求长度"})
+                    return
+                if length > 64 * 1024:
+                    self.close_connection = True
+                    self._send_json(
+                        413,
+                        {"ok": False, "error": "单次问题内容不能超过 64 KB"},
+                    )
+                    return
+                body = self._read_json()
+                try:
+                    data_context = build_chat_data_context(
+                        store,
+                        str(body.get("account") or "") if isinstance(body, dict) else "",
+                    )
+                    answer = learning_documents.answer(
+                        str(body.get("message") or ""),
+                        body.get("history") if isinstance(body.get("history"), list) else [],
+                        context=data_context,
+                    )
+                    citations = (
+                        answer.get("citations")
+                        if isinstance(answer.get("citations"), list)
+                        else []
+                    )
+                    profile_matches = (
+                        answer.get("experienceProfile")
+                        if isinstance(answer.get("experienceProfile"), list)
+                        else []
+                    )
+                    profile_lines: list[str] = []
+                    for item in profile_matches:
+                        category = item.get("category")
+                        source = item.get("source") if isinstance(item.get("source"), dict) else {}
+                        source_name = str(source.get("documentName") or "未命名文档")
+                        if category == "guardrails":
+                            profile_lines.append(
+                                f"[经验·底线] {str(item.get('rule') or '')}（来源：《{source_name}》）"
+                            )
+                        elif category == "habits":
+                            condition = str(item.get("condition") or "").strip()
+                            action = str(item.get("action") or "").strip()
+                            category_label = str(item.get("category") or "")
+                            profile_lines.append(
+                                f"[经验·习惯{('·' + category_label) if category_label else ''}] "
+                                f"{condition} → {action}（来源：《{source_name}》）"
+                            )
+                        else:
+                            trigger = str(item.get("trigger") or "指标变化").strip()
+                            action = str(item.get("action") or "").strip()
+                            profile_lines.append(
+                                f"[经验·逻辑] 看到 {trigger} → {action}（来源：《{source_name}》）"
+                            )
+                    profile_text = "\n".join(profile_lines)
+                    reference_text = ""
+                    if citations:
+                        reference_text = "\n\n".join(
+                            (
+                                f"[{index}] 文档：{item.get('citationLabel') or item.get('documentName') or '未命名文档'}\n"
+                                f"片段：{str(item.get('excerpt') or '')[:1200]}"
+                            )
+                            for index, item in enumerate(citations, start=1)
+                        )
+                    experience_parts: list[str] = []
+                    if profile_text:
+                        experience_parts.append(
+                            "以下是从你上传文档中提炼出的“投放画像”，这是你的真实经验，"
+                            "回答时把来自这里的内容标注为【你的经验】：\n" + profile_text
+                        )
+                    if reference_text:
+                        experience_parts.append(
+                            "以下是你文档中的原始片段，仅用于核对与溯源，不要整段照抄：\n"
+                            + reference_text
+                        )
+                    if not experience_parts:
+                        experience_parts.append(
+                            "本次没有命中你的投放经验画像或原文片段，"
+                            "请直接基于通用投放知识作答，并把这类内容标注为【通用知识】。"
+                        )
+                    experience_context = "\n\n".join(experience_parts)
+                    ai_result = {
+                        "ok": False,
+                        "model": ai_client.model_id("product"),
+                        "mode": "local_fallback",
+                        "error": "DeepSeek 未配置",
+                    }
+                    if ai_client.status().get("configured"):
+                        ai_result = ai_client.generate(
+                            [
+                                {
+                                    "role": "system",
+                                    "content": (
+                                        "你是资深的千川投放专家。"
+                                        "第一步：基于通用投放知识，结合用户问题与当前数据，自由、完整地给出诊断和下一步建议，不要束手束脚。"
+                                        "第二步：把“投放画像”当作用户真实经验做底线校验——建议与经验一致就正常输出；"
+                                        "建议与经验冲突时，必须明确指出“这和你的投放经验不符”，并说明冲突点。"
+                                        "输出时对每条建议标注来源：【你的经验】或【通用知识】；允许在经验之外给出通用知识建议。"
+                                        "原则：通用知识是主力，你的经验是刹车，用来防止离谱建议，不是方向盘。"
+                                        "输出简体中文，简洁、可执行。"
+                                    ),
+                                },
+                                {
+                                    "role": "user",
+                                    "content": (
+                                        f"问题：{answer.get('question') or ''}\n"
+                                        f"当前数据：{data_context}\n"
+                                        f"\n{experience_context}"
+                                    ),
+                                },
+                            ],
+                            purpose="product",
+                            temperature=0.15,
+                        )
+                    if ai_result.get("ok"):
+                        answer["answer"] = ai_result["text"]
+                        answer["mode"] = "deepseek_product_primary"
+                        answer["model"] = ai_result["model"]
+                        answer["responseModel"] = ai_result.get("responseModel")
+                        answer["usage"] = ai_result.get("usage") or {}
+                        answer["disclaimer"] = (
+                            "回答已区分【通用知识】与【你的经验】；经验来自已上传文档的提炼总结，仅作参考。"
+                        )
+                    else:
+                        answer["mode"] = "local_grounded_extraction_fallback"
+                        answer["model"] = ai_result.get("model") or ai_client.model_id("product")
+                        answer["aiFallback"] = {
+                            "configured": ai_client.status().get("configured", False),
+                            "error": ai_result.get("error") or "DeepSeek 暂不可用",
+                        }
+                    answer["aiConfig"] = ai_client.status()
+                    self._send_json(200, answer)
+                except LearningDocumentError as exc:
+                    self._send_json(exc.status, {"ok": False, "error": str(exc)})
+                except Exception as exc:
+                    self._send_json(
+                        500,
+                        {"ok": False, "error": f"知识库问答失败：{exc}"},
+                    )
+                return
             if path == "/api/learning/reindex":
                 try:
                     self._send_json(200, learning_documents.reindex_all())
@@ -8089,6 +11379,63 @@ def make_handler(
                 body = self._read_json()
                 self._send_json(200, transcoder.stop(body.get("key")))
                 return
+            if path == "/api/live/refresh":
+                body = self._read_json()
+                account_id = str(body.get("account") or "").strip() or None
+                timeout_seconds = to_number(body.get("timeoutSeconds")) or 35.0
+                try:
+                    result = store.request_live_screen_refresh(
+                        account_id,
+                        timeout_seconds=min(45.0, max(5.0, timeout_seconds)),
+                    )
+                    self._send_json(200 if result.get("ok") else 504, result)
+                except Exception as exc:
+                    self._send_json(
+                        500,
+                        {
+                            "ok": False,
+                            "completed": False,
+                            "error": f"手动刷新大屏失败：{exc}",
+                            "syncedAt": now_iso(),
+                        },
+                    )
+                return
+            if path == "/api/live/buyin/refresh":
+                body = self._read_json()
+                timeout_seconds = to_number(body.get("timeoutSeconds")) or 35.0
+                try:
+                    result = store.request_buyin_live_refresh(
+                        timeout_seconds=min(45.0, max(5.0, timeout_seconds)),
+                    )
+                    self._send_json(200 if result.get("ok") else 504, result)
+                except Exception as exc:
+                    self._send_json(
+                        500,
+                        {
+                            "ok": False,
+                            "completed": False,
+                            "error": f"手动刷新百应直播中控台失败：{exc}",
+                            "syncedAt": now_iso(),
+                        },
+                    )
+                return
+            if path == "/api/review/recorder":
+                body = self._read_json()
+                paused = bool(body.get("paused"))
+                atomic_write_json(
+                    DATA_DIR / "live-recorder-pause.json",
+                    {"paused": paused, "updatedAt": now_iso()},
+                )
+                self._send_json(
+                    200,
+                    {
+                        "ok": True,
+                        "paused": paused,
+                        "recorder": store.recording_status(),
+                        "syncedAt": now_iso(),
+                    },
+                )
+                return
             if path != "/api/sync":
                 self._send_json(404, {"error": "not_found"})
                 return
@@ -8096,12 +11443,16 @@ def make_handler(
                 body = self._read_json()
                 realtime_only = str(body.get("mode") or "realtime").lower() != "full"
                 force_materials = bool(body.get("forceMaterials"))
+                manual_refresh = bool(body.get("manual"))
                 started = store.request_sync(
                     realtime_only=realtime_only,
                     force_materials=force_materials,
                 )
                 requested_wait = to_number(body.get("waitSeconds")) or 0.75
-                store.wait_for_sync(timeout_seconds=min(0.75, max(0.1, requested_wait)))
+                max_wait = 8.0 if manual_refresh else 0.75
+                store.wait_for_sync(
+                    timeout_seconds=min(max_wait, max(0.1, requested_wait))
+                )
                 snapshot = store.dashboard()
                 snapshot["syncRequest"] = store.sync_state()
                 snapshot["syncRequest"]["started"] = started

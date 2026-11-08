@@ -93,6 +93,77 @@ class WatchdogStateTests(unittest.TestCase):
         self.assertIsNone(pid)
         start_agent.assert_called_once_with("node.exe")
 
+    def test_ensure_buyin_agent_uses_its_own_lock_and_script(self) -> None:
+        fake_process = object()
+        with (
+            patch.object(live_watchdog, "running_agent_pid", return_value=None) as running,
+            patch.object(
+                live_watchdog,
+                "start_agent",
+                return_value=fake_process,
+            ) as start_agent,
+        ):
+            process, pid = live_watchdog.ensure_buyin_agent_started("node.exe")
+
+        self.assertIs(process, fake_process)
+        self.assertIsNone(pid)
+        running.assert_called_once_with(live_watchdog.BUYIN_AGENT_LOCK_PATH)
+        start_agent.assert_called_once_with(
+            "node.exe",
+            live_watchdog.BUYIN_AGENT_PATH,
+            live_watchdog.BUYIN_AGENT_LOG_PATH,
+            "百应直播中控台采集器",
+        )
+
+    def test_ensure_recorder_uses_python_recorder_lock(self) -> None:
+        fake_process = object()
+        with (
+            patch.object(live_watchdog, "running_agent_pid", return_value=None) as running,
+            patch.object(
+                live_watchdog,
+                "start_recorder",
+                return_value=fake_process,
+            ) as start_recorder,
+        ):
+            process, pid = live_watchdog.ensure_recorder_started()
+
+        self.assertIs(process, fake_process)
+        self.assertIsNone(pid)
+        running.assert_called_once_with(live_watchdog.RECORDER_LOCK_PATH)
+        start_recorder.assert_called_once_with()
+
+    def test_ensure_asr_uses_local_whisper_lock(self) -> None:
+        fake_process = object()
+        with (
+            patch.object(live_watchdog, "running_agent_pid", return_value=None) as running,
+            patch.object(
+                live_watchdog,
+                "start_asr",
+                return_value=fake_process,
+            ) as start_asr,
+        ):
+            process, pid = live_watchdog.ensure_asr_started()
+
+        self.assertIs(process, fake_process)
+        self.assertIsNone(pid)
+        running.assert_called_once_with(live_watchdog.ASR_LOCK_PATH)
+        start_asr.assert_called_once_with()
+
+    def test_login_pause_is_cleared_when_login_process_already_exited(self) -> None:
+        pause_path = Path(self.temp_dir.name) / "buyin-live-pause"
+        pause_path.write_text(
+            json.dumps({"mode": "login", "pid": 2_000_000_000}),
+            encoding="utf-8",
+        )
+
+        active = live_watchdog.screen_pause_active(
+            pause_path,
+            "百应登录暂停",
+        )
+
+        self.assertFalse(active)
+        self.assertFalse(pause_path.exists())
+
     def test_open_append_log_falls_back_when_primary_is_read_only(self) -> None:
         primary = Path(self.temp_dir.name) / "live-server.log"
         primary.write_text("existing", encoding="utf-8")

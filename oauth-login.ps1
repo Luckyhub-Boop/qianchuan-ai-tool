@@ -1,6 +1,8 @@
 $ErrorActionPreference = "Stop"
 Set-Location -Path $PSScriptRoot
 
+$ExternalRoot = if ($env:QIANCHUAN_EXTERNAL_ROOT) { $env:QIANCHUAN_EXTERNAL_ROOT } else { Split-Path -Parent (Split-Path -Parent $PSScriptRoot) }
+
 function Resolve-Python {
     $candidates = @()
     if ($env:QIANCHUAN_PYTHON) {
@@ -13,7 +15,7 @@ function Resolve-Python {
         }
     }
     $candidates += @(
-        (Join-Path $PSScriptRoot "runtime\python\python.exe"),
+        (Join-Path $ExternalRoot "runtime\python\python.exe"),
         (Join-Path $PSScriptRoot "python\python.exe"),
         (Join-Path $env:USERPROFILE ".cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe")
     )

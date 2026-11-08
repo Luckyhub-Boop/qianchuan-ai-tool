@@ -10,8 +10,13 @@
     "extraParams": {},
     "fields": [
       "stat_cost",
-      "pay_order_amount",
-      "pay_order_count"
+      "total_order_settle_amount_for_roi2_1h",
+      "total_order_settle_count_for_roi2_1h",
+      "total_prepay_and_pay_settle_roi2_1h",
+      "total_order_real_settle_amount_for_roi2_1h",
+      "total_pay_order_gmv_for_roi2",
+      "total_pay_order_count_for_roi2",
+      "total_prepay_and_pay_order_roi2"
     ],
     "fieldMap": {
       "date": [
@@ -25,14 +30,34 @@
         "spend"
       ],
       "gmv": [
-        "pay_order_amount",
-        "gmv",
-        "user_pay_amount"
+        "total_order_settle_amount_for_roi2_1h",
+        "total_order_settle_amount_realtime_for_roi2_1h",
+        "total_order_real_settle_amount_for_roi2_1h"
       ],
       "orders": [
-        "pay_order_count",
-        "order_count",
-        "orders"
+        "total_order_settle_count_for_roi2_1h",
+        "total_order_settle_count_realtime_for_roi2_1h"
+      ],
+      "roi": [
+        "total_prepay_and_pay_settle_roi2_1h",
+        "total_prepay_and_pay_settle_realtime_roi2_1h"
+      ],
+      "orderCost": [
+        "total_cost_per_pay_order_settle_for_roi2_1h",
+        "total_cost_per_pay_order_settle_realtime_for_roi2_1h"
+      ],
+      "grossGmv": [
+        "total_pay_order_gmv_for_roi2",
+        "total_pay_order_gmv_include_coupon_for_roi2"
+      ],
+      "grossOrders": [
+        "total_pay_order_count_for_roi2"
+      ],
+      "grossRoi": [
+        "total_prepay_and_pay_order_roi2"
+      ],
+      "grossOrderCost": [
+        "total_cost_per_pay_order_for_roi2"
       ],
       "viewers": [
         "live_watch_count",
@@ -62,17 +87,23 @@
     "maxPages": 20,
     "fields": [
       "stat_cost",
+      "total_order_settle_amount_for_roi2_1h",
+      "total_order_settle_count_for_roi2_1h",
+      "total_prepay_and_pay_settle_roi2_1h",
+      "total_cost_per_pay_order_settle_for_roi2_1h",
       "total_pay_order_gmv_for_roi2",
       "total_pay_order_count_for_roi2",
-      "total_prepay_and_pay_order_roi2",
-      "total_cost_per_pay_order_for_roi2"
+      "total_prepay_and_pay_order_roi2"
     ],
     "materialFields": [
       "stat_cost_for_roi2",
+      "total_order_settle_amount_for_roi2_1h",
+      "total_order_settle_count_for_roi2_1h",
+      "total_prepay_and_pay_settle_roi2_1h",
+      "total_cost_per_pay_order_settle_for_roi2_1h",
       "total_pay_order_gmv_for_roi2",
       "total_pay_order_count_for_roi2",
       "total_prepay_and_pay_order_roi2",
-      "total_cost_per_pay_order_for_roi2",
       "live_show_count_for_roi2_v2",
       "live_watch_count_for_roi2_v2",
       "live_cvr_rate_for_roi2_v2",
@@ -82,10 +113,13 @@
     ],
     "liveRoomFields": [
       "stat_cost_for_roi2",
+      "total_order_settle_amount_for_roi2_1h",
+      "total_order_settle_count_for_roi2_1h",
+      "total_prepay_and_pay_settle_roi2_1h",
+      "total_cost_per_pay_order_settle_for_roi2_1h",
       "total_pay_order_gmv_for_roi2",
       "total_pay_order_count_for_roi2",
       "total_prepay_and_pay_order_roi2",
-      "total_cost_per_pay_order_for_roi2",
       "live_show_count_exclude_video_for_roi2",
       "live_watch_count_exclude_video_for_roi2",
       "live_cvr_rate_exclude_video_for_roi2",
@@ -125,16 +159,46 @@
         "spend"
       ],
       "gmv": [
-        "stats_info.total_pay_order_gmv_for_roi2",
-        "pay_order_amount",
-        "gmv",
-        "user_pay_amount"
+        "stats_info.total_order_settle_amount_for_roi2_1h",
+        "stats_info.total_order_settle_amount_realtime_for_roi2_1h",
+        "stats_info.total_order_real_settle_amount_for_roi2_1h",
+        "total_order_settle_amount_for_roi2_1h",
+        "total_order_settle_amount_realtime_for_roi2_1h",
+        "total_order_real_settle_amount_for_roi2_1h"
       ],
       "orders": [
+        "stats_info.total_order_settle_count_for_roi2_1h",
+        "stats_info.total_order_settle_count_realtime_for_roi2_1h",
+        "total_order_settle_count_for_roi2_1h",
+        "total_order_settle_count_realtime_for_roi2_1h"
+      ],
+      "roi": [
+        "stats_info.total_prepay_and_pay_settle_roi2_1h",
+        "stats_info.total_prepay_and_pay_settle_realtime_roi2_1h",
+        "total_prepay_and_pay_settle_roi2_1h",
+        "total_prepay_and_pay_settle_realtime_roi2_1h"
+      ],
+      "orderCost": [
+        "stats_info.total_cost_per_pay_order_settle_for_roi2_1h",
+        "stats_info.total_cost_per_pay_order_settle_realtime_for_roi2_1h",
+        "total_cost_per_pay_order_settle_for_roi2_1h",
+        "total_cost_per_pay_order_settle_realtime_for_roi2_1h"
+      ],
+      "grossGmv": [
+        "stats_info.total_pay_order_gmv_for_roi2",
+        "total_pay_order_gmv_for_roi2"
+      ],
+      "grossOrders": [
         "stats_info.total_pay_order_count_for_roi2",
-        "pay_order_count",
-        "order_count",
-        "orders"
+        "total_pay_order_count_for_roi2"
+      ],
+      "grossRoi": [
+        "stats_info.total_prepay_and_pay_order_roi2",
+        "total_prepay_and_pay_order_roi2"
+      ],
+      "grossOrderCost": [
+        "stats_info.total_cost_per_pay_order_for_roi2",
+        "total_cost_per_pay_order_for_roi2"
       ],
       "materialId": [
         "material_id",

@@ -1,0 +1,20 @@
+{
+  "ok": true,
+  "status": "processing",
+  "updatedAt": "2026-11-08T19:27:24+08:00",
+  "pid": 30552,
+  "engine": "faster-whisper",
+  "model": "large-v3",
+  "modelPath": "D:\\AI投放产品\\models\\whisper-large-v3",
+  "modelReady": false,
+  "audioSource": "直播流 TS 分段 · ffmpeg 16k mono · 降噪(高通+低通+噪声门)",
+  "transcriptionGranularitySeconds": 300,
+  "currentSession": "2026-11-08_7705568418515766067_190202",
+  "currentPart": "part_000001",
+  "currentSpeaker": "",
+  "currentSpeakerAt": "",
+  "processedParts": 0,
+  "pendingParts": 1,
+  "rawVideoPolicy": "analysis_first_then_delete",
+  "error": ""
+}

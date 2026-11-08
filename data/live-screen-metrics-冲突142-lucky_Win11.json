@@ -1,0 +1,59 @@
+{
+  "status": "not_live",
+  "live": false,
+  "syncedAt": "2026-11-06T03:20:35.872Z",
+  "source": "puppeteer-core",
+  "sourceLabel": "未开播",
+  "pageUrl": "",
+  "room": {},
+  "metrics": {},
+  "missingMetrics": [
+    "spend",
+    "gmv",
+    "orders",
+    "orderCost",
+    "roi",
+    "watchCount",
+    "productClicks",
+    "peakOnline",
+    "gpm",
+    "online"
+  ],
+  "detectionStatus": "not_live",
+  "checkedAccounts": [
+    {
+      "awemeId": "2904261216450640",
+      "name": "赵镭精讲小数基本功",
+      "status": "not_live",
+      "roomId": "",
+      "error": ""
+    },
+    {
+      "awemeId": "7534976849169040442",
+      "name": "赵镭通解小数基本功",
+      "status": "not_live",
+      "roomId": "",
+      "error": ""
+    },
+    {
+      "awemeId": "7665361622538945585",
+      "name": "赵镭拆解小数基本功",
+      "status": "not_live",
+      "roomId": "",
+      "error": ""
+    },
+    {
+      "awemeId": "7637818476896437305",
+      "name": "赵镭图解小数基本功",
+      "status": "not_live",
+      "roomId": "",
+      "error": ""
+    }
+  ],
+  "error": "",
+  "heartbeatAt": "2026-11-06T03:20:39.592Z",
+  "pid": 28712,
+  "accountId": "fashion",
+  "intervalSeconds": 10,
+  "heartbeatOnly": true
+}

@@ -2,13 +2,15 @@
 setlocal
 title Qianchuan live screen login
 cd /d "%~dp0"
+if not defined QIANCHUAN_EXTERNAL_ROOT set "QIANCHUAN_EXTERNAL_ROOT=%~dp0..\.."
+for %%I in ("%QIANCHUAN_EXTERNAL_ROOT%") do set "QIANCHUAN_EXTERNAL_ROOT=%%~fI"
 if not exist "data" mkdir "data"
 echo login> "data\live-screen-pause"
-set "NODE_EXE=%~dp0runtime\node\node.exe"
+set "NODE_EXE=%QIANCHUAN_EXTERNAL_ROOT%\runtime\node\node.exe"
 if not exist "%NODE_EXE%" (
   echo [ERROR] Project runtime Node.js is missing:
   echo   %NODE_EXE%
-  echo Restore the project runtime\node folder and try again.
+  echo Restore %QIANCHUAN_EXTERNAL_ROOT%\runtime\node and try again.
   del "data\live-screen-pause" >nul 2>&1
   pause
   exit /b 1
@@ -21,9 +23,9 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-if not exist "node_modules\puppeteer-core\package.json" (
-  echo [ERROR] Missing project dependency: node_modules\puppeteer-core
-  echo Restore node_modules or run npm install once on the project.
+if not exist "%QIANCHUAN_EXTERNAL_ROOT%\node_modules\puppeteer-core\package.json" (
+  echo [ERROR] Missing project dependency: %QIANCHUAN_EXTERNAL_ROOT%\node_modules\puppeteer-core
+  echo Restore node_modules or run npm install once.
   del "data\live-screen-pause" >nul 2>&1
   pause
   exit /b 1

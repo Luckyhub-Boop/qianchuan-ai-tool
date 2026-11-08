@@ -115,7 +115,7 @@ try {
         $shortcut.Arguments = "`"$hiddenPath`""
         $shortcut.WorkingDirectory = $PSScriptRoot
         $shortcut.WindowStyle = 7
-        $shortcut.Description = "Start the Qianchuan backend and live-screen watchdog."
+        $shortcut.Description = "Start the Qianchuan and Buyin capture backend and watchdog."
         $shortcut.Save()
         if (-not $NoStart) {
             Start-Process -FilePath $wscriptPath -ArgumentList "`"$hiddenPath`"" -WindowStyle Hidden

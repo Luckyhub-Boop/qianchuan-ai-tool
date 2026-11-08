@@ -1,0 +1,15 @@
+{
+  "enabled": true,
+  "loginUrl": "https://buyin.jinritemai.com/mpa/account/login?log_out=1&type=24",
+  "pageUrl": "",
+  "intervalSeconds": 10,
+  "headless": true,
+  "executablePath": "",
+  "userDataDir": "data/buyin-chrome-profile",
+  "serverUrl": "http://127.0.0.1:8765",
+  "viewport": {
+    "width": 1600,
+    "height": 1000,
+    "deviceScaleFactor": 1
+  }
+}

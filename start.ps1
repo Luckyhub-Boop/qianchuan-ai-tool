@@ -4,6 +4,7 @@ $Background = $args -contains "-Background"
 
 Set-Location -Path $PSScriptRoot
 
+$ExternalRoot = if ($env:QIANCHUAN_EXTERNAL_ROOT) { $env:QIANCHUAN_EXTERNAL_ROOT } else { Split-Path -Parent (Split-Path -Parent $PSScriptRoot) }
 $dataDir = Join-Path $PSScriptRoot "data"
 $logPath = Join-Path $dataDir "live-autostart.log"
 $logFallbackPath = Join-Path $dataDir "live-autostart.active.log"
@@ -12,7 +13,7 @@ $installScript = Join-Path $PSScriptRoot "install-autostart.ps1"
 $powershellPath = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
 $port = if ($env:QIANCHUAN_PORT) { $env:QIANCHUAN_PORT } else { "8765" }
 $url = "http://127.0.0.1:$port/"
-$openUrl = "http://127.0.0.1:$port/?v=20261025-export#diagnosis"
+$openUrl = "http://127.0.0.1:$port/?v=20261106-whisper-5m#review"
 
 if (-not (Test-Path -LiteralPath $dataDir)) {
     New-Item -ItemType Directory -Path $dataDir | Out-Null
@@ -48,7 +49,7 @@ function Resolve-Python {
     }
 
     $candidates += @(
-        (Join-Path $PSScriptRoot "runtime\python\python.exe"),
+        (Join-Path $ExternalRoot "runtime\python\python.exe"),
         (Join-Path $PSScriptRoot "python\python.exe"),
         (Join-Path $env:USERPROFILE ".cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe")
     )
