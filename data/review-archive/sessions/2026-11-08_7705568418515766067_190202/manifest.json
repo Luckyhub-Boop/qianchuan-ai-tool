@@ -1,0 +1,19 @@
+{
+  "id": "2026-11-08_7705568418515766067_190202",
+  "accountId": "fashion",
+  "roomId": "7705568418515766067",
+  "awemeName": "",
+  "date": "2026-11-08",
+  "title": "2026-11-08 19:02 直播 · 整场录像",
+  "startedAt": "2026-11-08T19:02:02+08:00",
+  "status": "recording",
+  "sourceLabel": "千川直播大屏签名FLV · 本地整场录制",
+  "videoPolicy": "HLS 临时落盘，后台分析归档后立即删除",
+  "segmentSeconds": 300,
+  "retentionDays": 1,
+  "lastRunStartedAt": "2026-11-08T19:21:45+08:00",
+  "segmentStartNumber": 1,
+  "lastHeartbeatAt": "2026-11-08T19:51:01+08:00",
+  "updatedAt": "2026-11-08T19:51:01+08:00",
+  "archivedAt": "2026-11-08T20:20:02+08:00"
+}

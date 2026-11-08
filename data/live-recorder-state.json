@@ -1,7 +1,7 @@
 {
   "ok": true,
   "status": "recording",
-  "updatedAt": "2026-11-08T19:46:54+08:00",
+  "updatedAt": "2026-11-08T20:20:30+08:00",
   "pid": 31400,
   "ffmpegAvailable": true,
   "captureMode": "audio_only_pyav",
@@ -9,7 +9,7 @@
   "sessionId": "2026-11-08_7705568418515766067_190202",
   "sessionDirectory": "D:\\DAI投放产品录屏备份\\2026-11-08_7705568418515766067_190202",
   "playlistUrl": "/recordings/2026-11-08_7705568418515766067_190202/index.m3u8",
-  "segmentCount": 5,
+  "segmentCount": 12,
   "segmentSeconds": 300,
   "retentionDays": 1,
   "videoPolicy": "analysis_first_then_delete",

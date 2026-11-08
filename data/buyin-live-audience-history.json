@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-11-08T11:43:52.639Z",
+  "updatedAt": "2026-11-08T12:16:59.956Z",
   "retentionDays": 14,
   "items": [
     {
@@ -16448,6 +16448,694 @@
     {
       "t": 1794138232639,
       "capturedAt": "2026-11-08T11:43:52.639Z",
+      "roomId": "7705568418515766067",
+      "profiles": {
+        "realtimeViewer": {
+          "available": false,
+          "label": "近1分钟看播用户",
+          "gender": {
+            "top": "",
+            "distribution": []
+          },
+          "age": {
+            "top": "",
+            "distribution": []
+          },
+          "region": {
+            "top": "",
+            "distribution": []
+          },
+          "summary": "百应直播大屏提示当前暂无法展示用户画像",
+          "unavailableReason": "百应直播大屏提示当前暂无法展示用户画像",
+          "source": "buyin_compass_live_screen_dom"
+        },
+        "recentBuyer": {
+          "available": false,
+          "label": "近5分钟购买用户",
+          "gender": {
+            "top": "",
+            "distribution": []
+          },
+          "age": {
+            "top": "",
+            "distribution": []
+          },
+          "region": {
+            "top": "",
+            "distribution": []
+          },
+          "summary": "百应直播大屏提示当前暂无法展示用户画像",
+          "unavailableReason": "百应直播大屏提示当前暂无法展示用户画像",
+          "source": "buyin_compass_live_screen_dom"
+        },
+        "fullViewer": {
+          "available": false,
+          "label": "全场看播用户",
+          "gender": {
+            "top": "",
+            "distribution": []
+          },
+          "age": {
+            "top": "",
+            "distribution": []
+          },
+          "region": {
+            "top": "",
+            "distribution": []
+          },
+          "summary": "百应直播大屏提示当前暂无法展示用户画像",
+          "unavailableReason": "百应直播大屏提示当前暂无法展示用户画像",
+          "source": "buyin_compass_live_screen_dom"
+        },
+        "fullBuyer": {
+          "available": false,
+          "label": "全场购买用户",
+          "gender": {
+            "top": "",
+            "distribution": []
+          },
+          "age": {
+            "top": "",
+            "distribution": []
+          },
+          "region": {
+            "top": "",
+            "distribution": []
+          },
+          "summary": "百应直播大屏提示当前暂无法展示用户画像",
+          "unavailableReason": "百应直播大屏提示当前暂无法展示用户画像",
+          "source": "buyin_compass_live_screen_dom"
+        }
+      },
+      "signature": "8e43f01a02378a7697479ff6e3a499170cc3e34b83a3b9e98723ed185973bcf6",
+      "source": "buyin_compass_live_screen_dom",
+      "sourceLabel": "巨量百应直播大屏·专业版 · 用户画像快照"
+    },
+    {
+      "t": 1794138480507,
+      "capturedAt": "2026-11-08T11:48:00.507Z",
+      "roomId": "7705568418515766067",
+      "profiles": {
+        "realtimeViewer": {
+          "available": false,
+          "label": "近1分钟看播用户",
+          "gender": {
+            "top": "",
+            "distribution": []
+          },
+          "age": {
+            "top": "",
+            "distribution": []
+          },
+          "region": {
+            "top": "",
+            "distribution": []
+          },
+          "summary": "百应直播大屏提示当前暂无法展示用户画像",
+          "unavailableReason": "百应直播大屏提示当前暂无法展示用户画像",
+          "source": "buyin_compass_live_screen_dom"
+        },
+        "recentBuyer": {
+          "available": false,
+          "label": "近5分钟购买用户",
+          "gender": {
+            "top": "",
+            "distribution": []
+          },
+          "age": {
+            "top": "",
+            "distribution": []
+          },
+          "region": {
+            "top": "",
+            "distribution": []
+          },
+          "summary": "百应直播大屏提示当前暂无法展示用户画像",
+          "unavailableReason": "百应直播大屏提示当前暂无法展示用户画像",
+          "source": "buyin_compass_live_screen_dom"
+        },
+        "fullViewer": {
+          "available": false,
+          "label": "全场看播用户",
+          "gender": {
+            "top": "",
+            "distribution": []
+          },
+          "age": {
+            "top": "",
+            "distribution": []
+          },
+          "region": {
+            "top": "",
+            "distribution": []
+          },
+          "summary": "百应直播大屏提示当前暂无法展示用户画像",
+          "unavailableReason": "百应直播大屏提示当前暂无法展示用户画像",
+          "source": "buyin_compass_live_screen_dom"
+        },
+        "fullBuyer": {
+          "available": false,
+          "label": "全场购买用户",
+          "gender": {
+            "top": "",
+            "distribution": []
+          },
+          "age": {
+            "top": "",
+            "distribution": []
+          },
+          "region": {
+            "top": "",
+            "distribution": []
+          },
+          "summary": "百应直播大屏提示当前暂无法展示用户画像",
+          "unavailableReason": "百应直播大屏提示当前暂无法展示用户画像",
+          "source": "buyin_compass_live_screen_dom"
+        }
+      },
+      "signature": "8e43f01a02378a7697479ff6e3a499170cc3e34b83a3b9e98723ed185973bcf6",
+      "source": "buyin_compass_live_screen_dom",
+      "sourceLabel": "巨量百应直播大屏·专业版 · 用户画像快照"
+    },
+    {
+      "t": 1794138729058,
+      "capturedAt": "2026-11-08T11:52:09.058Z",
+      "roomId": "7705568418515766067",
+      "profiles": {
+        "realtimeViewer": {
+          "available": false,
+          "label": "近1分钟看播用户",
+          "gender": {
+            "top": "",
+            "distribution": []
+          },
+          "age": {
+            "top": "",
+            "distribution": []
+          },
+          "region": {
+            "top": "",
+            "distribution": []
+          },
+          "summary": "百应直播大屏提示当前暂无法展示用户画像",
+          "unavailableReason": "百应直播大屏提示当前暂无法展示用户画像",
+          "source": "buyin_compass_live_screen_dom"
+        },
+        "recentBuyer": {
+          "available": false,
+          "label": "近5分钟购买用户",
+          "gender": {
+            "top": "",
+            "distribution": []
+          },
+          "age": {
+            "top": "",
+            "distribution": []
+          },
+          "region": {
+            "top": "",
+            "distribution": []
+          },
+          "summary": "百应直播大屏提示当前暂无法展示用户画像",
+          "unavailableReason": "百应直播大屏提示当前暂无法展示用户画像",
+          "source": "buyin_compass_live_screen_dom"
+        },
+        "fullViewer": {
+          "available": false,
+          "label": "全场看播用户",
+          "gender": {
+            "top": "",
+            "distribution": []
+          },
+          "age": {
+            "top": "",
+            "distribution": []
+          },
+          "region": {
+            "top": "",
+            "distribution": []
+          },
+          "summary": "百应直播大屏提示当前暂无法展示用户画像",
+          "unavailableReason": "百应直播大屏提示当前暂无法展示用户画像",
+          "source": "buyin_compass_live_screen_dom"
+        },
+        "fullBuyer": {
+          "available": false,
+          "label": "全场购买用户",
+          "gender": {
+            "top": "",
+            "distribution": []
+          },
+          "age": {
+            "top": "",
+            "distribution": []
+          },
+          "region": {
+            "top": "",
+            "distribution": []
+          },
+          "summary": "百应直播大屏提示当前暂无法展示用户画像",
+          "unavailableReason": "百应直播大屏提示当前暂无法展示用户画像",
+          "source": "buyin_compass_live_screen_dom"
+        }
+      },
+      "signature": "8e43f01a02378a7697479ff6e3a499170cc3e34b83a3b9e98723ed185973bcf6",
+      "source": "buyin_compass_live_screen_dom",
+      "sourceLabel": "巨量百应直播大屏·专业版 · 用户画像快照"
+    },
+    {
+      "t": 1794138977597,
+      "capturedAt": "2026-11-08T11:56:17.597Z",
+      "roomId": "7705568418515766067",
+      "profiles": {
+        "realtimeViewer": {
+          "available": false,
+          "label": "近1分钟看播用户",
+          "gender": {
+            "top": "",
+            "distribution": []
+          },
+          "age": {
+            "top": "",
+            "distribution": []
+          },
+          "region": {
+            "top": "",
+            "distribution": []
+          },
+          "summary": "百应直播大屏提示当前暂无法展示用户画像",
+          "unavailableReason": "百应直播大屏提示当前暂无法展示用户画像",
+          "source": "buyin_compass_live_screen_dom"
+        },
+        "recentBuyer": {
+          "available": false,
+          "label": "近5分钟购买用户",
+          "gender": {
+            "top": "",
+            "distribution": []
+          },
+          "age": {
+            "top": "",
+            "distribution": []
+          },
+          "region": {
+            "top": "",
+            "distribution": []
+          },
+          "summary": "百应直播大屏提示当前暂无法展示用户画像",
+          "unavailableReason": "百应直播大屏提示当前暂无法展示用户画像",
+          "source": "buyin_compass_live_screen_dom"
+        },
+        "fullViewer": {
+          "available": false,
+          "label": "全场看播用户",
+          "gender": {
+            "top": "",
+            "distribution": []
+          },
+          "age": {
+            "top": "",
+            "distribution": []
+          },
+          "region": {
+            "top": "",
+            "distribution": []
+          },
+          "summary": "百应直播大屏提示当前暂无法展示用户画像",
+          "unavailableReason": "百应直播大屏提示当前暂无法展示用户画像",
+          "source": "buyin_compass_live_screen_dom"
+        },
+        "fullBuyer": {
+          "available": false,
+          "label": "全场购买用户",
+          "gender": {
+            "top": "",
+            "distribution": []
+          },
+          "age": {
+            "top": "",
+            "distribution": []
+          },
+          "region": {
+            "top": "",
+            "distribution": []
+          },
+          "summary": "百应直播大屏提示当前暂无法展示用户画像",
+          "unavailableReason": "百应直播大屏提示当前暂无法展示用户画像",
+          "source": "buyin_compass_live_screen_dom"
+        }
+      },
+      "signature": "8e43f01a02378a7697479ff6e3a499170cc3e34b83a3b9e98723ed185973bcf6",
+      "source": "buyin_compass_live_screen_dom",
+      "sourceLabel": "巨量百应直播大屏·专业版 · 用户画像快照"
+    },
+    {
+      "t": 1794139226112,
+      "capturedAt": "2026-11-08T12:00:26.112Z",
+      "roomId": "7705568418515766067",
+      "profiles": {
+        "realtimeViewer": {
+          "available": false,
+          "label": "近1分钟看播用户",
+          "gender": {
+            "top": "",
+            "distribution": []
+          },
+          "age": {
+            "top": "",
+            "distribution": []
+          },
+          "region": {
+            "top": "",
+            "distribution": []
+          },
+          "summary": "百应直播大屏提示当前暂无法展示用户画像",
+          "unavailableReason": "百应直播大屏提示当前暂无法展示用户画像",
+          "source": "buyin_compass_live_screen_dom"
+        },
+        "recentBuyer": {
+          "available": false,
+          "label": "近5分钟购买用户",
+          "gender": {
+            "top": "",
+            "distribution": []
+          },
+          "age": {
+            "top": "",
+            "distribution": []
+          },
+          "region": {
+            "top": "",
+            "distribution": []
+          },
+          "summary": "百应直播大屏提示当前暂无法展示用户画像",
+          "unavailableReason": "百应直播大屏提示当前暂无法展示用户画像",
+          "source": "buyin_compass_live_screen_dom"
+        },
+        "fullViewer": {
+          "available": false,
+          "label": "全场看播用户",
+          "gender": {
+            "top": "",
+            "distribution": []
+          },
+          "age": {
+            "top": "",
+            "distribution": []
+          },
+          "region": {
+            "top": "",
+            "distribution": []
+          },
+          "summary": "百应直播大屏提示当前暂无法展示用户画像",
+          "unavailableReason": "百应直播大屏提示当前暂无法展示用户画像",
+          "source": "buyin_compass_live_screen_dom"
+        },
+        "fullBuyer": {
+          "available": false,
+          "label": "全场购买用户",
+          "gender": {
+            "top": "",
+            "distribution": []
+          },
+          "age": {
+            "top": "",
+            "distribution": []
+          },
+          "region": {
+            "top": "",
+            "distribution": []
+          },
+          "summary": "百应直播大屏提示当前暂无法展示用户画像",
+          "unavailableReason": "百应直播大屏提示当前暂无法展示用户画像",
+          "source": "buyin_compass_live_screen_dom"
+        }
+      },
+      "signature": "8e43f01a02378a7697479ff6e3a499170cc3e34b83a3b9e98723ed185973bcf6",
+      "source": "buyin_compass_live_screen_dom",
+      "sourceLabel": "巨量百应直播大屏·专业版 · 用户画像快照"
+    },
+    {
+      "t": 1794139474920,
+      "capturedAt": "2026-11-08T12:04:34.920Z",
+      "roomId": "7705568418515766067",
+      "profiles": {
+        "realtimeViewer": {
+          "available": false,
+          "label": "近1分钟看播用户",
+          "gender": {
+            "top": "",
+            "distribution": []
+          },
+          "age": {
+            "top": "",
+            "distribution": []
+          },
+          "region": {
+            "top": "",
+            "distribution": []
+          },
+          "summary": "百应直播大屏提示当前暂无法展示用户画像",
+          "unavailableReason": "百应直播大屏提示当前暂无法展示用户画像",
+          "source": "buyin_compass_live_screen_dom"
+        },
+        "recentBuyer": {
+          "available": false,
+          "label": "近5分钟购买用户",
+          "gender": {
+            "top": "",
+            "distribution": []
+          },
+          "age": {
+            "top": "",
+            "distribution": []
+          },
+          "region": {
+            "top": "",
+            "distribution": []
+          },
+          "summary": "百应直播大屏提示当前暂无法展示用户画像",
+          "unavailableReason": "百应直播大屏提示当前暂无法展示用户画像",
+          "source": "buyin_compass_live_screen_dom"
+        },
+        "fullViewer": {
+          "available": false,
+          "label": "全场看播用户",
+          "gender": {
+            "top": "",
+            "distribution": []
+          },
+          "age": {
+            "top": "",
+            "distribution": []
+          },
+          "region": {
+            "top": "",
+            "distribution": []
+          },
+          "summary": "百应直播大屏提示当前暂无法展示用户画像",
+          "unavailableReason": "百应直播大屏提示当前暂无法展示用户画像",
+          "source": "buyin_compass_live_screen_dom"
+        },
+        "fullBuyer": {
+          "available": false,
+          "label": "全场购买用户",
+          "gender": {
+            "top": "",
+            "distribution": []
+          },
+          "age": {
+            "top": "",
+            "distribution": []
+          },
+          "region": {
+            "top": "",
+            "distribution": []
+          },
+          "summary": "百应直播大屏提示当前暂无法展示用户画像",
+          "unavailableReason": "百应直播大屏提示当前暂无法展示用户画像",
+          "source": "buyin_compass_live_screen_dom"
+        }
+      },
+      "signature": "8e43f01a02378a7697479ff6e3a499170cc3e34b83a3b9e98723ed185973bcf6",
+      "source": "buyin_compass_live_screen_dom",
+      "sourceLabel": "巨量百应直播大屏·专业版 · 用户画像快照"
+    },
+    {
+      "t": 1794139723587,
+      "capturedAt": "2026-11-08T12:08:43.587Z",
+      "roomId": "7705568418515766067",
+      "profiles": {
+        "realtimeViewer": {
+          "available": false,
+          "label": "近1分钟看播用户",
+          "gender": {
+            "top": "",
+            "distribution": []
+          },
+          "age": {
+            "top": "",
+            "distribution": []
+          },
+          "region": {
+            "top": "",
+            "distribution": []
+          },
+          "summary": "百应直播大屏提示当前暂无法展示用户画像",
+          "unavailableReason": "百应直播大屏提示当前暂无法展示用户画像",
+          "source": "buyin_compass_live_screen_dom"
+        },
+        "recentBuyer": {
+          "available": false,
+          "label": "近5分钟购买用户",
+          "gender": {
+            "top": "",
+            "distribution": []
+          },
+          "age": {
+            "top": "",
+            "distribution": []
+          },
+          "region": {
+            "top": "",
+            "distribution": []
+          },
+          "summary": "百应直播大屏提示当前暂无法展示用户画像",
+          "unavailableReason": "百应直播大屏提示当前暂无法展示用户画像",
+          "source": "buyin_compass_live_screen_dom"
+        },
+        "fullViewer": {
+          "available": false,
+          "label": "全场看播用户",
+          "gender": {
+            "top": "",
+            "distribution": []
+          },
+          "age": {
+            "top": "",
+            "distribution": []
+          },
+          "region": {
+            "top": "",
+            "distribution": []
+          },
+          "summary": "百应直播大屏提示当前暂无法展示用户画像",
+          "unavailableReason": "百应直播大屏提示当前暂无法展示用户画像",
+          "source": "buyin_compass_live_screen_dom"
+        },
+        "fullBuyer": {
+          "available": false,
+          "label": "全场购买用户",
+          "gender": {
+            "top": "",
+            "distribution": []
+          },
+          "age": {
+            "top": "",
+            "distribution": []
+          },
+          "region": {
+            "top": "",
+            "distribution": []
+          },
+          "summary": "百应直播大屏提示当前暂无法展示用户画像",
+          "unavailableReason": "百应直播大屏提示当前暂无法展示用户画像",
+          "source": "buyin_compass_live_screen_dom"
+        }
+      },
+      "signature": "8e43f01a02378a7697479ff6e3a499170cc3e34b83a3b9e98723ed185973bcf6",
+      "source": "buyin_compass_live_screen_dom",
+      "sourceLabel": "巨量百应直播大屏·专业版 · 用户画像快照"
+    },
+    {
+      "t": 1794139971755,
+      "capturedAt": "2026-11-08T12:12:51.755Z",
+      "roomId": "7705568418515766067",
+      "profiles": {
+        "realtimeViewer": {
+          "available": false,
+          "label": "近1分钟看播用户",
+          "gender": {
+            "top": "",
+            "distribution": []
+          },
+          "age": {
+            "top": "",
+            "distribution": []
+          },
+          "region": {
+            "top": "",
+            "distribution": []
+          },
+          "summary": "百应直播大屏提示当前暂无法展示用户画像",
+          "unavailableReason": "百应直播大屏提示当前暂无法展示用户画像",
+          "source": "buyin_compass_live_screen_dom"
+        },
+        "recentBuyer": {
+          "available": false,
+          "label": "近5分钟购买用户",
+          "gender": {
+            "top": "",
+            "distribution": []
+          },
+          "age": {
+            "top": "",
+            "distribution": []
+          },
+          "region": {
+            "top": "",
+            "distribution": []
+          },
+          "summary": "百应直播大屏提示当前暂无法展示用户画像",
+          "unavailableReason": "百应直播大屏提示当前暂无法展示用户画像",
+          "source": "buyin_compass_live_screen_dom"
+        },
+        "fullViewer": {
+          "available": false,
+          "label": "全场看播用户",
+          "gender": {
+            "top": "",
+            "distribution": []
+          },
+          "age": {
+            "top": "",
+            "distribution": []
+          },
+          "region": {
+            "top": "",
+            "distribution": []
+          },
+          "summary": "百应直播大屏提示当前暂无法展示用户画像",
+          "unavailableReason": "百应直播大屏提示当前暂无法展示用户画像",
+          "source": "buyin_compass_live_screen_dom"
+        },
+        "fullBuyer": {
+          "available": false,
+          "label": "全场购买用户",
+          "gender": {
+            "top": "",
+            "distribution": []
+          },
+          "age": {
+            "top": "",
+            "distribution": []
+          },
+          "region": {
+            "top": "",
+            "distribution": []
+          },
+          "summary": "百应直播大屏提示当前暂无法展示用户画像",
+          "unavailableReason": "百应直播大屏提示当前暂无法展示用户画像",
+          "source": "buyin_compass_live_screen_dom"
+        }
+      },
+      "signature": "8e43f01a02378a7697479ff6e3a499170cc3e34b83a3b9e98723ed185973bcf6",
+      "source": "buyin_compass_live_screen_dom",
+      "sourceLabel": "巨量百应直播大屏·专业版 · 用户画像快照"
+    },
+    {
+      "t": 1794140219956,
+      "capturedAt": "2026-11-08T12:16:59.956Z",
       "roomId": "7705568418515766067",
       "profiles": {
         "realtimeViewer": {
