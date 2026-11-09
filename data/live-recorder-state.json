@@ -1,7 +1,7 @@
 {
-  "ok": true,
-  "status": "recording",
-  "updatedAt": "2026-11-08T20:20:30+08:00",
+  "ok": false,
+  "status": "error",
+  "updatedAt": "2026-11-09T13:27:41+08:00",
   "pid": 31400,
   "ffmpegAvailable": true,
   "captureMode": "audio_only_pyav",
@@ -9,9 +9,9 @@
   "sessionId": "2026-11-08_7705568418515766067_190202",
   "sessionDirectory": "D:\\DAI投放产品录屏备份\\2026-11-08_7705568418515766067_190202",
   "playlistUrl": "/recordings/2026-11-08_7705568418515766067_190202/index.m3u8",
-  "segmentCount": 12,
+  "segmentCount": 0,
   "segmentSeconds": 300,
   "retentionDays": 1,
   "videoPolicy": "analysis_first_then_delete",
-  "error": ""
+  "error": "[WinError 32] 另一个程序正在使用此文件，进程无法访问。: 'D:\\\\DAI投放产品录屏备份\\\\2026-11-08_7705568418515766067_190202\\\\audio-capture.log'"
 }

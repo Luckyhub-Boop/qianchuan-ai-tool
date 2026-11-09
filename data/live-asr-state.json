@@ -1,7 +1,7 @@
 {
   "ok": true,
-  "status": "processing",
-  "updatedAt": "2026-11-08T20:20:05+08:00",
+  "status": "idle",
+  "updatedAt": "2026-11-09T13:27:40+08:00",
   "pid": 30552,
   "engine": "faster-whisper",
   "model": "large-v3",
@@ -9,12 +9,13 @@
   "modelReady": true,
   "audioSource": "直播流 TS 分段 · ffmpeg 16k mono · 降噪(高通+低通+噪声门)",
   "transcriptionGranularitySeconds": 300,
-  "currentSession": "2026-11-08_7705568418515766067_190202",
-  "currentPart": "part_000003",
-  "currentSpeaker": "speaker_0",
-  "currentSpeakerAt": "2026-11-08T19:12:01.999+08:00",
-  "processedParts": 2,
-  "pendingParts": 9,
+  "currentSession": "",
+  "currentPart": "",
+  "currentSpeaker": "speaker_3",
+  "currentSpeakerAt": "2026-11-08T19:47:01.694+08:00",
+  "processedParts": 9,
+  "pendingParts": 0,
   "rawVideoPolicy": "analysis_first_then_delete",
-  "error": ""
+  "error": "",
+  "lastFinalizedSessions": []
 }
