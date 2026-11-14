@@ -1,7 +1,7 @@
 {
   "ok": true,
   "status": "idle",
-  "updatedAt": "2026-11-14T14:04:20+08:00",
+  "updatedAt": "2026-11-14T14:05:42+08:00",
   "pid": 23548,
   "engine": "faster-whisper",
   "model": "large-v3",
