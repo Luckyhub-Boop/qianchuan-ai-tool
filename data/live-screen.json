@@ -1,12 +1,12 @@
 {
   "enabled": true,
   "loginUrl": "https://business.oceanengine.com/ebp/account-manage/ecp/bidding/universe/account?ebpid=1855365007750474&uuid=6f018086-b594-462c-8733-5c8f75c443a1",
-  "pageUrl": "https://qianchuan.jinritemai.com/board-next?live_room_id=7706016922009078569&aavid=1744479430946824&fromModule=uni_promotion_v2",
+  "pageUrl": "https://qianchuan.jinritemai.com/board-next?live_room_id=7707794883850930986&aavid=1744479430946824&fromModule=uni_promotion_v2",
   "executablePath": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
   "userDataDir": "data/chrome-profile",
   "legacyPageUrlClearedAt": "2026-10-27T03:40:36.878Z",
   "autoLogin": true,
-  "autoPreparedAt": "2026-11-09T04:57:26.464Z",
+  "autoPreparedAt": "2026-11-14T01:50:34.293Z",
   "lastDetectedRoomAt": "2026-11-06T06:02:53.762Z",
   "lastDetectedAwemeId": "7637818476896437305",
   "lastDetectedAwemeName": "赵镭图解小数基本功"

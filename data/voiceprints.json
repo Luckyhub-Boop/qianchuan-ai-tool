@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "threshold": 0.55,
+  "embeddingModel": "3dspeaker_speech_eres2net_base_sv_zh-cn_3dspeaker_16k",
+  "profiles": [
+    {
+      "id": "6ad66d17f1dd",
+      "name": "杨楠",
+      "dim": 512,
+      "durationSeconds": 78.14,
+      "sourceFilename": "杨楠.mp3",
+      "createdAt": "2026-11-14T10:17:00+08:00",
+      "updatedAt": "2026-11-14T10:17:15+08:00",
+      "threshold": 0.55
+    }
+  ]
+}

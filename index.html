@@ -2752,6 +2752,176 @@
       box-shadow: 0 1px 3px rgba(23, 35, 28, 0.1);
     }
 
+    .review-daily-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .review-daily-head-text h2 {
+      margin: 4px 0 6px;
+      font-size: 18px;
+      color: var(--ink);
+    }
+
+    .review-daily-head-text p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.6;
+    }
+
+    .review-daily-head-text code {
+      padding: 1px 5px;
+      border-radius: 5px;
+      background: #eef1ee;
+      color: var(--ink-soft);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 9.5px;
+    }
+
+    .review-daily-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 0 0 auto;
+      max-width: 520px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .review-daily-date-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: flex-end;
+    }
+
+    .review-daily-chip {
+      height: 28px;
+      padding: 0 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      background: #fff;
+      font-size: 9px;
+      font-weight: 650;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .review-daily-chip:hover {
+      border-color: #b9c3bc;
+      color: var(--ink);
+    }
+
+    .review-daily-chip.active {
+      color: #fff;
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .review-daily-chip.today {
+      border-style: dashed;
+    }
+
+    .review-daily-doc {
+      margin-top: 14px;
+      padding: 18px 20px;
+      overflow-wrap: anywhere;
+    }
+
+    .review-daily-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .review-daily-metrics {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .review-daily-metric {
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #f7f9f7;
+    }
+
+    .review-daily-metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 9px;
+    }
+
+    .review-daily-metric strong {
+      display: block;
+      margin-top: 5px;
+      color: var(--ink);
+      font-size: 16px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .review-daily-md {
+      color: var(--ink-soft);
+      font-size: 11px;
+      line-height: 1.8;
+    }
+
+    .review-daily-md h2,
+    .review-daily-md h3,
+    .review-daily-md h4,
+    .review-daily-md h5 {
+      margin: 18px 0 8px;
+      color: var(--ink);
+      line-height: 1.4;
+    }
+
+    .review-daily-md h2 {
+      font-size: 16px;
+    }
+
+    .review-daily-md h3 {
+      font-size: 13px;
+    }
+
+    .review-daily-md h4 {
+      font-size: 12px;
+    }
+
+    .review-daily-md p {
+      margin: 8px 0;
+    }
+
+    .review-daily-md ul {
+      margin: 8px 0 8px 18px;
+      padding: 0;
+    }
+
+    .review-daily-md li {
+      margin: 4px 0;
+    }
+
+    .review-daily-md hr {
+      margin: 16px 0;
+      border: 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .review-daily-md strong {
+      color: var(--ink);
+      font-weight: 700;
+    }
+
     .monitor-grid {
       display: grid;
       grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.65fr);
@@ -3903,6 +4073,53 @@
     .speaker-tag em {
       color: #7a9384;
       font-style: normal;
+    }
+
+    .speaker-library-item .vp-duration {
+      color: var(--muted);
+      font-size: 7.5px;
+    }
+
+    .speaker-library-item .vp-delete {
+      display: grid;
+      place-items: center;
+      width: 17px;
+      height: 17px;
+      margin-left: 2px;
+      border: 0;
+      border-radius: 50%;
+      background: #f0e3df;
+      color: #a4493d;
+      font-size: 10px;
+      line-height: 1;
+      cursor: pointer;
+    }
+
+    .speech-speaker-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px 8px;
+      margin-top: 5px;
+    }
+
+    .speech-speaker-row .speech-speaker-tag {
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: #eef4f0;
+      color: #31543f;
+      font-size: 7.5px;
+      white-space: nowrap;
+    }
+
+    .speech-speaker-row select {
+      max-width: 130px;
+      padding: 3px 6px;
+      border: 1px solid var(--line-soft);
+      border-radius: 7px;
+      background: #fff;
+      color: var(--ink-soft);
+      font-size: 7.5px;
     }
 
     .review-chart-head {
@@ -5057,40 +5274,6 @@
       line-height: 1.45;
     }
 
-    .diag-banned-row {
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-top: 10px;
-      padding-top: 9px;
-      border-top: 1px solid var(--line-soft);
-    }
-
-    .diag-banned-upload {
-      display: inline-flex;
-      align-items: center;
-      height: 22px;
-      padding: 0 7px;
-      border: 1px solid var(--line);
-      border-radius: 6px;
-      color: var(--ink-soft);
-      background: #fff;
-      font-size: 8px;
-      font-weight: 650;
-      cursor: pointer;
-    }
-
-    .diag-banned-upload:hover {
-      border-color: #c8d5ca;
-      background: #f8faf7;
-    }
-
-    .diag-banned-row > span {
-      color: var(--muted-2);
-      font-size: 7.5px;
-    }
-
     .diag-note {
       margin: 8px 0 0;
       color: var(--muted-2);
@@ -6129,7 +6312,6 @@
       background: var(--ink);
     }
 
-    .script-banned-grid,
     .quality-layout,
     .low-layout {
       display: grid;
@@ -6145,7 +6327,6 @@
       min-width: 0;
     }
 
-    .script-table-panel,
     .quality-main,
     .low-main,
     .script-feed-panel,
@@ -6154,35 +6335,10 @@
     .script-impact-panel,
     .campaign-traffic-panel,
     .campaign-decision-panel,
-    .campaign-knowledge-panel,
     .campaign-anomaly-panel,
     .campaign-console-panel {
       min-width: 0;
       padding: 18px;
-    }
-
-    .script-toolbar {
-      display: flex;
-      align-items: flex-end;
-      justify-content: space-between;
-      gap: 14px;
-      flex-wrap: wrap;
-      padding-bottom: 13px;
-      border-bottom: 1px solid var(--line-soft);
-    }
-
-    .script-word-stats {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 7px 16px;
-      margin-top: 7px;
-      color: var(--muted);
-      font-size: 9px;
-    }
-
-    .script-word-stats strong {
-      color: var(--ink-soft);
-      font-weight: 700;
     }
 
     .script-toolbar-actions,
@@ -6194,7 +6350,6 @@
       gap: 7px;
     }
 
-    .script-input,
     .script-select {
       height: 32px;
       border: 1px solid var(--line);
@@ -6205,17 +6360,11 @@
       font-weight: 600;
     }
 
-    .script-input {
-      width: 176px;
-      padding: 0 10px;
-    }
-
     .script-select {
       padding: 0 26px 0 9px;
       cursor: pointer;
     }
 
-    .script-primary-btn,
     .script-secondary-btn,
     .op-run-btn {
       height: 32px;
@@ -6225,16 +6374,6 @@
       font-weight: 680;
       cursor: pointer;
       transition: background 150ms ease, border-color 150ms ease, transform 150ms ease;
-    }
-
-    .script-primary-btn {
-      border: 1px solid var(--ink);
-      color: #fff;
-      background: var(--ink);
-    }
-
-    .script-primary-btn:hover {
-      background: #283a30;
     }
 
     .script-secondary-btn {
@@ -6248,217 +6387,15 @@
       background: #f8faf7;
     }
 
-    .script-secondary-btn:disabled,
-    .script-primary-btn:disabled {
+    .script-secondary-btn:disabled {
       cursor: default;
       opacity: 0.55;
     }
 
-    .script-paste-box {
-      margin-top: 12px;
-      padding: 12px;
-      border: 1px dashed #cad6cc;
-      border-radius: 11px;
-      background: #f8faf7;
-    }
-
-    .script-paste-box textarea {
-      width: 100%;
-      min-height: 82px;
-      margin-top: 8px;
-      padding: 9px 10px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      color: var(--ink-soft);
-      background: #fff;
-      font: inherit;
-      font-size: 10px;
-      line-height: 1.55;
-      resize: vertical;
-    }
-
-    .script-paste-foot {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      margin-top: 8px;
-    }
-
-    .script-paste-foot span {
-      color: var(--muted);
-      font-size: 8.5px;
-    }
-
-    .script-table-wrap {
-      margin-top: 12px;
-      border: 1px solid var(--line-soft);
-      border-radius: 12px;
-      overflow: auto;
-      max-height: 560px;
-    }
-
-    .script-table {
-      width: 100%;
-      min-width: 760px;
-      border-collapse: collapse;
-    }
-
-    .script-table th {
-      position: sticky;
-      top: 0;
-      z-index: 1;
-      padding: 9px 11px;
-      border-bottom: 1px solid var(--line);
-      color: var(--muted);
-      background: #f8faf7;
-      font-size: 8.5px;
-      font-weight: 720;
-      letter-spacing: 0.04em;
-      text-align: left;
-      white-space: nowrap;
-    }
-
-    .script-table td {
-      padding: 10px 11px;
-      border-bottom: 1px solid var(--line-soft);
-      color: var(--ink-soft);
-      font-size: 9.5px;
-      line-height: 1.5;
-      vertical-align: top;
-    }
-
-    .script-table tbody tr:last-child td {
-      border-bottom: 0;
-    }
-
-    .script-table tbody tr:hover {
-      background: #fbfcfa;
-    }
-
-    .word-term {
-      display: inline-flex;
-      align-items: center;
-      min-height: 24px;
-      padding: 3px 8px;
-      border-radius: 7px;
-      color: #8f3328;
-      background: #faeeeb;
-      font-weight: 700;
-      white-space: nowrap;
-    }
-
-    .word-term.mid {
-      color: #8d5a26;
-      background: #fbf1e7;
-    }
-
-    .word-term.low {
-      color: var(--ink-soft);
-      background: #f0f3ef;
-    }
-
-    .word-suggestion {
-      color: var(--muted);
-      font-size: 9px;
-    }
-
-    .script-table-foot {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding-top: 10px;
-      color: var(--muted);
-      font-size: 8.5px;
-    }
-
-    .upload-channel-panel,
-    .version-panel,
     .collection-panel,
     .extraction-panel,
     .cycle-panel {
       padding: 17px;
-    }
-
-    .upload-channel-list {
-      display: grid;
-      gap: 7px;
-      margin-top: 12px;
-    }
-
-    .upload-channel {
-      padding: 10px;
-      border: 1px solid var(--line-soft);
-      border-radius: 10px;
-      background: #fafcf9;
-    }
-
-    .upload-channel-top {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-    }
-
-    .upload-channel strong {
-      font-size: 10.5px;
-      font-weight: 700;
-    }
-
-    .upload-channel p {
-      margin: 5px 0 0;
-      color: var(--muted);
-      font-size: 9px;
-      line-height: 1.5;
-    }
-
-    .upload-channel button {
-      margin-top: 8px;
-      padding: 0;
-      border: 0;
-      color: var(--accent-strong);
-      background: transparent;
-      font-size: 9px;
-      font-weight: 700;
-      cursor: pointer;
-    }
-
-    .version-list {
-      display: grid;
-      gap: 0;
-      margin-top: 9px;
-    }
-
-    .version-row {
-      display: grid;
-      grid-template-columns: 48px minmax(0, 1fr) auto;
-      gap: 8px;
-      align-items: baseline;
-      padding: 9px 0;
-      border-bottom: 1px solid var(--line-soft);
-      font-size: 9px;
-      line-height: 1.45;
-    }
-
-    .version-row:last-child {
-      border-bottom: 0;
-    }
-
-    .version-row strong {
-      font-size: 9.5px;
-      font-weight: 700;
-    }
-
-    .version-row span {
-      color: var(--muted);
-    }
-
-    .version-row em {
-      color: var(--muted-2);
-      font-size: 8.5px;
-      font-style: normal;
-      white-space: nowrap;
     }
 
     .quality-head {
@@ -7327,7 +7264,7 @@
 
     .campaign-live-strip {
       display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 8px;
       margin-bottom: 13px;
     }
@@ -9035,6 +8972,38 @@
       font-size: 8px;
     }
 
+    .op-projection small {
+      display: block;
+      margin-top: 1px;
+      color: var(--muted);
+      font-size: 6.8px;
+      line-height: 1.35;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .op-forecast-source {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 7px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid var(--line-soft);
+      color: var(--accent-strong);
+      font-size: 7.5px;
+      font-weight: 700;
+    }
+
+    .op-forecast-source em {
+      color: var(--muted);
+      font-style: normal;
+      font-weight: 500;
+    }
+
+    .op-run-btn.loading {
+      background: #577167;
+    }
+
     .op-run-btn {
       margin-top: auto;
       border: 1px solid var(--ink);
@@ -9088,6 +9057,42 @@
       font-size: 8.8px;
       font-weight: 700;
       font-variant-numeric: tabular-nums;
+    }
+
+    .effect-model-card {
+      display: grid;
+      gap: 7px;
+      margin-top: 10px;
+      padding: 10px;
+      border: 1px solid rgba(11, 122, 88, 0.16);
+      border-radius: 9px;
+      background: rgba(11, 122, 88, 0.045);
+    }
+
+    .effect-model-card p,
+    .effect-model-card li {
+      margin: 0;
+      color: var(--muted);
+      font-size: 8px;
+      line-height: 1.55;
+    }
+
+    .effect-model-card strong {
+      color: var(--ink);
+      font-size: 8.5px;
+    }
+
+    .effect-model-card ul {
+      display: grid;
+      gap: 3px;
+      margin: 3px 0 0;
+      padding-left: 15px;
+    }
+
+    .effect-model-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
     }
 
     .effect-arrow {
@@ -9205,7 +9210,6 @@
     }
 
     @media (max-width: 1180px) {
-      .script-banned-grid,
       .quality-layout,
       .low-layout,
       .script-live-grid,
@@ -9255,9 +9259,6 @@
         font-size: 10.5px;
       }
 
-      .script-toolbar,
-      .script-paste-foot,
-      .script-table-foot,
       .quality-head,
       .subpanel-head,
       .live-board-head {
@@ -9348,7 +9349,6 @@
         max-width: 100%;
       }
 
-      .script-input,
       .script-select {
         width: 100%;
       }
@@ -11729,11 +11729,6 @@
                     <span class="diag-status warn" id="diagScriptBadge">需关注</span>
                   </div>
                   <div class="diag-script-list" id="diagScriptIssues"></div>
-                  <div class="diag-banned-row">
-                    <label class="diag-banned-upload" for="diagBannedInput">上传违禁词库</label>
-                    <input type="file" id="diagBannedInput" accept=".txt,.csv,text/plain,text/csv" hidden>
-                    <span id="diagBannedStatus">词库待上传 · 当前为示例</span>
-                  </div>
                   <p class="diag-note">实时语音匹配需接入 ASR；当前话术风险为示例。</p>
                 </div>
               </aside>
@@ -12072,7 +12067,7 @@
           <div>
             <p class="eyebrow">SCRIPT INTELLIGENCE</p>
             <h1>话术</h1>
-            <p class="module-sub">从违禁词库、主播优质话术到低效话术与实时影响，形成“采集—归因—迭代”的直播话术闭环。</p>
+            <p class="module-sub">从主播优质话术到低效话术与实时影响，形成“采集—归因—迭代”的直播话术闭环。</p>
           </div>
           <div class="module-head-actions">
             <span class="live-chip" id="scriptLiveChip"><i></i>直播中</span>
@@ -12084,86 +12079,12 @@
         <section class="metric-strip" id="scriptOverview" aria-label="话术资产概览"></section>
 
         <div class="module-tabs" id="scriptTabs" role="tablist" aria-label="话术模块">
-          <button type="button" data-script-tab="banned" class="active" role="tab" aria-selected="true">违禁词大全<span id="bannedTabCount">—</span></button>
-          <button type="button" data-script-tab="quality" role="tab" aria-selected="false">优质话术集选<span id="qualityTabCount">—</span></button>
+          <button type="button" data-script-tab="quality" class="active" role="tab" aria-selected="true">优质话术集选<span id="qualityTabCount">—</span></button>
           <button type="button" data-script-tab="low" role="tab" aria-selected="false">持续低效话术<span id="lowTabCount">—</span></button>
           <button type="button" data-script-tab="live" role="tab" aria-selected="false">实时话术看板<span>LIVE</span></button>
         </div>
 
-        <section class="script-panel" data-script-panel="banned">
-          <div class="script-banned-grid">
-            <div class="panel script-table-panel">
-              <div class="script-toolbar">
-                <div>
-                  <span class="section-kicker">BANNED WORDS</span>
-                  <h2 style="margin:0;font-size:18px;font-weight:720;letter-spacing:-0.025em;">违禁词大全</h2>
-                  <div class="script-word-stats" id="scriptWordStats">词库加载中</div>
-                </div>
-                <div class="script-toolbar-actions">
-                  <input type="search" class="script-input" id="scriptWordSearch" placeholder="搜索词条或替换建议" aria-label="搜索违禁词">
-                  <select class="script-select" id="scriptWordCategory" aria-label="筛选违禁词分类"></select>
-                  <button type="button" class="script-primary-btn" id="scriptWordUploadBtn">上传词库</button>
-                  <input type="file" id="scriptWordInput" accept=".txt,.csv,text/plain,text/csv" hidden>
-                  <button type="button" class="script-secondary-btn" id="scriptWordPasteToggle">批量粘贴</button>
-                </div>
-              </div>
-              <div class="script-paste-box" id="scriptPasteBox" hidden>
-                <div class="script-paste-foot" style="margin-top:0;">
-                  <strong style="font-size:10px;">粘贴高频违禁词</strong>
-                  <span>一行一个词条，按所选分类入库</span>
-                </div>
-                <textarea id="scriptPasteText" placeholder="例如：&#10;史上最低&#10;全网第一&#10;保证三天见效"></textarea>
-                <div class="script-paste-foot">
-                  <select class="script-select" id="scriptPasteCategory" aria-label="粘贴词条分类"></select>
-                  <div class="script-toolbar-actions">
-                    <button type="button" class="script-secondary-btn" id="scriptPasteCancel">取消</button>
-                    <button type="button" class="script-primary-btn" id="scriptPasteSubmit">加入词库</button>
-                  </div>
-                </div>
-              </div>
-              <div class="script-table-wrap">
-                <table class="script-table">
-                  <thead>
-                    <tr>
-                      <th>词条</th>
-                      <th>分类</th>
-                      <th>风险</th>
-                      <th>判定与替换建议</th>
-                      <th>来源渠道</th>
-                      <th>更新时间</th>
-                      <th>状态</th>
-                    </tr>
-                  </thead>
-                  <tbody id="scriptWordTableBody"></tbody>
-                </table>
-              </div>
-              <div class="script-table-foot">
-                <span id="scriptWordFoot">—</span>
-                <span>词库为演示数据 · 真实匹配需接入 ASR</span>
-              </div>
-            </div>
-
-            <aside class="script-side">
-              <div class="panel upload-channel-panel">
-                <div class="subsection-head">
-                  <h3>可用上传渠道</h3>
-                  <span>持续更新</span>
-                </div>
-                <p class="subpanel-copy">当前支持本地 TXT / CSV；其余渠道为后续接入计划。</p>
-                <div class="upload-channel-list" id="scriptUploadChannels"></div>
-              </div>
-              <div class="panel version-panel">
-                <div class="subsection-head">
-                  <h3>词库更新记录</h3>
-                  <span>版本可追溯</span>
-                </div>
-                <div class="version-list" id="scriptWordVersions"></div>
-              </div>
-            </aside>
-          </div>
-        </section>
-
-        <section class="script-panel" data-script-panel="quality" hidden>
+        <section class="script-panel" data-script-panel="quality">
           <div class="quality-layout">
             <div class="panel quality-main">
               <div class="quality-head">
@@ -12370,28 +12291,6 @@
         </div>
 
         <div class="campaign-grid-2">
-          <section class="panel campaign-knowledge-panel">
-            <div class="subpanel-head">
-              <div>
-                <span class="section-kicker">PLAYBOOK LEARNING</span>
-                <h2>投放知识库</h2>
-                <p class="subpanel-copy">上传团队 SOP、场次复盘或平台文档，作为底线校验：确认当前建议是否与过往投放习惯一致。</p>
-              </div>
-              <div class="quality-head-actions">
-                <button type="button" class="script-secondary-btn" id="campaignDocUploadBtn">上传文档</button>
-                <input type="file" id="campaignDocInput" accept=".pdf,.docx,.txt,.md,.csv" hidden>
-              </div>
-            </div>
-            <div class="doc-list" id="campaignDocs"></div>
-            <div class="rule-panel">
-              <div class="subsection-head">
-                <h3>经验底线校验</h3>
-                <span id="campaignRuleCount">—</span>
-              </div>
-              <div class="rule-list" id="campaignRules"></div>
-            </div>
-          </section>
-
           <section class="panel campaign-anomaly-panel">
             <div class="subpanel-head">
               <div>
@@ -12413,9 +12312,9 @@
             <div>
               <span class="section-kicker">QIANCHUAN ACTION CONSOLE</span>
               <h2>千川操作台</h2>
-              <p class="subpanel-copy">下拉读取近 30 天真实日均消耗、成交、订单、ROI 与客单价；拖动滑块推演放量追投、一键放量、一键控量后的指标。不执行操作，也不写入千川。</p>
+              <p class="subpanel-copy">拖动滑块选择动作幅度，由 DeepSeek 结合本场实时趋势、近 30 天基准、异常窗口与流量承接做主判断，知识库中的教培投放经验只做辅助校准。不执行操作，也不写入千川。</p>
             </div>
-            <span class="mini-tag warn">真实历史推演 · 仅供参考</span>
+            <span class="mini-tag good">DeepSeek 推演 · 知识库辅助</span>
           </div>
           <div class="operation-grid" id="campaignOperations"></div>
           <div class="campaign-console-foot">
@@ -12436,13 +12335,13 @@
           <div>
             <p class="eyebrow">LIVE REVIEW</p>
             <h1>复盘</h1>
-            <p class="module-sub">只处理录制与直播结束后的整体智能分析：按场次回看录像、在时间轴上定位问题与优势，并沉淀主播画像与复盘结论。直播中的实时监控已移到「诊断」。</p>
+            <p class="module-sub">实时直播画面与主播画像联动，开播即可同步查看直播；下播后后台自动完成整场分析与每日复盘文档。直播中的实时监控仍在「诊断」。</p>
           </div>
           <div class="module-head-actions">
             <span class="live-chip" id="reviewLiveChip"><i></i>录制状态</span>
             <span class="context-chip" data-account-label>—</span>
             <label class="review-date-filter">
-              <span>复盘日期</span>
+              <span>场次日期</span>
               <input type="date" id="reviewDateFilter">
             </label>
             <button type="button" class="ghost-btn" id="reviewRecordBtn">暂停录制</button>
@@ -12450,20 +12349,41 @@
         </div>
 
         <div class="review-tabs" role="tablist" aria-label="复盘视图">
-          <button type="button" class="review-tab active" data-review-tab="playback" role="tab" aria-selected="true">录像回放</button>
+          <button type="button" class="review-tab active" data-review-tab="daily" role="tab" aria-selected="true">每日复盘文档</button>
+          <button type="button" class="review-tab" data-review-tab="playback" role="tab" aria-selected="false">实时直播</button>
           <button type="button" class="review-tab" data-review-tab="anchor" role="tab" aria-selected="false">主播画像</button>
         </div>
+
+        <section data-review-panel="daily" hidden>
+          <div class="review-daily-head">
+            <div class="review-daily-head-text">
+              <span class="section-kicker">DAILY REVIEW DOCUMENT</span>
+              <h2>每日复盘文档</h2>
+              <p>选择日期加载 <code>data/review-archive/</code> 下对应的 <code>fashion_YYYY-MM-DD.json</code> 与 <code>fashion_YYYY-MM-DD.md</code> 每日复盘文档。</p>
+            </div>
+            <div class="review-daily-controls">
+              <label class="review-date-filter">
+                <span>复盘日期</span>
+                <input type="date" id="reviewDailyDate">
+              </label>
+              <div class="review-daily-date-list" id="reviewDailyDateChips"></div>
+            </div>
+          </div>
+          <div class="panel review-daily-doc" id="reviewDailyDoc">
+            <div class="material-empty">正在读取复盘文档…</div>
+          </div>
+        </section>
 
         <section data-review-panel="playback" hidden>
           <div class="review-grid">
             <div class="panel player-panel">
               <div class="player-head">
                 <div>
-                  <span class="section-kicker">REPLAY</span>
+                  <span class="section-kicker">LIVE STREAM</span>
                   <h2 id="playerTitle">—</h2>
                 </div>
                 <div class="player-head-actions">
-                  <span class="player-badge" id="reviewPlaybackBadge">等待录像</span>
+                  <span class="player-badge" id="reviewPlaybackBadge">等待直播</span>
                   <button type="button" class="ghost-btn mini" data-open-anchor>主播画像</button>
                 </div>
               </div>
@@ -12481,7 +12401,7 @@
                 </button>
                 <div class="player-stage-meta">
                   <span id="playerStageTime">00:00:00</span>
-                  <span>回放画面示例</span>
+                  <span>实时直播画面</span>
                 </div>
                 <div class="player-annotation-overlay" id="playerAnnotationOverlay" hidden></div>
               </div>
@@ -12494,7 +12414,7 @@
                 </div>
                 <button type="button" class="player-speed" id="playerSpeed">1.0×</button>
               </div>
-              <p class="player-note">点击时间轴标记或右侧标注，可直接跳到对应问题与优势片段。</p>
+              <p class="player-note">实时画面来自千川直播大屏采集器；下播后自动归档每日复盘。进度条实时跟随直播时间，时段拖动与关键节点标记稍后接入。</p>
             </div>
 
             <div class="review-side">
@@ -12598,10 +12518,11 @@
             </div>
             <div class="speaker-map-tools">
               <div class="speaker-upload">
-                <input type="text" id="speakerNameInput" placeholder="主播姓名，如 赵镭老师">
-                <label class="ghost-btn mini" for="speakerFaceInput">选择正脸</label>
-                <input type="file" id="speakerFaceInput" accept="image/*" hidden>
-                <button type="button" class="ghost-btn mini" id="speakerUploadBtn">上传正脸</button>
+                <input type="text" id="speakerNameInput" placeholder="主播姓名（留空则用文件名）">
+                <label class="ghost-btn mini" for="speakerVoiceInput">选择标准录音</label>
+                <input type="file" id="speakerVoiceInput" accept="audio/*,.wav,.mp3,.m4a,.aac,.flac,.ogg,.webm" multiple hidden>
+                <button type="button" class="ghost-btn mini" id="speakerUploadBtn">录入声纹</button>
+                <span class="mini-tag" id="voiceprintStatusMeta">—</span>
               </div>
               <div class="speaker-library" id="speakerLibrary"></div>
             </div>
@@ -12799,11 +12720,17 @@
     const CAMPAIGN_MCP = {};
     const REVIEW_API_SESSIONS = {};
     const REVIEW_API_AVAILABLE_DATES = {};
+    let REVIEW_DAILY_PAYLOAD = null;
+    let reviewDailyRequestInFlight = false;
+    let reviewDailyLoaded = false;
     let SPEAKER_LIBRARY = [];
     let reviewSessionsRequestInFlight = false;
     let reviewSessionsQueuedRequest = null;
     let reviewSessionsLoaded = false;
     let reviewVideoHls = null;
+    let reviewFlvPlayer = null;
+    let reviewStreamUrl = "";
+    let reviewStreamRetryTimer = null;
     let reviewVideoSessionId = "";
     let ADVERTISER_PLANS = [];
     let liveRequestInFlight = false;
@@ -12910,7 +12837,7 @@
       requestedPlanId: null,
       view: "data",
       diagTab: "monitor",
-      reviewTab: "playback",
+      reviewTab: "daily",
       reviewGranularity: 5,
       reviewDate: "",
       selectedSessionId: null,
@@ -12923,9 +12850,7 @@
       recordSeconds: 2538,
       diagCapturing: true,
       diagWindow: 0,
-      scriptTab: "banned",
-      scriptWordQuery: "",
-      scriptWordCategory: "all",
+      scriptTab: "quality",
       scriptQualityAnchor: "fashion",
       scriptQualityScene: "all",
       scriptCollection: new Set(),
@@ -12950,6 +12875,8 @@
       campaignDocs: [],
       campaignOperations: [],
       campaignLastEffect: null,
+      campaignOperationForecasts: {},
+      campaignOperationLoading: "",
       campaignDocSeq: 0,
       campaignTick: 0,
       campaignSyncedAt: null,
@@ -13333,60 +13260,6 @@
       }
     };
 
-    const BANNED_CATEGORIES = [
-      { id: "all", label: "全部分类" },
-      { id: "absolute", label: "绝对化用语" },
-      { id: "promise", label: "承诺性用语" },
-      { id: "efficacy", label: "功效宣称" },
-      { id: "price", label: "价格诱导" },
-      { id: "platform", label: "平台禁用" },
-      { id: "pending", label: "待分类" }
-    ];
-
-    const BANNED_LIBRARY_META = {
-      total: 1286,
-      weeklyNew: 38,
-      highRisk: 74,
-      updated: "10/16 18:20"
-    };
-
-    const BANNED_WORDS = [
-      { id: "bw-01", word: "最便宜", categoryId: "absolute", level: "high", note: "价格比较无依据，容易构成绝对化宣传。", replacement: "改为“当前活动价更低”", source: "千川规则", updated: "10/16", status: "生效", hits: 42 },
-      { id: "bw-02", word: "全网最低", categoryId: "absolute", level: "high", note: "无法验证的全网比较。", replacement: "改为“同价位更有优势”", source: "千川规则", updated: "10/16", status: "生效", hits: 37 },
-      { id: "bw-03", word: "绝对", categoryId: "absolute", level: "high", note: "绝对化承诺，缺少适用条件。", replacement: "改为“在当前使用条件下”", source: "团队复盘", updated: "10/15", status: "生效", hits: 29 },
-      { id: "bw-04", word: "第一", categoryId: "absolute", level: "high", note: "排名类表述需提供权威依据。", replacement: "删除排名，改为具体卖点", source: "千川规则", updated: "10/15", status: "生效", hits: 18 },
-      { id: "bw-05", word: "国家级", categoryId: "absolute", level: "high", note: "资质类绝对化用语。", replacement: "改为“符合相关标准”", source: "千川规则", updated: "10/14", status: "生效", hits: 7 },
-      { id: "bw-06", word: "保证", categoryId: "promise", level: "high", note: "效果承诺需谨慎，容易引发售后争议。", replacement: "改为“多数用户反馈”并补充条件", source: "团队复盘", updated: "10/16", status: "生效", hits: 34 },
-      { id: "bw-07", word: "百分百", categoryId: "promise", level: "high", note: "绝对化承诺，无法保证个体结果。", replacement: "改为“高概率”或删除", source: "千川规则", updated: "10/16", status: "生效", hits: 26 },
-      { id: "bw-08", word: "永久", categoryId: "promise", level: "high", note: "永久有效类承诺不可验证。", replacement: "改为明确质保周期", source: "团队复盘", updated: "10/13", status: "待复核", hits: 9 },
-      { id: "bw-09", word: "无效退款", categoryId: "promise", level: "mid", note: "需同时说明退款条件与流程。", replacement: "改为“按平台规则支持售后”", source: "团队复盘", updated: "10/12", status: "生效", hits: 12 },
-      { id: "bw-10", word: "治疗", categoryId: "efficacy", level: "high", note: "普通商品不得宣称医疗作用。", replacement: "删除医疗功效描述", source: "平台规则", updated: "10/16", status: "生效", hits: 15 },
-      { id: "bw-11", word: "消炎", categoryId: "efficacy", level: "high", note: "医疗功效宣称，普通服饰不适用。", replacement: "改为“亲肤透气”", source: "平台规则", updated: "10/16", status: "生效", hits: 8 },
-      { id: "bw-12", word: "抗癌", categoryId: "efficacy", level: "high", note: "严重医疗功效宣称。", replacement: "删除相关表述", source: "平台规则", updated: "10/15", status: "生效", hits: 3 },
-      { id: "bw-13", word: "降血压", categoryId: "efficacy", level: "high", note: "医疗功效宣称，需严格拦截。", replacement: "删除相关表述", source: "平台规则", updated: "10/15", status: "生效", hits: 4 },
-      { id: "bw-14", word: "包治百病", categoryId: "efficacy", level: "high", note: "典型夸大功效用语。", replacement: "删除相关表述", source: "平台规则", updated: "10/14", status: "生效", hits: 2 },
-      { id: "bw-15", word: "原价", categoryId: "price", level: "mid", note: "需能证明原价真实存在及持续时间。", replacement: "改为“日常价”并标注周期", source: "千川规则", updated: "10/13", status: "生效", hits: 21 },
-      { id: "bw-16", word: "最后一天", categoryId: "price", level: "mid", note: "限时表述需与实际活动一致。", replacement: "改为具体活动截止时间", source: "团队复盘", updated: "10/16", status: "生效", hits: 33 },
-      { id: "bw-17", word: "亏本清仓", categoryId: "price", level: "mid", note: "价格诱导，需谨慎使用。", replacement: "改为“活动专场价”", source: "团队复盘", updated: "10/11", status: "待复核", hits: 14 },
-      { id: "bw-18", word: "点击领红包", categoryId: "platform", level: "mid", note: "站外引导或虚假利益诱导。", replacement: "改为平台内合规优惠说明", source: "平台规则", updated: "10/16", status: "生效", hits: 11 },
-      { id: "bw-19", word: "私信加微信", categoryId: "platform", level: "high", note: "站外导流，平台明确限制。", replacement: "引导至平台内客服或橱窗", source: "平台规则", updated: "10/16", status: "生效", hits: 6 },
-      { id: "bw-20", word: "站外下单", categoryId: "platform", level: "high", note: "引导站外交易。", replacement: "引导至直播间购物车", source: "平台规则", updated: "10/15", status: "生效", hits: 3 },
-      { id: "bw-21", word: "秒杀", categoryId: "platform", level: "mid", note: "需与平台活动类型一致，避免误导。", replacement: "改为“限时活动”", source: "团队复盘", updated: "10/10", status: "待复核", hits: 17 }
-    ];
-
-    const BANNED_VERSIONS = [
-      { version: "V2.8", date: "10/16", note: "新增高频词 38 条", count: "+38" },
-      { version: "V2.7", date: "10/09", note: "同步平台规则 24 条", count: "+24" },
-      { version: "V2.6", date: "09/30", note: "团队复盘补充 61 条", count: "+61" }
-    ];
-
-    const UPLOAD_CHANNELS = [
-      { title: "本地上传 TXT / CSV", status: "可用", tone: "good", desc: "一行一个词条；CSV 支持“词条,分类,风险等级,替换建议”。", action: "local" },
-      { title: "团队共享表格", status: "待接入", tone: "warn", desc: "飞书 / 企微表格增量同步，按更新时间拉取新增词条。", action: null },
-      { title: "千川后台词库", status: "待接入", tone: "warn", desc: "通过千川 API 同步平台词库，需申请词库读取权限。", action: null },
-      { title: "开放 API 推送", status: "待接入", tone: "muted", desc: "提供 POST 接口，供内部风控或第三方词库持续推送。", action: null }
-    ];
-
     const QUALITY_META = {
       fashion: {
         anchorId: "A-1024",
@@ -13714,15 +13587,14 @@
     });
 
     const CAMPAIGN_ACTIONS = [
-      { id: "scale-boost", title: "放量追投", desc: "提高计划预算与出价，争取更多成交。", min: 5, max: 30, value: 15, direction: 1, kind: "boost" },
-      { id: "cost-boost", title: "控成本追投", desc: "提高预算但保持成本上限，适合 ROI 稳定时。", min: 5, max: 20, value: 8, direction: 1, kind: "cost" },
-      { id: "scale-all", title: "一键放量", desc: "对当前优质计划批量提高预算。", min: 10, max: 50, value: 20, direction: 1, kind: "all" },
-      { id: "reduce-all", title: "一键控量", desc: "对低效计划批量降低预算与出价。", min: 5, max: 30, value: 20, direction: -1, kind: "reduce" }
+      { id: "scale-boost", title: "放量追投", desc: "在课程承接稳定、转化链路没有明显断点时，小步提高计划预算与出价。", min: 5, max: 30, value: 10, direction: 1, kind: "boost" },
+      { id: "cost-boost", title: "控成本追投", desc: "提高预算但守住订单成本与 ROI 边界，适合课程成交节奏较稳定时。", min: 5, max: 20, value: 8, direction: 1, kind: "cost" },
+      { id: "scale-all", title: "多计划放量", desc: "对当前优质计划分批提高预算，先验证高意向人群与直播间承接能否接住新增流量。", min: 10, max: 30, value: 15, direction: 1, kind: "all" },
+      { id: "reduce-all", title: "一键控量", desc: "课程承接、点击或成交效率转弱时，分批降低低效计划预算与出价。", min: 5, max: 30, value: 15, direction: -1, kind: "reduce" }
     ];
 
     const DIAG_SERIES = {};
     const DIAG_BASE_SECONDS = 20 * 3600;
-    let diagBannedWords = [];
     let anchorUploadSeq = 0;
     let reviewAccountId = null;
     const svgNS = "http://www.w3.org/2000/svg";
@@ -16775,6 +16647,182 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
       }
     }
 
+    function localDateString(value = new Date()) {
+      const year = value.getFullYear();
+      const month = String(value.getMonth() + 1).padStart(2, "0");
+      const day = String(value.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+
+    function formatDurationHuman(seconds) {
+      const safe = Math.max(0, Number(seconds) || 0);
+      const hours = Math.floor(safe / 3600);
+      const minutes = Math.floor(safe % 3600 / 60);
+      if (hours) return `${hours} 小时 ${minutes} 分`;
+      if (minutes) return `${minutes} 分钟`;
+      return `${Math.floor(safe)} 秒`;
+    }
+
+    function renderMarkdownLite(markdown) {
+      const lines = String(markdown || "").replace(/\r\n/g, "\n").split("\n");
+      const html = [];
+      let list = null;
+      const closeList = () => {
+        if (list) {
+          html.push(`</${list}>`);
+          list = null;
+        }
+      };
+      const inline = text => escapeHtml(text).replace(
+        /\*\*([^*]+)\*\*/g,
+        "<strong>$1</strong>"
+      );
+      lines.forEach(rawLine => {
+        const heading = rawLine.match(/^(#{1,6})\s+(.*)$/);
+        if (heading) {
+          closeList();
+          const level = Math.min(heading[1].length + 1, 6);
+          html.push(`<h${level}>${inline(heading[2])}</h${level}>`);
+          return;
+        }
+        if (/^\s*[-*]\s+/.test(rawLine)) {
+          if (list !== "ul") {
+            closeList();
+            html.push("<ul>");
+            list = "ul";
+          }
+          html.push(`<li>${inline(rawLine.replace(/^\s*[-*]\s+/, ""))}</li>`);
+          return;
+        }
+        if (/^\s*---+\s*$/.test(rawLine)) {
+          closeList();
+          html.push("<hr>");
+          return;
+        }
+        if (!rawLine.trim()) {
+          closeList();
+          return;
+        }
+        closeList();
+        html.push(`<p>${inline(rawLine)}</p>`);
+      });
+      closeList();
+      return html.join("");
+    }
+
+    function renderReviewDailyDates() {
+      const chipBox = $("#reviewDailyDateChips");
+      if (!chipBox) return;
+      const payload = REVIEW_DAILY_PAYLOAD;
+      const dates = Array.isArray(payload?.availableDates)
+        ? payload.availableDates.filter(value => /^\d{4}-\d{2}-\d{2}$/.test(String(value))).slice().sort().reverse()
+        : [];
+      const today = payload?.today || localDateString();
+      const selected = payload?.date || today;
+      const input = $("#reviewDailyDate");
+      if (input) {
+        input.value = selected;
+      }
+      const chips = [];
+      if (!dates.includes(today)) {
+        chips.push(
+          `<button type="button" class="review-daily-chip today${selected === today ? " active" : ""}" data-review-daily-date="${today}">今天 ${formatShortDate(today)}</button>`
+        );
+      }
+      dates.slice(0, 14).forEach(date => {
+        chips.push(
+          `<button type="button" class="review-daily-chip${date === selected ? " active" : ""}${date === today ? " today" : ""}" data-review-daily-date="${date}">${formatShortDate(date)}</button>`
+        );
+      });
+      chipBox.innerHTML = chips.join("")
+        || `<span class="review-daily-empty">暂无历史复盘文档</span>`;
+    }
+
+    function renderReviewDailyDoc() {
+      const box = $("#reviewDailyDoc");
+      if (!box) return;
+      const payload = REVIEW_DAILY_PAYLOAD;
+      if (!payload || payload.ok === false || !payload.hasData) {
+        box.innerHTML = `<div class="material-empty">${payload?.date ? `当天暂无复盘记录（${formatDate(payload.date)}）` : "当天暂无复盘记录"}</div>`;
+        return;
+      }
+      const summary = payload.summary || {};
+      const metrics = summary.metrics || {};
+      const metricCards = [
+        {
+          label: "消耗",
+          value: Number.isFinite(Number(metrics.spend)) ? `¥${formatNumber(metrics.spend, 2)}` : "—"
+        },
+        {
+          label: "净成交",
+          value: Number.isFinite(Number(metrics.gmv)) ? `¥${formatNumber(metrics.gmv, 2)}` : "—"
+        },
+        {
+          label: "净成交订单",
+          value: Number.isFinite(Number(metrics.orders)) ? formatNumber(metrics.orders, 0) : "—"
+        },
+        {
+          label: "净成交 ROI",
+          value: Number.isFinite(Number(metrics.roi)) ? formatNumber(metrics.roi, 2) : "—"
+        },
+        {
+          label: "累计观看",
+          value: Number.isFinite(Number(metrics.viewers)) ? formatNumber(metrics.viewers, 0) : "—"
+        },
+        {
+          label: "直播时长",
+          value: formatDurationHuman(summary.durationSeconds)
+        }
+      ].map(item => `<div class="review-daily-metric"><span>${item.label}</span><strong>${item.value}</strong></div>`).join("");
+      const markdownHtml = payload.markdown
+        ? renderMarkdownLite(payload.markdown)
+        : `<div class="material-empty">该日期暂无 Markdown 文档，以下为 JSON 归档摘要。</div>${summary.summary ? `<p>${escapeHtml(summary.summary)}</p>` : ""}`;
+      box.innerHTML = `
+        <div class="review-daily-meta">
+          <strong>${escapeHtml(summary.title || `${payload.date} · 全天直播复盘`)}</strong>
+          <span>${escapeHtml(payload.date || "")}</span>
+          <span>${summary.startTime ? `开播 ${escapeHtml(summary.startTime)}` : ""}</span>
+          <span>${escapeHtml(summary.recordingStatusLabel || "分析已归档")}</span>
+        </div>
+        <div class="review-daily-metrics">${metricCards}</div>
+        <div class="review-daily-md">${markdownHtml}</div>
+      `;
+    }
+
+    async function refreshReviewDaily(silent = true) {
+      if (!SERVER_MODE) return false;
+      const input = $("#reviewDailyDate");
+      const inputDate = String(input?.value || "");
+      const dateValue = /^\d{4}-\d{2}-\d{2}$/.test(inputDate) ? inputDate : "";
+      if (reviewDailyRequestInFlight) return false;
+      reviewDailyRequestInFlight = true;
+      try {
+        const query = new URLSearchParams();
+        if (dateValue) query.set("date", dateValue);
+        const response = await fetch(
+          `/api/review/daily?${query.toString()}`,
+          { cache: "no-store", headers: { Accept: "application/json" } }
+        );
+        const payload = await response.json();
+        if (!response.ok || payload.ok === false) {
+          throw new Error(payload.error || `HTTP ${response.status}`);
+        }
+        REVIEW_DAILY_PAYLOAD = payload;
+        reviewDailyLoaded = true;
+        if (state.view === "review") {
+          renderReviewDailyDates();
+          renderReviewDailyDoc();
+        }
+        return true;
+      } catch (error) {
+        reviewDailyLoaded = true;
+        if (!silent) showToast(`每日复盘文档读取失败：${error.message}`);
+        return false;
+      } finally {
+        reviewDailyRequestInFlight = false;
+      }
+    }
+
     function getReviewSessions() {
       const real = REVIEW_API_SESSIONS[ACTIVE_ACCOUNT.id];
       if (!Array.isArray(real) || !real.length) return [];
@@ -17201,7 +17249,7 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
             value: payload.currentSpeaker?.available ? payload.currentSpeaker.label : "尚未识别",
             tone: payload.currentSpeaker?.available ? "good" : "warn",
             note: payload.currentSpeaker?.available
-              ? `最近转写 ${payload.currentSpeaker.at ? new Date(payload.currentSpeaker.at).toLocaleTimeString("zh-CN", { hour12: false }) : "—"} · 存在转写延迟`
+              ? `${payload.currentSpeaker.note || "最近转写到该说话人"} · ${payload.currentSpeaker.at ? new Date(payload.currentSpeaker.at).toLocaleTimeString("zh-CN", { hour12: false }) : "—"}`
               : "本地 Whisper 转写尚未产出说话人标签"
           }
         ],
@@ -18185,6 +18233,7 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
       ).sort((left, right) =>
         (Number(left.startSeconds) || 0) - (Number(right.startSeconds) || 0)
       );
+      const speakerNames = [...new Set(phrases.map(item => String(item.speaker || "").trim()).filter(Boolean))];
       if (count) count.textContent = `${phrases.length} 段有效长句`;
       if (!list) return;
       list.innerHTML = phrases.length
@@ -18205,6 +18254,15 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
                 <strong>${effectLabel}</strong>
               </header>
               <p>${escapeHtml(item.text)}</p>
+              <div class="speech-speaker-row">
+                <span class="speech-speaker-tag">${escapeHtml(speakerDisplayName(item.speaker))}</span>
+                <select
+                  data-correct-speaker
+                  data-session-id="${escapeHtml(item.sessionId || "")}"
+                  data-segment-ids="${escapeHtml(encodeURIComponent(JSON.stringify(item.sourceSegmentIds || [])))}"
+                  title="把这句话改到另一位主播名下"
+                >${speakerSelectHtml(item.speaker, speakerNames)}</select>
+              </div>
               <footer>
                 <span>订单 ${orderDelta >= 0 ? "+" : ""}${formatNumber(orderDelta, 0)}</span>
                 <span>成交 ¥${formatNumber(gmvDelta, 2)}</span>
@@ -18217,6 +18275,7 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
         : `<div class="material-empty">${transcript.available
           ? "当前没有达到出单、留人或掉人阈值的完整长句"
           : "本场暂无可用 Whisper 长句，不补造话术分析"}</div>`;
+      attachSpeakerCorrection(list);
     }
 
     function renderReviewDataAnalysis(session) {
@@ -18284,7 +18343,9 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
         return;
       }
       const labelOf = (speaker, index) => {
-        const number = String(speaker).replace(/^speaker_/, "");
+        const raw = String(speaker || "");
+        if (raw && raw !== "_unassigned" && !/^speaker_\d+$/.test(raw)) return raw;
+        const number = raw.replace(/^speaker_/, "");
         return `主播 ${Number.isFinite(Number(number)) ? Number(number) + 1 : index + 1}`;
       };
       const durationText = seconds => {
@@ -18320,8 +18381,8 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
                 <span>说话 ${escapeHtml(durationText(profile.durationSeconds))} · ${formatNumber(Number(profile.style?.segmentCount) || 0, 0)} 句</span>
               </div>
               <select class="speaker-assign" data-speaker="${escapeHtml(profile.speaker)}" title="对应到主播">
-                <option value="">${profile.name ? "已对应" : "未命名"}</option>
-                ${SPEAKER_LIBRARY.map(item => `<option value="${item.id}" ${item.name === profile.name ? "selected" : ""}>${escapeHtml(item.name)}</option>`).join("")}
+                <option value="">未命名</option>
+                ${SPEAKER_LIBRARY.map(item => `<option value="${escapeHtml(item.name)}" ${item.name === profile.name ? "selected" : ""}>${escapeHtml(item.name)}</option>`).join("")}
               </select>
               ${isBest ? `<span class="speaker-best-badge">期间数据更优</span>` : ""}
             </div>
@@ -18361,16 +18422,24 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
     async function refreshSpeakerLibrary(silent = true) {
       if (!SERVER_MODE) return;
       try {
-        const response = await fetch("/api/speakers", {
+        const response = await fetch("/api/voiceprints", {
           cache: "no-store",
           headers: { Accept: "application/json" }
         });
         const payload = await response.json();
         if (!response.ok || payload.ok === false) throw new Error(payload.error || `HTTP ${response.status}`);
-        SPEAKER_LIBRARY = Array.isArray(payload.speakers) ? payload.speakers : [];
+        SPEAKER_LIBRARY = Array.isArray(payload.profiles) ? payload.profiles : [];
+        const statusMeta = $("#voiceprintStatusMeta");
+        if (statusMeta) {
+          statusMeta.textContent = payload.available
+            ? `${payload.count} 位主播声纹`
+            : "声纹模型缺失";
+          statusMeta.className = `mini-tag${payload.available ? "" : " warn"}`;
+          statusMeta.title = payload.error || "已录入的声纹用于实时识别说话人";
+        }
       } catch (error) {
         SPEAKER_LIBRARY = [];
-        if (!silent) showToast(`主播库读取失败：${error.message}`);
+        if (!silent) showToast(`声纹库读取失败：${error.message}`);
       }
       renderSpeakerLibrary();
       const session = getSelectedSession();
@@ -18382,54 +18451,121 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
       if (!host) return;
       host.innerHTML = SPEAKER_LIBRARY.length
         ? SPEAKER_LIBRARY.map(item => `
-          <span class="speaker-library-item">
-            ${item.face ? `<img src="/${escapeHtml(item.face)}" alt="">` : `<span class="speaker-compare-avatar">${escapeHtml((item.name || "主").slice(0, 1))}</span>`}
+          <span class="speaker-library-item" data-vp-name="${escapeHtml(item.name)}">
+            <span class="speaker-compare-avatar">${escapeHtml((item.name || "主").slice(0, 1))}</span>
             <span>${escapeHtml(item.name)}</span>
+            <span class="vp-duration">${Math.round(Number(item.durationSeconds) || 0)}s</span>
+            <button type="button" class="vp-delete" data-vp-delete="${escapeHtml(item.name)}" title="删除声纹">×</button>
           </span>
         `).join("")
-        : `<span style="color:var(--muted);font-size:8px;">还没有主播正脸库，上传后可把说话人对应到主播</span>`;
+        : `<span style="color:var(--muted);font-size:8px;">尚未录入标准录音；上传各主播约 1 分钟音频后，转写会自动标记说话人</span>`;
+      host.querySelectorAll("[data-vp-delete]").forEach(button => {
+        button.addEventListener("click", () => deleteVoiceprint(button.dataset.vpDelete));
+      });
     }
 
-    async function uploadSpeakerFace() {
-      const input = $("#speakerFaceInput");
-      const name = String($("#speakerNameInput")?.value || "").trim();
-      const file = input?.files?.[0];
-      if (!name) {
-        showToast("请先填写主播姓名");
+    async function uploadVoiceprint() {
+      const input = $("#speakerVoiceInput");
+      const typedName = String($("#speakerNameInput")?.value || "").trim();
+      const files = Array.from(input?.files || []);
+      if (!files.length) {
+        showToast("请选择至少一段标准录音");
         return;
       }
-      if (!file) {
-        showToast("请选择正脸图片");
-        return;
+      let succeeded = 0;
+      for (const file of files) {
+        const baseName = String(file.name || "voice.wav").replace(/\.[^.]+$/, "").trim();
+        const name = typedName && files.length === 1 ? typedName : baseName;
+        if (!name) continue;
+        try {
+          const response = await fetch("/api/voiceprints", {
+            method: "POST",
+            headers: {
+              "X-Speaker-Name": encodeURIComponent(name),
+              "X-File-Name": encodeURIComponent(file.name || "voice.wav")
+            },
+            body: file
+          });
+          const payload = await response.json();
+          if (!response.ok || payload.ok === false) throw new Error(payload.error || `HTTP ${response.status}`);
+          succeeded += 1;
+        } catch (error) {
+          showToast(`「${name}」声纹录入失败：${error.message}`);
+        }
       }
+      if (succeeded) {
+        $("#speakerNameInput").value = "";
+        input.value = "";
+        showToast(`已录入 ${succeeded} 位主播声纹`);
+        await refreshSpeakerLibrary();
+      }
+    }
+
+    async function deleteVoiceprint(name) {
       try {
-        const response = await fetch("/api/speakers", {
-          method: "POST",
-          headers: {
-            "X-Speaker-Name": name,
-            "X-File-Name": file.name || "face.jpg"
-          },
-          body: file
+        const response = await fetch(`/api/voiceprints?name=${encodeURIComponent(name)}`, {
+          method: "DELETE",
+          headers: { Accept: "application/json" }
         });
         const payload = await response.json();
         if (!response.ok || payload.ok === false) throw new Error(payload.error || `HTTP ${response.status}`);
-        $("#speakerNameInput").value = "";
-        input.value = "";
-        showToast(`已保存主播「${payload.speaker.name}」正脸`);
+        showToast(`已删除「${name}」的声纹`);
         await refreshSpeakerLibrary();
       } catch (error) {
-        showToast(`正脸上传失败：${error.message}`);
+        showToast(`声纹删除失败：${error.message}`);
       }
     }
 
-    async function assignSpeakerToAnchor(speaker, speakerId) {
+    function speakerDisplayName(value) {
+      const raw = String(value || "").trim();
+      if (!raw || raw === "_unassigned") return "未识别";
+      if (/^speaker_\d+$/.test(raw)) {
+        const number = Number(raw.replace(/^speaker_/, ""));
+        return `主播 ${Number.isFinite(number) ? number + 1 : "?"}`;
+      }
+      return raw;
+    }
+
+    function speakerSelectHtml(currentValue, extraNames = []) {
+      const current = String(currentValue || "");
+      const libraryNames = SPEAKER_LIBRARY.map(item => String(item.name || ""));
+      const names = [...new Set([...libraryNames, ...(extraNames || [])]
+        .map(name => String(name || "").trim())
+        .filter(name => name && name !== current))]
+        .sort((left, right) => left.localeCompare(right, "zh-CN"));
+      const currentOption = current
+        ? [`<option value="${escapeHtml(current)}" selected>${escapeHtml(speakerDisplayName(current))}</option>`]
+        : [];
+      return [
+        `<option value="">未识别</option>`,
+        ...currentOption,
+        ...names.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(speakerDisplayName(name))}</option>`)
+      ].join("");
+    }
+
+    function attachSpeakerCorrection(host) {
+      if (!host) return;
+      host.querySelectorAll("[data-correct-speaker]").forEach(select => {
+        select.addEventListener("change", () => {
+          let segmentIds = [];
+          try {
+            segmentIds = JSON.parse(decodeURIComponent(select.dataset.segmentIds || "[]"));
+          } catch (_) {
+            segmentIds = [];
+          }
+          correctSegmentSpeaker(select.dataset.sessionId, segmentIds, select.value);
+        });
+      });
+    }
+
+    async function assignSpeakerToAnchor(speaker, name) {
       const session = getSelectedSession();
       if (!session) return;
       try {
         const response = await fetch("/api/speakers/map", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId: session.id, speaker, speakerId })
+          body: JSON.stringify({ sessionId: session.id, speaker, name })
         });
         const payload = await response.json();
         if (!response.ok || payload.ok === false) throw new Error(payload.error || `HTTP ${response.status}`);
@@ -18437,6 +18573,23 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
         await refreshReviewSessions(false, state.reviewDate);
       } catch (error) {
         showToast(`说话人对应保存失败：${error.message}`);
+      }
+    }
+
+    async function correctSegmentSpeaker(sessionId, segmentIds, speaker) {
+      if (!Array.isArray(segmentIds) || !segmentIds.length) return;
+      try {
+        const response = await fetch("/api/review/speaker-segment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId, segmentIds, speaker })
+        });
+        const payload = await response.json();
+        if (!response.ok || payload.ok === false) throw new Error(payload.error || `HTTP ${response.status}`);
+        showToast("已修正这句话的主播，正在刷新");
+        await refreshReviewSessions(false, state.reviewDate);
+      } catch (error) {
+        showToast(`说话人修正失败：${error.message}`);
       }
     }
 
@@ -18798,7 +18951,64 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
       showReviewChartTooltip(bucket, index);
     }
 
+    function reviewLivePayload() {
+      return LIVE_REAL[ACTIVE_ACCOUNT.id] || null;
+    }
+
+    function isReviewLiveMode() {
+      const payload = reviewLivePayload();
+      if (!payload) return false;
+      return Boolean(payload.live || getLiveStreamConfig(payload)?.playbackUrl);
+    }
+
+    function reviewLiveStatus() {
+      const payload = reviewLivePayload();
+      const live = Boolean(payload?.live);
+      const loginExpired = captureLoginExpired(payload);
+      const config = getLiveStreamConfig(payload);
+      const url = String(config?.playbackUrl || "");
+      const kind = detectStreamKind(url, config?.type);
+      const started = liveStartTime(payload);
+      return { payload, live, loginExpired, config, url, kind, started };
+    }
+
+    function reviewLiveStartTime(status) {
+      if (status.started) return status.started;
+      const roomId = String(status.payload?.room?.id || "");
+      const recorder = REVIEW_API_SESSIONS.__meta__?.recorder;
+      const sessionId = String(recorder?.sessionId || "");
+      const sessionMatch = sessionId.match(/^(\d{4}-\d{2}-\d{2})_.+_(\d{6})$/);
+      if (sessionMatch && String(recorder?.roomId || "") === roomId) {
+        const parsed = new Date(
+          `${sessionMatch[1].replace(/-/g, "/")} ${sessionMatch[2].slice(0, 2)}:${sessionMatch[2].slice(2, 4)}:${sessionMatch[2].slice(4, 6)}`
+        ).getTime();
+        if (Number.isFinite(parsed)) return parsed;
+      }
+      const firstTrend = Array.isArray(status.payload?.trend?.points)
+        ? status.payload.trend.points[0]
+        : null;
+      const trendTime = firstTrend?.time || firstTrend?.startedAt || "";
+      if (typeof trendTime === "string" && /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/.test(trendTime)) {
+        const parsed = new Date(String(trendTime).replace(/-/g, "/")).getTime();
+        if (Number.isFinite(parsed)) return parsed;
+      }
+      return null;
+    }
+
     function destroyReviewPlayer() {
+      if (reviewStreamRetryTimer) {
+        window.clearTimeout(reviewStreamRetryTimer);
+        reviewStreamRetryTimer = null;
+      }
+      if (reviewFlvPlayer) {
+        try {
+          reviewFlvPlayer.pause();
+          reviewFlvPlayer.unload();
+          reviewFlvPlayer.detachMediaElement();
+          reviewFlvPlayer.destroy();
+        } catch (error) {}
+        reviewFlvPlayer = null;
+      }
       if (reviewVideoHls) {
         try { reviewVideoHls.destroy(); } catch (error) {}
         reviewVideoHls = null;
@@ -18810,62 +19020,179 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
         video.hidden = true;
         try { video.load(); } catch (error) {}
       }
+      reviewStreamUrl = "";
       reviewVideoSessionId = "";
     }
 
-    async function attachReviewVideo(session) {
+    function reviewStreamStartPlayback(video) {
+      video.muted = true;
+      const result = video.play();
+      if (result?.catch) result.catch(() => {});
+    }
+
+    async function attachReviewStream() {
+      const status = reviewLiveStatus();
       const video = $("#reviewPlayerVideo");
       const badge = $("#reviewPlaybackBadge");
-      if (!video || !session) return;
-      const url = String(session.videoUrl || "");
-      if (!url) {
+      if (!video) return status;
+      const bigPlay = $("#playerBigPlay");
+      const playBtn = $("#playerPlayBtn");
+      const speedBtn = $("#playerSpeed");
+      if (bigPlay) bigPlay.hidden = true;
+      if (playBtn) playBtn.hidden = true;
+      if (speedBtn) speedBtn.hidden = true;
+
+      if (!status.url) {
         destroyReviewPlayer();
-        if (badge) badge.textContent = "录像待生成";
-        return;
+        if (badge) {
+          badge.textContent = status.loginExpired
+            ? "登录已过期"
+            : status.live ? "等待画面流" : "未开播";
+        }
+        updateReviewLiveFrame(status);
+        return status;
       }
-      if (badge) {
-        badge.textContent = session.recordingStatus === "recording"
-          ? "本地录制中"
-          : "本地录像";
-      }
-      if (reviewVideoSessionId === session.id && video.getAttribute("src")) {
+      if (badge) badge.textContent = status.live ? "实时直播中" : "画面已接入";
+      if (reviewStreamUrl === status.url) {
         video.hidden = false;
-        return;
+        updateReviewLiveFrame(status);
+        return status;
       }
       destroyReviewPlayer();
-      reviewVideoSessionId = session.id;
+      reviewStreamUrl = status.url;
       video.hidden = false;
-      video.playbackRate = state.playerSpeed;
-      if (/\.m3u8(?:\?|$)/i.test(url)) {
-        if (video.canPlayType("application/vnd.apple.mpegurl")) {
-          video.src = url;
-        } else {
-          const ready = await ensureHlsLibrary();
-          if (!ready) {
-            if (badge) badge.textContent = "HLS 组件缺失";
-            video.hidden = true;
-            return;
-          }
-          reviewVideoHls = new window.Hls({
-            lowLatencyMode: Boolean(session.recordingStatus === "recording"),
-            backBufferLength: 90
-          });
-          reviewVideoHls.loadSource(url);
-          reviewVideoHls.attachMedia(video);
-          reviewVideoHls.on(window.Hls.Events.ERROR, (_event, detail) => {
-            if (!detail?.fatal) return;
-            if (badge) badge.textContent = "录像读取失败";
-          });
+
+      if (status.kind === "flv") {
+        const ready = await ensureFlvLibrary();
+        if (!ready || !window.flvjs?.isSupported()) {
+          reviewStreamUrl = "";
+          if (badge) badge.textContent = "画面组件缺失";
+          video.hidden = true;
+          return status;
         }
-      } else {
-        video.src = url;
+        const candidates = [status.url];
+        if (status.config?.fallbackUrl && status.config.fallbackUrl !== status.url) {
+          candidates.push(status.config.fallbackUrl);
+        }
+        let candidateIndex = 0;
+        let candidateRetryCount = 0;
+        const dispose = player => {
+          try {
+            player.pause();
+            player.unload();
+            player.detachMediaElement();
+            player.destroy();
+          } catch (error) {}
+          if (reviewFlvPlayer === player) reviewFlvPlayer = null;
+        };
+        const playCandidate = () => {
+          if (reviewStreamRetryTimer) {
+            window.clearTimeout(reviewStreamRetryTimer);
+            reviewStreamRetryTimer = null;
+          }
+          const candidate = candidates[candidateIndex];
+          const player = window.flvjs.createPlayer(
+            { type: "flv", url: candidate, isLive: true, hasAudio: false },
+            {
+              enableStashBuffer: true,
+              stashInitialSize: 384 * 1024,
+              lazyLoad: false,
+              autoCleanupSourceBuffer: true,
+              autoCleanupMaxBackwardDuration: 30,
+              autoCleanupMinBackwardDuration: 15
+            }
+          );
+          reviewFlvPlayer = player;
+          let attemptFailed = false;
+          const failAttempt = reason => {
+            if (attemptFailed) return;
+            attemptFailed = true;
+            if (reviewStreamRetryTimer) {
+              window.clearTimeout(reviewStreamRetryTimer);
+              reviewStreamRetryTimer = null;
+            }
+            dispose(player);
+            if (
+              /\/api\/live\/stream\.flv(?:\?|$)/i.test(candidate) &&
+              candidateRetryCount < 2
+            ) {
+              candidateRetryCount += 1;
+              reviewStreamRetryTimer = window.setTimeout(playCandidate, 800);
+              return;
+            }
+            candidateIndex += 1;
+            candidateRetryCount = 0;
+            if (candidateIndex < candidates.length) {
+              window.setTimeout(playCandidate, 150);
+              return;
+            }
+            reviewStreamUrl = "";
+            if (badge) badge.textContent = "画面连接失败";
+          };
+          player.on(window.flvjs.Events.ERROR, (type, detail) => {
+            console.warn("[review-stream] FLV error", type, detail);
+            failAttempt(`${type || "Error"}${detail ? ` / ${detail}` : ""}`);
+          });
+          player.attachMediaElement(video);
+          player.load();
+          reviewStreamStartPlayback(video);
+          reviewStreamRetryTimer = window.setTimeout(
+            () => failAttempt("12 秒内未收到视频数据"),
+            12000
+          );
+        };
+        playCandidate();
+        return status;
       }
-      if (state.playerTime > 0) {
-        try { video.currentTime = state.playerTime; } catch (error) {}
+      if (status.kind === "hls") {
+        if (video.canPlayType("application/vnd.apple.mpegurl")) {
+          video.src = status.url;
+          reviewStreamStartPlayback(video);
+          return status;
+        }
+        const ready = await ensureHlsLibrary();
+        if (!ready) {
+          reviewStreamUrl = "";
+          if (badge) badge.textContent = "HLS 组件缺失";
+          video.hidden = true;
+          return status;
+        }
+        reviewVideoHls = new window.Hls({
+          lowLatencyMode: true,
+          backBufferLength: 30
+        });
+        reviewVideoHls.loadSource(status.url);
+        reviewVideoHls.attachMedia(video);
+        reviewVideoHls.on(window.Hls.Events.MANIFEST_PARSED, () => {
+          reviewStreamStartPlayback(video);
+        });
+        reviewVideoHls.on(window.Hls.Events.ERROR, (_event, detail) => {
+          if (!detail?.fatal) return;
+          try { reviewVideoHls.destroy(); } catch (error) {}
+          reviewVideoHls = null;
+          if (badge) badge.textContent = "画面读取失败";
+        });
+        return status;
       }
+      video.src = status.url;
+      reviewStreamStartPlayback(video);
+      return status;
+    }
+
+    function updateReviewLiveFrame(status = reviewLiveStatus()) {
+      const started = reviewLiveStartTime(status);
+      const elapsed = started ? Math.max(0, Math.round((Date.now() - started) / 1000)) : 0;
+      const referenceSeconds = 4 * 3600;
+      const percentage = started ? clamp(elapsed / referenceSeconds * 100, 0, 100) : 0;
+      $("#playerProgressFill").style.width = `${percentage.toFixed(3)}%`;
+      $("#playerTime").textContent = started
+        ? `已播 ${formatClock(elapsed)}`
+        : "00:00:00 / 00:00:00";
+      $("#playerStageTime").textContent = new Date().toLocaleTimeString("zh-CN", { hour12: false });
     }
 
     function syncReviewVideoTime() {
+      if (isReviewLiveMode()) return;
       const video = $("#reviewPlayerVideo");
       const session = getSelectedSession();
       if (!video || !session || video.hidden) return;
@@ -18880,7 +19207,6 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
       const sessions = getReviewSessions();
       const session = getSelectedSession();
       if (!session) {
-        destroyReviewPlayer();
         const dates = (
           REVIEW_API_AVAILABLE_DATES[ACTIVE_ACCOUNT.id]
           || REVIEW_API_SESSIONS.__meta__?.availableDates
@@ -18894,13 +19220,10 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
         }
         $("#sessionList").innerHTML = `<div class="material-empty">当前账号暂无直播场次</div>`;
         $("#annotationList").innerHTML = `<div class="material-empty">暂无标注</div>`;
-        $("#reviewPlaybackBadge").textContent = "等待录像";
-        $("#playerTitle").textContent = "—";
+        $("#playerTitle").textContent = "实时直播画面";
         $("#reviewSummaryText").textContent = reviewSessionsLoaded
-          ? "当前账号暂无已分析场次。开播后后台会临时录像、完成话术与指标分析，归档复盘文档后自动删除原始录像。"
-          : "正在读取本地录像与千川大屏历史…";
-        $("#playerTime").textContent = "00:00:00 / 00:00:00";
-        $("#playerProgressFill").style.width = "0%";
+          ? "当前账号暂无已分析场次。开播后实时画面会直接接入，下播后后台自动完成整场分析与每日复盘文档。"
+          : "正在读取直播大屏与本地复盘归档…";
         $("#playerMarkers").innerHTML = "";
         $("#reviewSummaryTags").innerHTML = "";
         $("#reviewVerdict").textContent = "—";
@@ -18911,6 +19234,8 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
         $("#reviewAnalysisProcess").textContent = "";
         renderReviewSpeechReview(null);
         renderReviewSpeakerCompare(null);
+        updateReviewLiveFrame();
+        attachReviewStream().catch(() => {});
         return;
       }
       state.playerTime = clamp(state.playerTime, 0, session.durationSeconds);
@@ -18968,6 +19293,13 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
       const transcriptPhrases = Array.isArray(session.transcript?.phrases)
         ? session.transcript.phrases.slice(-60)
         : [];
+      const transcriptSpeakerNames = [
+        ...new Set(
+          transcriptPhrases
+            .map(item => String(item.speaker || "").trim())
+            .filter(Boolean)
+        )
+      ];
       const transcriptMeta = $("#speechTranscriptMeta");
       if (session.transcript?.available) {
         transcriptMeta.textContent = `本地 ${session.transcript.engine || "Whisper tiny"} · ${session.transcript.phrases.length} 句 · ${Math.round((session.transcript.audioSegmentSeconds || 300) / 60)} 分钟分段 · ${session.transcript.metricResolution || "指标对齐中"}`;
@@ -18988,11 +19320,21 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
             <div class="speech-transcript-item ${item.effect || "neutral"}">
               <span>${escapeHtml(phraseClock)}</span>
               <strong>${escapeHtml(item.text || "")}</strong>
+              <div class="speech-speaker-row" style="grid-column:2;">
+                <span class="speech-speaker-tag">${escapeHtml(speakerDisplayName(item.speaker))}</span>
+                <select
+                  data-correct-speaker
+                  data-session-id="${escapeHtml(item.sessionId || "")}"
+                  data-segment-ids="${escapeHtml(encodeURIComponent(JSON.stringify(item.sourceSegmentIds || [])))}"
+                  title="把这句话改到另一位主播名下"
+                >${speakerSelectHtml(item.speaker, transcriptSpeakerNames)}</select>
+              </div>
               <em>${escapeHtml(item.effectLabel || "指标未对齐")} · 订单 ${orderDelta >= 0 ? "+" : ""}${formatNumber(orderDelta, 0)} · 在线 ${onlineDelta >= 0 ? "+" : ""}${formatNumber(onlineDelta, 0)}</em>
             </div>
           `;
         }).join("")
         : `<div class="material-empty">${session.recordingStatus === "recording" ? "等待 Whisper 处理下一个完整 5 分钟分段" : "本场没有可展示的本地转写"}</div>`;
+      attachSpeakerCorrection($("#speechTranscriptList"));
 
       $("#playerMarkers").innerHTML = session.annotations.map(annotation => `
         <button type="button" class="player-marker ${annotation.type}" data-marker-id="${annotation.id}" style="left:${(annotation.time / session.durationSeconds * 100).toFixed(3)}%" title="${formatClock(annotation.time)} ${annotation.title}"></button>
@@ -19025,8 +19367,8 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
       } else {
         $("#playerAnnotationOverlay").hidden = true;
       }
-      updatePlayerFrame();
-      attachReviewVideo(session);
+      updateReviewLiveFrame();
+      attachReviewStream().catch(() => {});
       renderReviewSpeechReview(session);
       renderReviewDataAnalysis(session);
       renderReviewSpeakerCompare(session);
@@ -19034,6 +19376,7 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
     }
 
     function updatePlayerFrame() {
+      if (isReviewLiveMode()) return;
       const session = getSelectedSession();
       if (!session) return;
       const video = $("#reviewPlayerVideo");
@@ -19051,6 +19394,7 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
     }
 
     function seekPlayback(time, annotationId = null) {
+      if (isReviewLiveMode()) return;
       const session = getSelectedSession();
       if (!session) return;
       state.playerTime = clamp(time, 0, session.durationSeconds);
@@ -21359,16 +21703,6 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
       showDiagChartTooltip(point, index);
     }
 
-    function handleDiagBannedLibrary(file) {
-      if (!file) return;
-      file.text().then(text => {
-        diagBannedWords = text.split(/\r?\n/).map(word => word.trim()).filter(Boolean);
-        $("#diagBannedStatus").textContent = `已载入 ${diagBannedWords.length} 条 · 实时匹配待接入 ASR`;
-      }).catch(() => {
-        $("#diagBannedStatus").textContent = "词库读取失败，请重试";
-      });
-    }
-
     function escapeHTML(value) {
       return String(value ?? "").replace(/[&<>"']/g, char => ({
         "&": "&amp;",
@@ -21425,51 +21759,7 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
       return `${sign}${value.toFixed(decimals)}${suffix}`;
     }
 
-    function bannedCategoryLabel(id) {
-      return BANNED_CATEGORIES.find(category => category.id === id)?.label || "待分类";
-    }
-
-    function normalizeBannedCategory(value) {
-      const text = String(value || "").trim();
-      if (!text) return "pending";
-      const exact = BANNED_CATEGORIES.find(category =>
-        category.id === text.toLowerCase() || category.label === text || category.label.includes(text)
-      );
-      if (exact && exact.id !== "all") return exact.id;
-      if (/绝对|极限|排名/.test(text)) return "absolute";
-      if (/承诺|保证|永久/.test(text)) return "promise";
-      if (/功效|医疗|治疗/.test(text)) return "efficacy";
-      if (/价格|促销|诱导/.test(text)) return "price";
-      if (/平台|导流|站外/.test(text)) return "platform";
-      return "pending";
-    }
-
-    function normalizeBannedLevel(value) {
-      const text = String(value || "").trim().toLowerCase();
-      if (["high", "高", "高风", "高风险"].includes(text)) return "high";
-      if (["low", "低", "低风", "低风险"].includes(text)) return "low";
-      return "mid";
-    }
-
     function populateScriptSelects() {
-      const categoryOptions = BANNED_CATEGORIES.map(category =>
-        `<option value="${category.id}">${escapeHTML(category.label)}</option>`
-      ).join("");
-      const wordCategory = $("#scriptWordCategory");
-      if (wordCategory.dataset.ready !== "1") {
-        wordCategory.innerHTML = categoryOptions;
-        wordCategory.dataset.ready = "1";
-      }
-      wordCategory.value = state.scriptWordCategory;
-
-      const pasteCategory = $("#scriptPasteCategory");
-      if (pasteCategory.dataset.ready !== "1") {
-        pasteCategory.innerHTML = BANNED_CATEGORIES.filter(category => category.id !== "all").map(category =>
-          `<option value="${category.id}">${escapeHTML(category.label)}</option>`
-        ).join("");
-        pasteCategory.dataset.ready = "1";
-      }
-
       const sessions = Array.isArray(state.scriptAnalysis?.availableSessions)
         ? state.scriptAnalysis.availableSessions.filter(session => session.hasTranscript)
         : [];
@@ -21520,7 +21810,6 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
       $$("[data-script-panel]").forEach(panel => {
         panel.hidden = panel.dataset.scriptPanel !== state.scriptTab;
       });
-      renderBannedLibrary();
       renderQualityScripts();
       renderLowScripts();
       renderScriptLive();
@@ -21592,11 +21881,6 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
       const isLive = Boolean(analysis?.session?.status === "recording");
       $("#scriptOverview").innerHTML = `
         <article class="panel metric-tile">
-          <span class="metric-tile-label">违禁词库</span>
-          <div class="metric-tile-value">${formatNumber(BANNED_LIBRARY_META.total, 0)}<em>条</em></div>
-          <div class="metric-tile-foot">本周新增 <strong>+${BANNED_LIBRARY_META.weeklyNew}</strong> · 高风险 ${BANNED_LIBRARY_META.highRisk} 条</div>
-        </article>
-        <article class="panel metric-tile">
           <span class="metric-tile-label">优质话术</span>
           <div class="metric-tile-value">${quality.length}<em>类</em></div>
           <div class="metric-tile-foot">TOP 5 口径 · 合计出单 <strong>+${formatNumber(orderTotal, 0)}</strong></div>
@@ -21617,123 +21901,6 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
         chip.className = `live-chip${isLive ? "" : " offline"}`;
         chip.innerHTML = `<i></i>${isLive ? "直播录制中" : "历史场次"}`;
       }
-    }
-
-    function renderBannedLibrary() {
-      const query = state.scriptWordQuery.trim().toLowerCase();
-      const filtered = BANNED_WORDS.filter(item => {
-        const matchesCategory = state.scriptWordCategory === "all" || item.categoryId === state.scriptWordCategory;
-        if (!matchesCategory) return false;
-        if (!query) return true;
-        return [item.word, item.note, item.replacement, item.source].some(value =>
-          String(value || "").toLowerCase().includes(query)
-        );
-      });
-
-      $("#scriptWordStats").innerHTML = `
-        <span>词库 <strong>${formatNumber(BANNED_LIBRARY_META.total, 0)}</strong> 条</span>
-        <span>本周 <strong>+${BANNED_LIBRARY_META.weeklyNew}</strong></span>
-        <span>高风险 <strong>${BANNED_LIBRARY_META.highRisk}</strong></span>
-        <span>更新于 <strong>${BANNED_LIBRARY_META.updated}</strong></span>
-      `;
-
-      $("#scriptWordTableBody").innerHTML = filtered.length ? filtered.map(item => {
-        const levelClass = item.level === "high" ? "" : item.level;
-        const levelText = item.level === "high" ? "高" : item.level === "mid" ? "中" : "低";
-        return `
-          <tr>
-            <td><span class="word-term ${levelClass}">${escapeHTML(item.word)}</span></td>
-            <td>${escapeHTML(bannedCategoryLabel(item.categoryId))}</td>
-            <td><span class="mini-tag ${item.level === "high" ? "bad" : item.level === "mid" ? "warn" : "good"}">${levelText}</span></td>
-            <td>
-              <div>${escapeHTML(item.note)}</div>
-              <div class="word-suggestion">${escapeHTML(item.replacement)}</div>
-            </td>
-            <td>${escapeHTML(item.source)}</td>
-            <td>${escapeHTML(item.updated)}</td>
-            <td><span class="mini-tag ${item.status === "生效" ? "good" : "warn"}">${escapeHTML(item.status)}</span></td>
-          </tr>
-        `;
-      }).join("") : `
-        <tr><td colspan="7" style="padding:28px;text-align:center;color:var(--muted);">没有匹配的词条</td></tr>
-      `;
-      $("#scriptWordFoot").textContent = `显示 ${filtered.length} / ${formatNumber(BANNED_LIBRARY_META.total, 0)} 条 · 最近更新优先展示`;
-      $("#bannedTabCount").textContent = formatNumber(BANNED_LIBRARY_META.total, 0);
-
-      $("#scriptUploadChannels").innerHTML = UPLOAD_CHANNELS.map(channel => `
-        <div class="upload-channel">
-          <div class="upload-channel-top">
-            <strong>${escapeHTML(channel.title)}</strong>
-            <span class="mini-tag ${channel.tone}">${escapeHTML(channel.status)}</span>
-          </div>
-          <p>${escapeHTML(channel.desc)}</p>
-          ${channel.action === "local" ? `<button type="button" data-upload-word-local>选择文件</button>` : ""}
-        </div>
-      `).join("");
-
-      $("#scriptWordVersions").innerHTML = BANNED_VERSIONS.slice(0, 4).map(version => `
-        <div class="version-row">
-          <strong>${escapeHTML(version.version)}</strong>
-          <span>${escapeHTML(version.note)}</span>
-          <em>${escapeHTML(version.date)} · ${escapeHTML(version.count)}</em>
-        </div>
-      `).join("");
-    }
-
-    function addBannedWords(entries, sourceLabel) {
-      const existingWords = new Set(BANNED_WORDS.map(item => item.word));
-      const unique = entries.filter(item => item.word && !existingWords.has(item.word) && existingWords.add(item.word));
-      if (!unique.length) {
-        showToast("没有新增词条，已自动跳过重复项");
-        return;
-      }
-      BANNED_WORDS.unshift(...unique);
-      BANNED_LIBRARY_META.total += unique.length;
-      BANNED_LIBRARY_META.weeklyNew += unique.length;
-      BANNED_LIBRARY_META.highRisk += unique.filter(item => item.level === "high").length;
-      BANNED_LIBRARY_META.updated = "今天";
-      const latestVersion = Math.max(...BANNED_VERSIONS.map(version => Number(String(version.version).split(".").pop()) || 0));
-      BANNED_VERSIONS.unshift({
-        version: `V2.${latestVersion + 1}`,
-        date: "今天",
-        note: sourceLabel,
-        count: `+${unique.length}`
-      });
-      diagBannedWords = BANNED_WORDS.map(item => item.word);
-      renderBannedLibrary();
-      renderScriptOverview();
-      showToast(`已新增 ${unique.length} 条词条，状态为“待复核”`);
-    }
-
-    function handleScriptWordFile(file) {
-      if (!file) return;
-      if (file.size > 1024 * 1024) {
-        showToast("文件超过 1 MB，请拆分后上传");
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = () => {
-        const lines = String(reader.result || "").split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-        const entries = lines.map((line, index) => {
-          const cells = line.split(/[,\t]/).map(cell => cell.trim());
-          if (index === 0 && /词条|word|关键词/i.test(cells[0])) return null;
-          return {
-            id: `upload-${Date.now()}-${index}`,
-            word: cells[0],
-            categoryId: normalizeBannedCategory(cells[1]),
-            level: normalizeBannedLevel(cells[2]),
-            note: "本地上传，待人工复核适用范围。",
-            replacement: cells[3] || "待补充替换建议",
-            source: `本地上传 · ${file.name}`,
-            updated: "今天",
-            status: "待复核",
-            hits: 0
-          };
-        }).filter(Boolean);
-        addBannedWords(entries, `本地上传 ${file.name}`);
-      };
-      reader.onerror = () => showToast("文件读取失败，请重试");
-      reader.readAsText(file, "UTF-8");
     }
 
     function renderQualityScripts() {
@@ -22117,18 +22284,14 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
       const summary = data.summary;
       const value = (number, formatter, fallback = "未返回") => isRealNumber(number) ? formatter(Number(number)) : fallback;
       const targetRoi = Number(data.targets?.roi ?? 0.56);
-      const paid = value(summary.paidShare, number => `${number.toFixed(1)}%`);
-      const natural = data.channels.find(channel => /自然|推荐/.test(channel.name))?.share;
       const sourceShort = data.mcpAvailable
         ? "MCP"
         : data.buyinUsed ? "百应直抓"
           : data.qianchuanScreenUsed ? "千川大屏直抓" : "无数据源";
       $("#campaignLiveStrip").innerHTML = [
         [`${sourceShort} 今日消耗`, value(summary.spend, number => `¥${formatNumber(number, 2)}`), "当前来源原值", isRealNumber(summary.spend) ? "good" : "bad"],
-        ["消耗 / 时", value(summary.spendRate, number => `¥${formatNumber(number, 0)}`), "按开播时长计算", isRealNumber(summary.spendRate) ? "" : "bad"],
         ["净成交订单", value(summary.orders, number => formatNumber(number, 0)), `${sourceShort} 净成交`, isRealNumber(summary.orders) ? "good" : "bad"],
         ["净成交ROI", value(summary.roi, number => number.toFixed(2)), `参考线 ${targetRoi.toFixed(2)} · ${isRealNumber(summary.roi) && Number(summary.roi) >= targetRoi ? "达到" : "未达到"}`, isRealNumber(summary.roi) && Number(summary.roi) >= targetRoi ? "good" : "bad"],
-        ["付费流量", paid, isRealNumber(natural) ? `自然/推荐 ${Number(natural).toFixed(1)}%` : "MCP 未返回自然流量", isRealNumber(summary.paidShare) ? "" : "bad"],
         ["在线人数", value(summary.online, number => formatNumber(number, 0)), isRealNumber(summary.online) ? `${sourceShort} 实时` : "当前来源未返回，不替代", isRealNumber(summary.online) ? "good" : "bad"]
       ].map(([label, value, note, tone]) => `
         <div class="campaign-live-cell">
@@ -22406,117 +22569,133 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
     }
 
     function renderCampaignDocs(data) {
-      const documents = Array.isArray(state.learningDocs) ? state.learningDocs : [];
-      $("#campaignDocs").innerHTML = documents.length ? documents.map(doc => `
-        <div class="doc-item">
-          <span class="doc-icon">${escapeHTML(String(doc.extension || "").replace(".", "").toUpperCase() || "FILE")}</span>
-          <div class="doc-copy">
-            <strong title="${escapeHTML(doc.name)}">${escapeHTML(doc.name)}</strong>
-            <span>${escapeHTML(formatLearningFileSize(doc.bytes))} · ${escapeHTML(formatSyncTime(doc.uploadedAt))} · ${doc.learningReady ? `${formatNumber(Number(doc.chunks) || 0, 0)} 个学习片段` : escapeHTML(doc.extractionError || "未提取到文本")}</span>
-          </div>
-          <span class="mini-tag doc-status ${doc.learningReady ? "good" : "warn"}">${escapeHTML(doc.statusLabel || (doc.learningReady ? "已学习" : "待解析"))}</span>
-        </div>
-      `).join("") : `<div class="collection-empty">还没有上传文档</div>`;
-      const hits = data.learning?.hits || [];
-      $("#campaignRuleCount").textContent = hits.length ? `${hits.length} 段经验校验` : "当前问题未命中";
-      $("#campaignRules").innerHTML = hits.length ? hits.map((hit, index) => `
-        <div class="rule-row"><strong>${String(index + 1).padStart(2, "0")}</strong><span>${escapeHtml(knowledgeCitationLabel(hit))}：${escapeHtml(hit.suggestedAction || hit.excerpt)}</span></div>
-      `).join("") : `
-        <div class="collection-empty">${documents.some(doc => doc.learningReady) ? "资料已建索引，但当前诊断没有召回足够相关的经验片段" : "上传并学习资料后，这里会把命中的经验作为底线校验展示"}</div>
-      `;
+      // 诊断页「投放知识库」板块已移除，保留空实现以避免影响诊断渲染链路。
     }
 
-    function projectCampaignOperation(action, percent, data) {
-      const basis = data.operationBasis || {};
-      const baseSpend = isRealNumber(basis.spend) ? Number(basis.spend) : Number(basis.currentSpend);
-      const baseOrders = isRealNumber(basis.orders) ? Number(basis.orders) : NaN;
-      const baseGmv = isRealNumber(basis.gmv) ? Number(basis.gmv) : NaN;
-      const baseAov = isRealNumber(basis.aov)
-        ? Number(basis.aov)
-        : isRealNumber(baseGmv) && isRealNumber(baseOrders) && baseOrders > 0
-          ? baseGmv / baseOrders
-          : Number(data.targets?.productPrice || 168);
-      const baseRoi = isRealNumber(basis.roi)
-        ? Number(basis.roi)
-        : isRealNumber(basis.currentRoi)
-          ? Number(basis.currentRoi)
-          : NaN;
-      if (!Number.isFinite(baseSpend) || baseSpend <= 0 || !Number.isFinite(baseAov) || baseAov <= 0) {
-        return {
-          available: false,
-          reason: "近 30 天有效消耗、成交与客单数据不足，无法做推演。"
-        };
-      }
-      const targetRoi = Number(data.targets?.roi || 0.56);
-      const currentRoi = isRealNumber(basis.currentRoi) ? Number(basis.currentRoi) : baseRoi;
-      const signedDelta = action.direction < 0 ? -percent : percent;
-      let spendFactor = 1 + signedDelta / 100;
-      if (action.kind === "cost") spendFactor = 1 + signedDelta / 100 * 0.85;
-      if (action.kind === "all") spendFactor = 1 + signedDelta / 100 * 1.05;
-      const roiBase = Number.isFinite(currentRoi) ? currentRoi : baseRoi;
-      let roiFactor = 1;
-      if (Number.isFinite(roiBase)) {
-        if (action.kind === "reduce") roiFactor += percent / 100 * 0.35;
-        else if (action.kind === "cost") roiFactor += (roiBase >= targetRoi ? 0.015 : -0.008) * percent;
-        else roiFactor -= (roiBase >= targetRoi ? 0.18 : 0.32) * percent / 100;
-      }
-      const projectedSpend = baseSpend * spendFactor;
-      const projectedRoi = Number.isFinite(roiBase) ? Math.max(0, roiBase * roiFactor) : NaN;
-      const projectedGmv = Number.isFinite(projectedRoi) ? projectedSpend * projectedRoi : NaN;
-      const projectedOrders = Number.isFinite(projectedGmv) ? projectedGmv / baseAov : NaN;
-      const projectedClicks = isRealNumber(basis.currentClicks)
-        ? Number(basis.currentClicks) * spendFactor
-        : NaN;
+    function campaignOperationForecastKey(actionId) {
+      return `${ACTIVE_ACCOUNT.id}:${actionId}`;
+    }
+
+    function getCampaignOperationForecast(actionId) {
+      return state.campaignOperationForecasts[campaignOperationForecastKey(actionId)] || null;
+    }
+
+    function buildCampaignOperationSnapshot(data) {
+      const live = LIVE_REAL[ACTIVE_ACCOUNT.id] || {};
+      const historyPoints = Array.isArray(live.history?.points)
+        ? live.history.points
+        : Array.isArray(data.series)
+          ? data.series
+          : [];
       return {
-        available: true,
-        percent: signedDelta,
-        spend: projectedSpend,
-        gmv: projectedGmv,
-        orders: projectedOrders,
-        clicks: projectedClicks,
-        roi: projectedRoi,
-        cost: projectedOrders > 0 ? projectedSpend / projectedOrders : NaN,
-        basis
+        capturedAt: new Date().toISOString(),
+        account: ACTIVE_ACCOUNT.id,
+        room: live.room || null,
+        metrics: live.metrics || data.summary || {},
+        operationBasis: data.operationBasis || null,
+        recentSeries: historyPoints.slice(-24).map(point => ({
+          t: point.t,
+          time: point.time || point.label || "",
+          spend: point.spend,
+          gmv: point.gmv,
+          orders: point.orders,
+          roi: point.roi,
+          watch: point.watch ?? point.watchCount,
+          online: point.online,
+          productClicks: point.productClicks ?? point.clicks
+        })),
+        anomalies: (data.anomalies || []).slice(-5),
+        flowDetails: (data.flowDetails || []).slice(0, 8)
       };
     }
 
-    function renderCampaignOperations(data) {
-      $("#campaignOperations").innerHTML = CAMPAIGN_ACTIONS.map((action, index) => `
-        ${(() => {
-          const projection = projectCampaignOperation(action, action.value, data);
+    function formatOperationForecastValue(key, value) {
+      const number = Number(value);
+      if (!Number.isFinite(number)) return "—";
+      if (key === "spend" || key === "gmv" || key === "cost") {
+        return `¥${formatNumber(number, key === "cost" ? 2 : 0)}`;
+      }
+      if (key === "orders") return formatNumber(number, 1);
+      if (key === "roi") return number.toFixed(2);
+      return formatNumber(number, 0);
+    }
+
+    function renderOperationForecastMetrics(forecast) {
+      if (!forecast?.forecast) {
+        return `
+          <div class="op-forecast-source"><span>等待模型推演</span><em>DeepSeek 主判断</em></div>
+          <p>先拖动滑块选择幅度，再由模型结合实时趋势、30 天基准、异常窗口和知识库辅助经验生成区间。</p>
+        `;
+      }
+      const definitions = [
+        ["roi", "推演 ROI"],
+        ["spend", "推演消耗"],
+        ["clicks", "推演点击"],
+        ["gmv", "推演成交"],
+        ["orders", "推演订单"],
+        ["cost", "推演成本"]
+      ];
+      const source = forecast.source === "deepseek_product_primary"
+        ? "DeepSeek 模型"
+        : "本地回退";
+      return `
+        <div class="op-forecast-source">
+          <span>${source} · 置信度 ${formatNumber(Number(forecast.confidence) || 0, 0)}%</span>
+          <em>${escapeHTML(forecast.horizonLabel || "参考区间")}</em>
+        </div>
+        ${definitions.map(([key, label]) => {
+          const range = forecast.forecast[key] || {};
           return `
-        <article class="operation-card" data-operation-id="${action.id}">
-          <div class="op-head">
             <div>
-              <span class="op-index">${String(index + 1).padStart(2, "0")}</span>
-              <strong>${action.title}</strong>
+              <span>${label}</span>
+              <strong>${formatOperationForecastValue(key, range.base)}</strong>
+              <small>${formatOperationForecastValue(key, range.low)}–${formatOperationForecastValue(key, range.high)}</small>
             </div>
-            <span class="mini-tag warn">历史推演</span>
-          </div>
-          <p>${action.desc}</p>
-          <div class="op-control">
-            <span>调整幅度</span>
-            <strong data-op-value>${action.direction < 0 ? "-" : "+"}${action.value}%</strong>
-          </div>
-          <input type="range" class="op-range" data-op-range min="${action.min}" max="${action.max}" value="${action.value}" step="1" aria-label="${action.title}调整幅度">
-          <div class="op-projection" data-op-projection>
-            ${projection.available ? `
-              <div><span>推演 ROI</span><strong>${projection.roi.toFixed(2)}</strong></div>
-              <div><span>推演消耗</span><strong>¥${formatNumber(projection.spend, 0)}</strong></div>
-              <div><span>推演点击</span><strong>${Number.isFinite(projection.clicks) ? formatNumber(projection.clicks, 0) : "未返回"}</strong></div>
-              <div><span>推演成交</span><strong>¥${formatNumber(projection.gmv, 0)}</strong></div>
-              <div><span>推演订单</span><strong>${formatNumber(projection.orders, 1)}</strong></div>
-              <div><span>推演成本</span><strong>¥${formatNumber(projection.cost, 2)}</strong></div>
-            ` : `<p>${escapeHTML(projection.reason)}</p>`}
-          </div>
-          <button type="button" class="op-run-btn" data-run-op="${action.id}" ${projection.available ? "" : "disabled"}>生成参考推演</button>
-        </article>
           `;
-        })()}
-      `).join("") + `
+        }).join("")}
+        <p>${escapeHTML(forecast.summary || "模型已完成区间推演。")}</p>
+      `;
+    }
+
+    function renderCampaignOperations(data) {
+      const hasForecastInput = isRealNumber(data.operationBasis?.currentSpend)
+        || isRealNumber(data.operationBasis?.spend)
+        || isRealNumber(data.summary?.spend)
+        || isRealNumber(LIVE_REAL[ACTIVE_ACCOUNT.id]?.metrics?.spend);
+      $("#campaignOperations").innerHTML = CAMPAIGN_ACTIONS.map((action, index) => {
+        const forecast = getCampaignOperationForecast(action.id);
+        const percent = forecast?.action?.percent
+          ? Number(forecast.action.percent)
+          : action.value;
+        const loading = state.campaignOperationLoading === action.id;
+        return `
+          <article class="operation-card" data-operation-id="${action.id}">
+            <div class="op-head">
+              <div>
+                <span class="op-index">${String(index + 1).padStart(2, "0")}</span>
+                <strong>${action.title}</strong>
+              </div>
+              <span class="mini-tag ${forecast ? "good" : "warn"}">${forecast ? (forecast.source === "deepseek_product_primary" ? "模型已推演" : "回退推演") : "待模型推演"}</span>
+            </div>
+            <p>${action.desc}</p>
+            <div class="op-control">
+              <span>调整幅度</span>
+              <strong data-op-value>${action.direction < 0 ? "-" : "+"}${percent}%</strong>
+            </div>
+            <input type="range" class="op-range" data-op-range min="${action.min}" max="${action.max}" value="${percent}" step="1" aria-label="${action.title}调整幅度">
+            <div class="op-projection" data-op-projection>
+              ${renderOperationForecastMetrics(forecast)}
+            </div>
+            <button type="button" class="op-run-btn${loading ? " loading" : ""}" data-run-op="${action.id}" ${loading || !hasForecastInput ? "disabled" : ""}>
+              ${loading ? "模型分析中…" : forecast ? "重新生成模型推演" : "生成模型推演"}
+            </button>
+          </article>
+        `;
+      }).join("") + `
         <p class="chart-insight-note" style="grid-column:1/-1;">
-          推演基线：近 30 天真实日均消耗/成交/订单/ROI/客单${isRealNumber(data.operationBasis?.currentClicks) ? "，点击以本场 MCP 真实值为基线" : "，MCP 未返回点击时保持空缺"}。
-          ${escapeHTML(data.operationBasis?.warning ? `${data.operationBasis.warning}；` : "")}操作幅度与 ROI 弹性为经验模型，仅供参考，不代表千川承诺结果。
+          模型优先依据本场实时指标、近 60 分钟增量、近 30 天真实日均基准、异常窗口与流量结构；知识库只补充教培直播间投放逻辑、账号习惯和底线。
+          ${escapeHTML(data.operationBasis?.warning ? `${data.operationBasis.warning}；` : "")}
+          未提供退款、到课或有效线索字段时，模型不会补造。所有区间仅供参考，不代表千川承诺结果。
         </p>
       `;
     }
@@ -22525,10 +22704,11 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
       const effect = state.campaignLastEffect;
       if (!effect || effect.accountId !== ACTIVE_ACCOUNT.id) {
         $("#campaignEffect").innerHTML = `
-          <div class="subsection-head"><h3>操作后推演</h3><span>仅供参考</span></div>
-          <div class="collection-empty" style="margin-top:8px;">拖动滑块会实时更新 ROI、消耗、点击、成交、订单和成本；生成记录仅保存在本页，不写入千川后台。</div>
+          <div class="subsection-head"><h3>模型操作后推演</h3><span>DeepSeek 主判断</span></div>
+          <div class="collection-empty" style="margin-top:8px;">先选择调整幅度，再点击“生成模型推演”。模型会结合实时趋势和知识库辅助经验给出低、中、高三档区间；生成记录仅保存在本页，不写入千川后台。</div>
         `;
       } else {
+        const forecast = effect.forecast || {};
         const effectPercent = effect.percent > 0 ? `+${effect.percent}%` : `${effect.percent}%`;
         const rows = [
           ["净成交ROI", effect.before.roi, effect.after.roi, value => value.toFixed(2)],
@@ -22538,8 +22718,22 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
           ["订单", effect.before.orders, effect.after.orders, value => formatNumber(value, 1)],
           ["成本", effect.before.cost, effect.after.cost, value => `¥${formatNumber(value, 2)}`]
         ];
+        const sourceLabel = forecast.source === "deepseek_product_primary" ? "DeepSeek 模型" : "本地规则回退";
+        const renderList = (title, values) => Array.isArray(values) && values.length ? `
+          <div>
+            <strong>${title}</strong>
+            <ul>${values.map(item => `<li>${escapeHTML(item)}</li>`).join("")}</ul>
+          </div>
+        ` : "";
+        const ranges = forecast.forecast || {};
+        const rangeLine = ["roi", "spend", "orders", "cost"]
+          .filter(key => ranges[key])
+          .map(key => `${key === "roi" ? "ROI" : key === "spend" ? "消耗" : key === "orders" ? "订单" : "成本"} ${formatOperationForecastValue(key, ranges[key].low)}–${formatOperationForecastValue(key, ranges[key].high)}`)
+          .join(" · ");
+        const knowledgeConflicts = forecast.knowledgeConflicts || [];
+        const knowledgeNotes = forecast.knowledgeNotes || [];
         $("#campaignEffect").innerHTML = `
-          <div class="subsection-head"><h3>操作后推演</h3><span>${escapeHTML(effect.time)} · ${escapeHTML(effect.action)} ${effect.percent ? effectPercent : ""}</span></div>
+          <div class="subsection-head"><h3>模型操作后推演</h3><span>${escapeHTML(effect.time)} · ${escapeHTML(effect.action)} ${effect.percent ? effectPercent : ""} · ${sourceLabel}</span></div>
           <div class="effect-grid">
             ${rows.map(([label, before, after, format]) => {
               const delta = before ? (after - before) / before * 100 : 0;
@@ -22552,7 +22746,24 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
               `;
             }).join("")}
           </div>
-          <div class="note-copy">参考推演，不代表千川后台真实结果；未写入千川，也没有执行操作。</div>
+          <div class="effect-model-card">
+            <div class="effect-model-meta">
+              <span class="mini-tag ${forecast.source === "deepseek_product_primary" ? "good" : "warn"}">${sourceLabel}</span>
+              <span class="mini-tag">置信度 ${formatNumber(Number(forecast.confidence) || 0, 0)}%</span>
+              <span class="mini-tag">${escapeHTML(forecast.horizonLabel || "参考区间")}</span>
+              <span class="mini-tag ${forecast.knowledge?.usedByModel ? "good" : "warn"}">${forecast.knowledge?.usedByModel ? "知识库已辅助引用" : "知识库辅助校验"}</span>
+            </div>
+            <p><strong>模型判断：</strong>${escapeHTML(forecast.summary || "等待模型说明")}</p>
+            ${rangeLine ? `<p><strong>预测区间：</strong>${escapeHTML(rangeLine)}</p>` : ""}
+            ${renderList("判断依据", forecast.rationale)}
+            ${renderList("风险", forecast.risks)}
+            ${renderList("止损边界", forecast.guardrails)}
+            ${renderList("教培直播间承接动作", forecast.educationActions)}
+            ${renderList("知识库辅助引用", knowledgeNotes)}
+            ${renderList("知识库冲突", knowledgeConflicts)}
+            ${renderList("数据假设", forecast.assumptions)}
+            <p>${escapeHTML(forecast.disclaimer || "参考推演，不代表千川后台真实结果；未写入千川，也没有执行操作。")}</p>
+          </div>
         `;
       }
 
@@ -22713,7 +22924,7 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
       return value.length > 18 ? `${value.slice(0, 16)}…` : value;
     }
 
-    function runCampaignAction(actionId) {
+    async function runCampaignAction(actionId) {
       const action = CAMPAIGN_ACTIONS.find(item => item.id === actionId);
       const card = document.querySelector(`[data-operation-id="${actionId}"]`);
       const range = card?.querySelector("[data-op-range]");
@@ -22721,49 +22932,100 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
       const percent = Number(range.value);
       const data = CAMPAIGN_DATA[ACTIVE_ACCOUNT.id];
       if (!data) return;
-      const projection = projectCampaignOperation(action, percent, data);
-      if (!projection.available) {
-        showToast(projection.reason);
-        return;
+      if (state.campaignOperationLoading) return;
+      const requestedAccountId = ACTIVE_ACCOUNT.id;
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 125000);
+      state.campaignOperationLoading = action.id;
+      renderCampaignOperations(data);
+      try {
+        await refreshLiveData(true);
+        if (requestedAccountId !== ACTIVE_ACCOUNT.id) return;
+        const latestData = CAMPAIGN_DATA[ACTIVE_ACCOUNT.id] || data;
+        const response = await fetch("/api/campaign/operation-forecast", {
+          method: "POST",
+          cache: "no-store",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json"
+          },
+          body: JSON.stringify({
+            snapshot: buildCampaignOperationSnapshot(latestData),
+            action: {
+              id: action.id,
+              title: action.title,
+              description: action.desc,
+              kind: action.kind,
+              direction: action.direction
+            },
+            percent
+          }),
+          signal: controller.signal
+        });
+        const payload = await response.json();
+        if (!response.ok || !payload.ok) {
+          throw new Error(payload.error || `HTTP ${response.status}`);
+        }
+        if (requestedAccountId !== ACTIVE_ACCOUNT.id) return;
+        state.campaignOperationForecasts[campaignOperationForecastKey(action.id)] = payload;
+        const baseline = payload.baseline || {};
+        const rangeValue = key => Number(payload.forecast?.[key]?.base);
+        const before = {
+          roi: Number(baseline.roi),
+          spend: Number(baseline.spend),
+          clicks: Number(baseline.clicks),
+          gmv: Number(baseline.gmv),
+          orders: Number(baseline.orders),
+          cost: Number(baseline.cost)
+        };
+        const after = {
+          roi: rangeValue("roi"),
+          spend: rangeValue("spend"),
+          clicks: rangeValue("clicks"),
+          gmv: rangeValue("gmv"),
+          orders: rangeValue("orders"),
+          cost: rangeValue("cost")
+        };
+        const time = new Date().toLocaleTimeString("zh-CN", { hour12: false }).slice(0, 5);
+        const signedPercent = Number(payload.action?.signedPercent ?? (action.direction < 0 ? -percent : percent));
+        state.campaignLastEffect = {
+          accountId: requestedAccountId,
+          action: action.title,
+          percent: signedPercent,
+          time,
+          before,
+          after,
+          forecast: payload
+        };
+        const modelLabel = payload.source === "deepseek_product_primary" ? "DeepSeek" : "本地回退";
+        state.campaignOperations.unshift({
+          accountId: requestedAccountId,
+          time,
+          action: action.title,
+          percent: signedPercent,
+          note: `${modelLabel}推演 · ROI ${formatOperationForecastValue("roi", after.roi)} · 消耗 ${formatOperationForecastValue("spend", after.spend)} · 置信度 ${Number(payload.confidence) || 0}%`,
+          referenceOnly: true
+        });
+        state.campaignOperations = state.campaignOperations.slice(0, 8);
+        showToast(
+          payload.source === "deepseek_product_primary"
+            ? `DeepSeek 已生成“${action.title}”区间推演，知识库仅作辅助校验`
+            : `DeepSeek 暂不可用，已生成明确标注的本地回退推演`
+        );
+      } catch (error) {
+        const message = error?.name === "AbortError" ? "模型分析超时，请稍后重试" : error.message;
+        showToast(`操作推演失败：${message}`);
+      } finally {
+        window.clearTimeout(timeout);
+        state.campaignOperationLoading = "";
+        if (requestedAccountId === ACTIVE_ACCOUNT.id) {
+          const current = CAMPAIGN_DATA[ACTIVE_ACCOUNT.id];
+          if (current) {
+            renderCampaignOperations(current);
+            renderCampaignEffectAndLog(current);
+          }
+        }
       }
-      const basis = data.operationBasis || {};
-      const before = {
-        roi: isRealNumber(basis.currentRoi) ? Number(basis.currentRoi) : Number(basis.roi),
-        spend: isRealNumber(basis.currentSpend) ? Number(basis.currentSpend) : Number(basis.spend),
-        clicks: isRealNumber(basis.currentClicks) ? Number(basis.currentClicks) : NaN,
-        gmv: Number(basis.gmv),
-        orders: Number(basis.orders),
-        cost: Number(basis.cost)
-      };
-      const after = {
-        roi: projection.roi,
-        spend: projection.spend,
-        clicks: projection.clicks,
-        gmv: projection.gmv,
-        orders: projection.orders,
-        cost: projection.cost
-      };
-      const time = new Date().toLocaleTimeString("zh-CN", { hour12: false }).slice(0, 5);
-      const signedPercent = projection.percent;
-      state.campaignLastEffect = {
-        accountId: ACTIVE_ACCOUNT.id,
-        action: action.title,
-        percent: signedPercent,
-        time,
-        before,
-        after
-      };
-      state.campaignOperations.unshift({
-        accountId: ACTIVE_ACCOUNT.id,
-        time,
-        action: action.title,
-        percent: signedPercent,
-        note: `参考推演：ROI ${after.roi.toFixed(2)} · 消耗 ¥${formatNumber(after.spend, 0)} · 成本 ¥${formatNumber(after.cost, 2)}`,
-        referenceOnly: true
-      });
-      state.campaignOperations = state.campaignOperations.slice(0, 8);
-      renderCampaignEffectAndLog(data);
-      showToast(`已生成“${action.title} ${signedPercent > 0 ? "+" : ""}${signedPercent}%”参考推演，未写入千川后台`);
     }
 
     function renderAll() {
@@ -22866,7 +23128,9 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
       }
       if (name === "material") renderMaterialPage();
       if (name === "review") {
+        refreshLiveData(true);
         refreshReviewSessions(true);
+        refreshReviewDaily(true);
         refreshSpeakerLibrary(true);
       }
       if (name === "knowledge") {
@@ -22993,7 +23257,7 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
     });
 
     function selectScriptTab(tab) {
-      if (!["banned", "quality", "low", "live"].includes(tab)) return;
+      if (!["quality", "low", "live"].includes(tab)) return;
       state.scriptTab = tab;
       renderScriptPage();
       window.requestAnimationFrame(() => {
@@ -23011,58 +23275,6 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
     $("#scriptJumpLive").addEventListener("click", () => {
       selectScriptTab("live");
       window.scrollTo({ top: 0, behavior: "smooth" });
-    });
-
-    $("#scriptWordSearch").addEventListener("input", event => {
-      state.scriptWordQuery = event.target.value;
-      renderBannedLibrary();
-    });
-
-    $("#scriptWordCategory").addEventListener("change", event => {
-      state.scriptWordCategory = event.target.value;
-      renderBannedLibrary();
-    });
-
-    $("#scriptWordUploadBtn").addEventListener("click", () => $("#scriptWordInput").click());
-    $("#scriptUploadChannels").addEventListener("click", event => {
-      if (event.target.closest("[data-upload-word-local]")) $("#scriptWordInput").click();
-    });
-    $("#scriptWordInput").addEventListener("change", event => {
-      handleScriptWordFile(event.target.files[0]);
-      event.target.value = "";
-    });
-
-    $("#scriptWordPasteToggle").addEventListener("click", () => {
-      const box = $("#scriptPasteBox");
-      box.hidden = !box.hidden;
-      if (!box.hidden) $("#scriptPasteText").focus();
-    });
-    $("#scriptPasteCancel").addEventListener("click", () => {
-      $("#scriptPasteBox").hidden = true;
-      $("#scriptPasteText").value = "";
-    });
-    $("#scriptPasteSubmit").addEventListener("click", () => {
-      const words = $("#scriptPasteText").value.split(/\r?\n/).map(word => word.trim()).filter(Boolean);
-      if (!words.length) {
-        showToast("请先粘贴至少一个词条");
-        return;
-      }
-      const categoryId = $("#scriptPasteCategory").value;
-      const entries = words.map((word, index) => ({
-        id: `paste-${Date.now()}-${index}`,
-        word,
-        categoryId,
-        level: "mid",
-        note: "批量粘贴，待人工复核适用范围。",
-        replacement: "待补充替换建议",
-        source: "批量粘贴",
-        updated: "今天",
-        status: "待复核",
-        hits: 0
-      }));
-      addBannedWords(entries, "批量粘贴");
-      $("#scriptPasteText").value = "";
-      $("#scriptPasteBox").hidden = true;
     });
 
     $("#qualityDate").addEventListener("change", event => {
@@ -23190,12 +23402,6 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
       }
     });
 
-    $("#campaignDocUploadBtn").addEventListener("click", () => $("#learningDocInput").click());
-    $("#campaignDocInput").addEventListener("change", event => {
-      uploadLearningDocuments(event.target.files);
-      event.target.value = "";
-    });
-
     $("#campaignOperations").addEventListener("input", event => {
       const range = event.target.closest("[data-op-range]");
       if (!range) return;
@@ -23205,16 +23411,15 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
       if (label) label.textContent = `${action?.direction < 0 ? "-" : "+"}${range.value}%`;
       const projectionHost = card?.querySelector("[data-op-projection]");
       if (projectionHost && action) {
-        const data = CAMPAIGN_DATA[ACTIVE_ACCOUNT.id];
-        const projection = projectCampaignOperation(action, Number(range.value), data);
-        projectionHost.innerHTML = projection.available ? `
-          <div><span>推演 ROI</span><strong>${projection.roi.toFixed(2)}</strong></div>
-          <div><span>推演消耗</span><strong>¥${formatNumber(projection.spend, 0)}</strong></div>
-          <div><span>推演点击</span><strong>${Number.isFinite(projection.clicks) ? formatNumber(projection.clicks, 0) : "未返回"}</strong></div>
-          <div><span>推演成交</span><strong>¥${formatNumber(projection.gmv, 0)}</strong></div>
-          <div><span>推演订单</span><strong>${formatNumber(projection.orders, 1)}</strong></div>
-          <div><span>推演成本</span><strong>¥${formatNumber(projection.cost, 2)}</strong></div>
-        ` : `<p>${escapeHTML(projection.reason)}</p>`;
+        delete state.campaignOperationForecasts[campaignOperationForecastKey(action.id)];
+        projectionHost.innerHTML = renderOperationForecastMetrics(null);
+        const badge = card.querySelector(".op-head .mini-tag");
+        if (badge) {
+          badge.className = "mini-tag warn";
+          badge.textContent = "待模型推演";
+        }
+        const button = card.querySelector("[data-run-op]");
+        if (button) button.textContent = "生成模型推演";
       }
     });
 
@@ -23230,6 +23435,7 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
         renderReviewPage();
         refreshLiveData(true);
         refreshReviewSessions(true);
+        if (state.reviewTab === "daily") refreshReviewDaily(true);
         try {
           window.history.replaceState(null, "", `#review${state.reviewTab === "playback" ? "" : `/${state.reviewTab}`}`);
         } catch (error) {
@@ -23250,9 +23456,25 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
       refreshReviewSessions(false, value);
     });
 
-    $("#speakerUploadBtn").addEventListener("click", uploadSpeakerFace);
+    $("#reviewDailyDate").addEventListener("change", event => {
+      const value = String(event.target.value || "");
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return;
+      refreshReviewDaily(false);
+    });
+
+    $("#reviewDailyDateChips").addEventListener("click", event => {
+      const button = event.target.closest("[data-review-daily-date]");
+      if (!button) return;
+      const value = String(button.dataset.reviewDailyDate || "");
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return;
+      const input = $("#reviewDailyDate");
+      if (input) input.value = value;
+      refreshReviewDaily(false);
+    });
+
+    $("#speakerUploadBtn").addEventListener("click", uploadVoiceprint);
     $("#speakerNameInput").addEventListener("keydown", event => {
-      if (event.key === "Enter") uploadSpeakerFace();
+      if (event.key === "Enter") uploadVoiceprint();
     });
 
     $$(".granularity-tabs button").forEach(button => {
@@ -23340,6 +23562,7 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
     });
 
     function togglePlayback() {
+      if (isReviewLiveMode()) return;
       const session = getSelectedSession();
       if (!session) return;
       if (state.playerTime >= session.durationSeconds) state.playerTime = 0;
@@ -23365,6 +23588,7 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
     $("#playerPlayBtn").addEventListener("click", togglePlayback);
 
     $("#playerSpeed").addEventListener("click", () => {
+      if (isReviewLiveMode()) return;
       const speeds = [1, 1.5, 2];
       const index = speeds.indexOf(state.playerSpeed);
       state.playerSpeed = speeds[(index + 1) % speeds.length];
@@ -23535,11 +23759,6 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
     diagVideo.addEventListener("error", () => {
       if (!diagVideo.getAttribute("src")) return;
       showStreamMessage("画面加载失败", "拉流地址无法播放，请检查地址、编码格式或跨域权限。", "画面异常");
-    });
-
-    $("#diagBannedInput").addEventListener("change", event => {
-      handleDiagBannedLibrary(event.target.files[0]);
-      event.target.value = "";
     });
 
     $("#diagChartWrap").addEventListener("pointermove", handleDiagChartPointer);
@@ -23731,7 +23950,7 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
 
     window.setInterval(() => {
       if (document.hidden) return;
-      if (state.view === "diagnosis") refreshLiveData(true);
+      if (state.view === "diagnosis" || state.view === "review") refreshLiveData(true);
     }, 30000);
 
     window.setInterval(() => {
@@ -23760,6 +23979,12 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
     }, 1000);
 
     window.setInterval(() => {
+      if (state.view !== "review" || state.reviewTab !== "playback" || document.hidden) return;
+      updateReviewLiveFrame();
+    }, 1000);
+
+    window.setInterval(() => {
+      if (isReviewLiveMode()) return;
       if (!state.playerPlaying || state.view !== "review" || state.reviewTab !== "playback") return;
       const session = getSelectedSession();
       if (!session) return;
@@ -23810,7 +24035,7 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
 
     const initialParams = new URLSearchParams(window.location.search);
     const initialScriptTab = initialParams.get("scriptTab");
-    if (["banned", "quality", "low", "live"].includes(initialScriptTab)) {
+    if (["quality", "low", "live"].includes(initialScriptTab)) {
       state.scriptTab = initialScriptTab;
     }
     const initialDaypart = initialParams.get("daypart");
@@ -23830,7 +24055,7 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
     if (initialView === "diagnosis" && ["monitor", "data", "material", "rates"].includes(initialSub)) {
       state.diagTab = initialSub;
     }
-    if (initialView === "review" && ["playback", "anchor"].includes(initialSub)) {
+    if (initialView === "review" && ["daily", "playback", "anchor"].includes(initialSub)) {
       state.reviewTab = initialSub;
     }
     renderAll();

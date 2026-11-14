@@ -29,6 +29,7 @@ from typing import Any
 
 import deepseek_client
 import recording_store
+import voiceprint
 
 
 ROOT = Path(__file__).resolve().parent
@@ -53,6 +54,10 @@ SPEAKERS_PATH = DATA_DIR / "speakers.json"
 SPEAKER_FACES_DIR = DATA_DIR / "speaker-faces"
 SPEAKER_FACE_MAX_BYTES = 8 * 1024 * 1024
 SPEAKER_FACE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+VOICEPRINT_MAX_BYTES = 30 * 1024 * 1024
+VOICEPRINT_EXTENSIONS = {
+    ".wav", ".mp3", ".m4a", ".aac", ".flac", ".ogg", ".oga", ".webm", ".opus", ".ts",
+}
 LEARNING_DOCUMENT_MAX_BYTES = 25 * 1024 * 1024
 LEARNING_DOCUMENT_MAX_CHARS = 1_000_000
 LEARNING_CHUNK_SIZE = 900
@@ -86,6 +91,17 @@ DEFAULT_PAGE_SIZE = 100
 CAMPAIGN_TARGET_COST = 300.0
 CAMPAIGN_PRODUCT_PRICE = 168.0
 CAMPAIGN_TARGET_ROI = 0.56
+CAMPAIGN_OPERATION_HORIZON_MINUTES = 60
+CAMPAIGN_EDUCATION_FRAMEWORK = (
+    "教培课程直播间先看进入、停留、商品点击、订单与订单成本的承接链路，"
+    "不能只用短期 ROI 判断。",
+    "课程属于高决策成本商品，优先采用小步预算和出价调整，并留出至少一个观察窗口；"
+    "成交结构、课程价格锚点和讲解节奏变化时，不得机械套用固定百分比。",
+    "数据没有到课、退款、有效线索或私域转化字段时不得补造，只能提示验证；"
+    "净成交口径也要明确其退款后统计边界。",
+    "知识库文档用于辅助校准本账号习惯和底线，与实时证据冲突时必须说明冲突，"
+    "不能让辅助资料覆盖当前经营数据。",
+)
 MCP_LIVE_15_MINUTE_CAPABILITY = {
     "attempted": True,
     "available": False,
@@ -531,6 +547,44 @@ def save_session_speaker_map(
     payload = {"version": 1, "speakers": speakers, "updatedAt": now_iso()}
     atomic_write_json(_session_speaker_map_path(session_id), payload)
     return payload
+
+
+def voiceprint_status_payload() -> dict[str, Any]:
+    try:
+        return voiceprint.status()
+    except Exception as exc:
+        return {
+            "available": False,
+            "count": 0,
+            "names": [],
+            "threshold": voiceprint.DEFAULT_THRESHOLD,
+            "profiles": [],
+            "error": str(exc),
+        }
+
+
+def enroll_voiceprint(name: str, content: bytes, source_filename: str) -> dict[str, Any]:
+    ext = os.path.splitext(source_filename)[1].lower()
+    if ext not in VOICEPRINT_EXTENSIONS:
+        raise ValueError("只支持 wav / mp3 / m4a / aac / flac / ogg / webm 等音频文件")
+    if len(content) > VOICEPRINT_MAX_BYTES:
+        raise ValueError("标准录音不能超过 30 MB")
+    if not content:
+        raise ValueError("录音内容为空")
+    temporary = DATA_DIR / f".tmp-voiceprint-{uuid.uuid4().hex}{ext}"
+    try:
+        temporary.write_bytes(content)
+        record = voiceprint.enroll(name, temporary, source_filename)
+    finally:
+        try:
+            temporary.unlink(missing_ok=True)
+        except OSError:
+            pass
+    return record
+
+
+def delete_voiceprint(name: str) -> dict[str, Any]:
+    return voiceprint.delete(name)
 
 
 class LearningDocumentError(ValueError):
@@ -1079,15 +1133,15 @@ def _extract_json_object(text: str) -> dict[str, Any]:
     source = str(text or "").strip()
     if not source:
         return {}
-    start = source.find("{")
-    end = source.rfind("}")
-    if start < 0 or end <= start:
-        return {}
-    try:
-        value = json.loads(source[start : end + 1])
-    except (json.JSONDecodeError, ValueError):
-        return {}
-    return value if isinstance(value, dict) else {}
+    decoder = json.JSONDecoder()
+    for match in re.finditer(r"\{", source):
+        try:
+            value, _end = decoder.raw_decode(source[match.start() :])
+        except (json.JSONDecodeError, ValueError):
+            continue
+        if isinstance(value, dict):
+            return value
+    return {}
 
 
 def _split_profile_sentences(text: str) -> list[str]:
@@ -2462,6 +2516,582 @@ def enrich_campaign_with_learning(
         expected.append(guardrail_note)
     decision["expected"] = expected[:5]
     return enriched
+
+
+def _operation_number(value: Any) -> float | None:
+    number = to_number(value)
+    if number is None or not math.isfinite(number):
+        return None
+    return number
+
+
+def _operation_metric_range(
+    value: Any,
+    fallback: float | None,
+) -> dict[str, float] | None:
+    if isinstance(value, dict):
+        low = _operation_number(value.get("low"))
+        base = _operation_number(value.get("base"))
+        high = _operation_number(value.get("high"))
+    else:
+        low = high = None
+        base = _operation_number(value)
+    if base is None:
+        base = fallback
+    if base is None:
+        return None
+    low = base if low is None else low
+    high = base if high is None else high
+    low, high = sorted((max(0.0, low), max(0.0, high)))
+    base = min(high, max(low, max(0.0, base)))
+    return {
+        "low": round(low, 4),
+        "base": round(base, 4),
+        "high": round(high, 4),
+    }
+
+
+def _operation_values_from_baseline(baseline: dict[str, Any]) -> dict[str, float]:
+    spend = _operation_number(baseline.get("spend"))
+    gmv = _operation_number(baseline.get("gmv"))
+    orders = _operation_number(baseline.get("orders"))
+    aov = _operation_number(baseline.get("aov"))
+    roi = _operation_number(baseline.get("roi"))
+    clicks = _operation_number(baseline.get("clicks"))
+    if aov is None and gmv is not None and orders:
+        aov = gmv / orders
+    if roi is None and gmv is not None and spend:
+        roi = gmv / spend
+    if gmv is None and spend is not None and roi is not None:
+        gmv = spend * roi
+    if orders is None and gmv is not None and aov:
+        orders = gmv / aov
+    cost = spend / orders if spend is not None and orders else None
+    return {
+        key: float(value)
+        for key, value in {
+            "spend": spend,
+            "gmv": gmv,
+            "orders": orders,
+            "roi": roi,
+            "cost": cost,
+            "clicks": clicks,
+            "aov": aov,
+        }.items()
+        if value is not None
+    }
+
+
+def _campaign_operation_baseline(snapshot: dict[str, Any]) -> dict[str, Any]:
+    raw_points = snapshot.get("recentSeries") or snapshot.get("historyPoints") or []
+    points: list[dict[str, Any]] = []
+    for item in raw_points if isinstance(raw_points, list) else []:
+        if not isinstance(item, dict):
+            continue
+        timestamp = _operation_number(item.get("t"))
+        spend = _operation_number(item.get("spend"))
+        gmv = _operation_number(item.get("gmv"))
+        orders = _operation_number(item.get("orders"))
+        if timestamp is None or spend is None or gmv is None or orders is None:
+            continue
+        points.append(
+            {
+                **item,
+                "t": timestamp,
+                "spend": spend,
+                "gmv": gmv,
+                "orders": orders,
+                "watch": _operation_number(item.get("watch")),
+                "online": _operation_number(item.get("online")),
+                "productClicks": _operation_number(
+                    item.get("productClicks") or item.get("clicks")
+                ),
+            }
+        )
+    points.sort(key=lambda item: float(item["t"]))
+    if len(points) >= 2:
+        latest = points[-1]
+        window_start = (
+            float(latest["t"]) - CAMPAIGN_OPERATION_HORIZON_MINUTES * 60_000
+        )
+        start = next(
+            (item for item in points if float(item["t"]) >= window_start),
+            points[0],
+        )
+        span_seconds = (float(latest["t"]) - float(start["t"])) / 1000
+        spend = float(latest["spend"]) - float(start["spend"])
+        gmv = float(latest["gmv"]) - float(start["gmv"])
+        orders = float(latest["orders"]) - float(start["orders"])
+        clicks = None
+        if (
+            latest.get("productClicks") is not None
+            and start.get("productClicks") is not None
+        ):
+            clicks = float(latest["productClicks"]) - float(start["productClicks"])
+        if spend > 0 and span_seconds >= 300:
+            minutes = max(5, int(round(span_seconds / 60)))
+            values = _operation_values_from_baseline(
+                {
+                    "spend": spend,
+                    "gmv": gmv,
+                    "orders": orders,
+                    "clicks": clicks,
+                }
+            )
+            return {
+                **values,
+                "horizonMinutes": minutes,
+                "horizonLabel": f"最近约 {minutes} 分钟场次增量",
+                "source": "recent_live_increment",
+            }
+
+    basis = snapshot.get("operationBasis")
+    basis = basis if isinstance(basis, dict) else {}
+    values = _operation_values_from_baseline(basis)
+    if values.get("spend", 0) > 0:
+        return {
+            **values,
+            "horizonMinutes": 1440,
+            "horizonLabel": "近 30 天真实日均基准",
+            "source": "thirty_day_average",
+            "warning": str(basis.get("warning") or ""),
+        }
+
+    metrics = snapshot.get("metrics")
+    metrics = metrics if isinstance(metrics, dict) else {}
+    values = _operation_values_from_baseline(metrics)
+    if values.get("spend", 0) > 0:
+        return {
+            **values,
+            "horizonMinutes": CAMPAIGN_OPERATION_HORIZON_MINUTES,
+            "horizonLabel": "当前场次累计值（仅作可执行性基准）",
+            "source": "current_session_fallback",
+            "warning": "当前缺少近 60 分钟增量和近 30 天有效日均，预测置信度会降低。",
+        }
+    raise ValueError("当前没有可用于模型推演的消耗、成交和订单基准")
+
+
+def _local_campaign_operation_projection(
+    baseline: dict[str, Any],
+    action: dict[str, Any],
+    percent: float,
+) -> dict[str, dict[str, float]]:
+    values = _operation_values_from_baseline(baseline)
+    base_spend = values.get("spend")
+    base_roi = values.get("roi")
+    if not base_spend or base_roi is None:
+        raise ValueError("基准消耗或 ROI 不足，无法生成回退推演")
+    target_roi = float(baseline.get("targetRoi") or CAMPAIGN_TARGET_ROI)
+    kind = str(action.get("kind") or "boost")
+    direction = -1 if int(action.get("direction") or 1) < 0 else 1
+    signed_percent = direction * percent
+    spend_factor = 1 + signed_percent / 100
+    if kind == "cost":
+        spend_factor = 1 + signed_percent / 100 * 0.85
+    elif kind == "all":
+        spend_factor = 1 + signed_percent / 100 * 1.05
+    roi_factor = 1.0
+    if kind == "reduce":
+        roi_factor += percent / 100 * 0.35
+    elif kind == "cost":
+        roi_factor += (0.015 if base_roi >= target_roi else -0.008) * percent
+    else:
+        roi_factor -= (0.18 if base_roi >= target_roi else 0.32) * percent / 100
+    spend = max(0.0, base_spend * max(0.1, spend_factor))
+    roi = max(0.0, base_roi * max(0.1, roi_factor))
+    gmv = spend * roi
+    aov = values.get("aov") or CAMPAIGN_PRODUCT_PRICE
+    orders = gmv / aov if aov else 0.0
+    clicks = values.get("clicks")
+    if clicks is not None:
+        clicks = max(0.0, clicks * spend / base_spend)
+    cost = spend / orders if orders else 0.0
+
+    def spread(base: float, lower: float, upper: float) -> dict[str, float]:
+        return {
+            "low": round(max(0.0, base * lower), 4),
+            "base": round(max(0.0, base), 4),
+            "high": round(max(0.0, base * upper), 4),
+        }
+
+    return {
+        "spend": spread(spend, 0.94, 1.06),
+        "gmv": spread(gmv, 0.88, 1.12),
+        "orders": spread(orders, 0.85, 1.15),
+        "roi": spread(roi, 0.9, 1.1),
+        "cost": spread(cost, 0.88, 1.12),
+        "clicks": spread(clicks or 0.0, 0.9, 1.1),
+    }
+
+
+def _operation_learning_context(
+    snapshot: dict[str, Any],
+    action: dict[str, Any],
+    learning_store: LearningDocumentStore | None,
+) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
+    metrics = snapshot.get("metrics")
+    metrics = metrics if isinstance(metrics, dict) else {}
+    anomalies = snapshot.get("anomalies")
+    anomalies = anomalies if isinstance(anomalies, list) else []
+    query_parts = [
+        "教培直播 千川 投放",
+        str(action.get("title") or ""),
+        str(action.get("description") or ""),
+        "预算 出价 ROI 订单成本 商品点击 直播承接 课程成交",
+        f"ROI {metrics.get('roi')}",
+        f"订单成本 {metrics.get('cost')}",
+    ]
+    for anomaly in anomalies[-3:]:
+        if isinstance(anomaly, dict):
+            query_parts.extend(
+                [
+                    str(anomaly.get("metric") or ""),
+                    str(anomaly.get("suggestion") or ""),
+                ]
+            )
+    query = " ".join(
+        str(part).strip()
+        for part in query_parts
+        if part is not None and str(part).strip()
+    )
+    if learning_store is None:
+        return (
+            {
+                "ok": False,
+                "status": "unavailable",
+                "query": query,
+                "hits": [],
+                "message": "知识库未接入",
+            },
+            [],
+            [],
+        )
+    try:
+        context = learning_store.search(query, limit=5)
+    except Exception as exc:
+        context = {
+            "ok": False,
+            "status": "error",
+            "query": query,
+            "hits": [],
+            "message": f"知识库检索失败：{exc}",
+        }
+    try:
+        profile = learning_store.profile_matches(query, limit=8)
+    except Exception:
+        profile = []
+    return context, list(context.get("hits") or []), profile
+
+
+def _operation_public_action(
+    action: dict[str, Any],
+    percent: float,
+) -> dict[str, Any]:
+    direction = -1 if int(action.get("direction") or 1) < 0 else 1
+    kind = str(action.get("kind") or "").strip().lower()
+    if kind not in {"boost", "cost", "all", "reduce"}:
+        raise ValueError("不支持的操作类型")
+    return {
+        "id": str(action.get("id") or "").strip()[:80],
+        "title": str(action.get("title") or "").strip()[:80],
+        "description": str(action.get("description") or "").strip()[:300],
+        "kind": kind,
+        "direction": direction,
+        "percent": round(percent, 2),
+        "signedPercent": round(direction * percent, 2),
+    }
+
+
+def generate_campaign_operation_forecast(
+    snapshot: dict[str, Any],
+    action: dict[str, Any],
+    percent: float,
+    learning_store: LearningDocumentStore | None,
+    ai_client: deepseek_client.DeepSeekClient,
+) -> dict[str, Any]:
+    if not isinstance(snapshot, dict):
+        raise ValueError("缺少当前投放快照")
+    safe_percent = max(1.0, min(50.0, float(percent or 1)))
+    public_action = _operation_public_action(action, safe_percent)
+    baseline = _campaign_operation_baseline(snapshot)
+    baseline["targetRoi"] = CAMPAIGN_TARGET_ROI
+    fallback_forecast = _local_campaign_operation_projection(
+        baseline,
+        public_action,
+        safe_percent,
+    )
+    learning, hits, profile = _operation_learning_context(
+        snapshot,
+        public_action,
+        learning_store,
+    )
+    public_baseline = {
+        key: value for key, value in baseline.items() if key != "targetRoi"
+    }
+    status = ai_client.status()
+
+    def fallback_response(error: str, message: str) -> dict[str, Any]:
+        return {
+            "ok": True,
+            "status": "fallback",
+            "source": "local_rule_fallback",
+            "mode": "local_rule_fallback",
+            "model": ai_client.model_id("product"),
+            "generatedAt": now_iso(),
+            "action": public_action,
+            "baseline": public_baseline,
+            "horizonMinutes": baseline.get("horizonMinutes"),
+            "horizonLabel": baseline.get("horizonLabel"),
+            "forecast": fallback_forecast,
+            "confidence": 35,
+            "summary": "模型不可用，以下按真实基准与固定弹性规则回退，仅供风险参考。",
+            "rationale": [
+                "本地回退使用近场趋势或近 30 天基准与操作幅度做区间估算。"
+            ],
+            "risks": [
+                "固定弹性无法识别课程讲解节奏、流量质量和主播承接变化。"
+            ],
+            "guardrails": [
+                "模型恢复前不把回退区间当作确定结果，不连续追加预算。"
+            ],
+            "educationActions": [
+                "先确认停留、商品点击、订单成本和在线人数是否同步改善。",
+                "至少观察一个完整直播讲解与成交窗口，再决定是否继续调整。",
+            ],
+            "assumptions": [
+                str(baseline.get("warning") or "按当前真实基准推演")
+            ],
+            "knowledgeNotes": [],
+            "knowledgeConflicts": [],
+            "knowledge": {
+                "ok": bool(learning.get("ok")),
+                "status": learning.get("status") or "unavailable",
+                "query": learning.get("query") or "",
+                "hits": hits,
+                "profileMatches": profile,
+                "usedByModel": False,
+                "citedDocumentNames": [],
+                "message": message,
+            },
+            "educationFramework": list(CAMPAIGN_EDUCATION_FRAMEWORK),
+            "aiFallback": {
+                "configured": bool(status.get("configured")),
+                "error": error,
+            },
+            "aiConfig": status,
+            "disclaimer": "本地规则回退，仅供风险参考，不代表千川后台结果。",
+        }
+
+    if not status.get("configured"):
+        return fallback_response(
+            str(status.get("error") or "DeepSeek 未配置"),
+            "已检索知识库，但本次使用本地回退，未由模型融合。"
+            if hits or profile
+            else learning.get("message") or "未命中可用经验",
+        )
+
+    schema = {
+        "summary": "一句话说明这次操作最可能带来什么结果",
+        "confidence": "0-100 的数字",
+        "forecast": {
+            "spend": {"low": 0, "base": 0, "high": 0},
+            "gmv": {"low": 0, "base": 0, "high": 0},
+            "orders": {"low": 0, "base": 0, "high": 0},
+            "roi": {"low": 0, "base": 0, "high": 0},
+            "cost": {"low": 0, "base": 0, "high": 0},
+            "clicks": {"low": 0, "base": 0, "high": 0},
+        },
+        "rationale": ["模型判断依据，最多 4 条"],
+        "risks": ["主要风险，最多 4 条"],
+        "guardrails": ["止损或停止加量条件，最多 4 条"],
+        "educationActions": ["针对教培直播间的承接建议，最多 4 条"],
+        "knowledgeNotes": ["仅列出实际参考的文档依据，带文档名"],
+        "knowledgeConflicts": ["知识库与实时证据或模型建议冲突时说明"],
+        "assumptions": ["数据缺口与预测假设，最多 4 条"],
+    }
+    compact_points: list[dict[str, Any]] = []
+    for point in (snapshot.get("recentSeries") or [])[-12:]:
+        if not isinstance(point, dict):
+            continue
+        compact_points.append(
+            {
+                key: point.get(key)
+                for key in (
+                    "time",
+                    "spend",
+                    "gmv",
+                    "orders",
+                    "roi",
+                    "watch",
+                    "online",
+                    "productClicks",
+                )
+                if point.get(key) is not None
+            }
+        )
+    facts = {
+        "action": public_action,
+        "baseline": public_baseline,
+        "currentSession": snapshot.get("metrics") or {},
+        "room": snapshot.get("room") or {},
+        "recentFiveMinutePoints": compact_points,
+        "anomalies": (snapshot.get("anomalies") or [])[-5:],
+        "flowDetails": (snapshot.get("flowDetails") or [])[:8],
+        "thirtyDayHistory": snapshot.get("operationBasis") or {},
+        "educationFramework": list(CAMPAIGN_EDUCATION_FRAMEWORK),
+        "knowledgeHits": [
+            {
+                "citation": hit.get("citationLabel") or hit.get("documentName"),
+                "excerpt": str(hit.get("excerpt") or "")[:700],
+                "relevance": hit.get("relevance"),
+            }
+            for hit in hits[:5]
+        ],
+        "experienceProfile": [
+            {
+                "category": item.get("category"),
+                "text": _profile_item_text(str(item.get("category") or ""), item),
+                "source": item.get("source"),
+            }
+            for item in profile[:8]
+        ],
+    }
+    result = ai_client.generate(
+        [
+            {
+                "role": "system",
+                "content": (
+                    "你是资深千川投放分析师，专长教培课程直播间。你的主要依据是模型通用知识、"
+                    "当前真实数据、近 5 分钟趋势和近 30 天基准；用户知识库只是辅助校准，"
+                    "不能覆盖明确的实时证据。请理解教培直播的课程讲解、停留、商品点击、"
+                    "订单成本、价格锚点和高决策成本特征，不要机械按固定百分比线性外推。"
+                    "必须给出合理的低/中枢/高三档区间，数据不足时降低置信度并写明假设。"
+                    "不得编造退款、到课、有效线索等未提供字段。只输出合法 JSON 对象，"
+                    "不要输出 Markdown 代码块或额外文字。"
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    "请按以下 JSON schema 输出操作后预测：\n"
+                    f"{json.dumps(schema, ensure_ascii=False, indent=2)}\n\n"
+                    "数据与分析原则：\n"
+                    "1. 当前快照、趋势、异常和流量结构是主证据。\n"
+                    "2. 知识库只用于辅助补充本账号教培直播间的投放逻辑和底线；"
+                    "若与实时证据冲突，在 knowledgeConflicts 中写明。\n"
+                    "3. 预测区间必须与操作幅度、当前 ROI、订单成本、趋势、流量承接相匹配。\n"
+                    "4. 不确定时给更宽区间和更低置信度，不要为了完整而编数据。\n\n"
+                    f"事实数据：\n{json.dumps(facts, ensure_ascii=False)}"
+                ),
+            },
+        ],
+        purpose="product",
+        temperature=0.15,
+        max_tokens=6500,
+        # deepseek-flash currently returns empty content when JSON mode is forced
+        # through response_format; the strict prompt plus JSON extraction below
+        # provides the same contract without sacrificing availability.
+        json_mode=False,
+    )
+    if not result.get("ok"):
+        return fallback_response(
+            str(result.get("error") or "DeepSeek 调用失败"),
+            "已检索知识库，但 DeepSeek 调用失败，本次未由模型融合。",
+        )
+
+    parsed = _extract_json_object(result.get("text") or "")
+    if not parsed:
+        return fallback_response(
+            "DeepSeek 未返回可解析的 JSON",
+            "知识库已检索，但模型返回格式无效，本次使用本地回退。",
+        )
+
+    raw_forecast = parsed.get("forecast")
+    raw_forecast = raw_forecast if isinstance(raw_forecast, dict) else {}
+    forecast: dict[str, dict[str, float]] = {}
+    for key in ("spend", "gmv", "orders", "roi", "cost", "clicks"):
+        fallback_range = fallback_forecast.get(key) or {"base": 0.0}
+        normalized = _operation_metric_range(
+            raw_forecast.get(key),
+            float(fallback_range.get("base") or 0.0),
+        )
+        if normalized:
+            forecast[key] = normalized
+    if not forecast:
+        return fallback_response(
+            "DeepSeek 未返回可用预测指标",
+            "知识库已检索，但模型没有返回完整指标，本次使用本地回退。",
+        )
+
+    def string_list(name: str, limit: int = 4) -> list[str]:
+        value = parsed.get(name)
+        if not isinstance(value, list):
+            return []
+        return [
+            str(item).strip()[:500]
+            for item in value
+            if str(item).strip()
+        ][:limit]
+
+    knowledge_notes = string_list("knowledgeNotes", 5)
+    cited_documents = [
+        str(hit.get("documentName") or "")
+        for hit in hits
+        if hit.get("documentName")
+        and any(str(hit.get("documentName")) in note for note in knowledge_notes)
+    ]
+    confidence = _operation_number(parsed.get("confidence"))
+    confidence_value = int(
+        round(max(0.0, min(100.0, confidence if confidence is not None else 45.0)))
+    )
+    model_summary = str(parsed.get("summary") or "").strip()
+    return {
+        "ok": True,
+        "status": "ok",
+        "source": "deepseek_product_primary",
+        "mode": "deepseek_product_primary",
+        "model": str(
+            result.get("responseModel") or result.get("model") or ""
+        ),
+        "generatedAt": now_iso(),
+        "action": public_action,
+        "baseline": public_baseline,
+        "horizonMinutes": baseline.get("horizonMinutes"),
+        "horizonLabel": baseline.get("horizonLabel"),
+        "forecast": forecast,
+        "confidence": confidence_value,
+        "summary": model_summary or "模型已完成操作后区间推演。",
+        "rationale": string_list("rationale"),
+        "risks": string_list("risks"),
+        "guardrails": string_list("guardrails"),
+        "educationActions": string_list("educationActions"),
+        "assumptions": string_list("assumptions"),
+        "knowledgeNotes": knowledge_notes,
+        "knowledgeConflicts": string_list("knowledgeConflicts"),
+        "knowledge": {
+            "ok": bool(learning.get("ok")),
+            "status": learning.get("status") or "unavailable",
+            "query": learning.get("query") or "",
+            "hits": hits,
+            "profileMatches": profile,
+            "usedByModel": bool(cited_documents),
+            "citedDocumentNames": sorted(set(cited_documents)),
+            "message": (
+                "模型已结合命中的知识库片段做辅助校准。"
+                if cited_documents
+                else "知识库已提供给模型作辅助校验，但模型未明确引用具体文档。"
+                if hits or profile
+                else learning.get("message") or "未命中可用经验"
+            ),
+        },
+        "educationFramework": list(CAMPAIGN_EDUCATION_FRAMEWORK),
+        "usage": result.get("usage") or {},
+        "aiConfig": status,
+        "disclaimer": (
+            "模型推演基于当前数据与知识库辅助校验，仅供参考，"
+            "不代表千川后台承诺结果。"
+        ),
+    }
 
 
 def build_chat_data_context(store: Any, account_id: str | None = None) -> str:
@@ -7353,12 +7983,21 @@ class DashboardStore:
                 "note": "本地 Whisper 转写尚未产出说话人标签",
             }
         at = str(state.get("currentSpeakerAt") or "").strip()
+        voiceprint_names = {
+            str(name) for name in voiceprint_status_payload().get("names") or []
+        }
+        voiceprint_matched = speaker in voiceprint_names
         return {
             "available": True,
             "speaker": speaker,
             "label": self._speaker_display_label(speaker),
             "at": at,
-            "note": "最近转写到的说话人（本地 Whisper 转写存在延迟）",
+            "voiceprint": voiceprint_matched,
+            "note": (
+                "声纹匹配到主播（本地 Whisper 转写存在延迟）"
+                if voiceprint_matched
+                else "最近转写到的说话人尚未匹配声纹库（本地 Whisper 转写存在延迟）"
+            ),
         }
 
     def review_sessions(
@@ -7472,6 +8111,94 @@ class DashboardStore:
             ],
             "syncedAt": now_iso(),
         }
+
+    def daily_review_document(self, day: str | None = None) -> dict[str, Any]:
+        """复盘页日期选择：按 fashion_YYYY-MM-DD.json/.md 读取每日复盘文档。"""
+        archive_dir = REVIEW_ARCHIVE_DIR
+        dates_with_files: dict[str, dict[str, bool]] = {}
+        if archive_dir.is_dir():
+            for path in archive_dir.glob("fashion_*.json"):
+                match = re.fullmatch(r"fashion_(\d{4}-\d{2}-\d{2})\.json", path.name)
+                if match:
+                    entry = dates_with_files.setdefault(
+                        match.group(1), {"json": False, "md": False}
+                    )
+                    entry["json"] = True
+            for path in archive_dir.glob("fashion_*.md"):
+                match = re.fullmatch(r"fashion_(\d{4}-\d{2}-\d{2})\.md", path.name)
+                if match:
+                    entry = dates_with_files.setdefault(
+                        match.group(1), {"json": False, "md": False}
+                    )
+                    entry["md"] = True
+        available_dates = sorted(dates_with_files)
+        today = date.today().isoformat()
+        requested_day = str(day or "").strip()
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", requested_day):
+            requested_day = today
+        selected_day = requested_day
+        result: dict[str, Any] = {
+            "ok": True,
+            "date": selected_day,
+            "today": today,
+            "availableDates": available_dates,
+            "availableDateCount": len(available_dates),
+            "hasData": selected_day in available_dates,
+            "jsonAvailable": bool(
+                dates_with_files.get(selected_day, {}).get("json")
+            ),
+            "mdAvailable": bool(dates_with_files.get(selected_day, {}).get("md")),
+            "summary": None,
+            "markdown": "",
+            "source": "local_review_archive_daily_documents",
+            "sourceLabel": "本地每日复盘归档 fashion_YYYY-MM-DD.json/.md",
+            "syncedAt": now_iso(),
+        }
+        if selected_day not in available_dates:
+            return result
+
+        json_path = archive_dir / f"fashion_{selected_day}.json"
+        md_path = archive_dir / f"fashion_{selected_day}.md"
+        summary: dict[str, Any] | None = None
+        if json_path.is_file():
+            try:
+                data = load_json(json_path, None)
+                if isinstance(data, dict):
+                    metrics = data.get("metrics")
+                    if not isinstance(metrics, dict):
+                        metrics = {}
+                    viewers = metrics.get("viewers")
+                    if viewers is None:
+                        viewers = metrics.get("watchCount")
+                    summary = {
+                        "title": data.get("title") or f"{selected_day} · 全天直播复盘",
+                        "date": data.get("date") or selected_day,
+                        "startTime": data.get("startTime") or "",
+                        "endedAt": data.get("endedAt") or "",
+                        "durationSeconds": data.get("durationSeconds") or 0,
+                        "recordingStatus": data.get("recordingStatus") or "",
+                        "recordingStatusLabel": data.get("recordingStatusLabel") or "",
+                        "metrics": {
+                            "spend": metrics.get("spend"),
+                            "gmv": metrics.get("gmv"),
+                            "orders": metrics.get("orders"),
+                            "roi": metrics.get("roi"),
+                            "viewers": viewers,
+                        },
+                        "summary": data.get("summary") or "",
+                        "sourceNote": data.get("sourceNote") or "",
+                    }
+            except ValueError:
+                summary = None
+        markdown = ""
+        if md_path.is_file():
+            try:
+                markdown = md_path.read_text(encoding="utf-8")
+            except OSError:
+                markdown = ""
+        result["summary"] = summary
+        result["markdown"] = markdown
+        return result
 
     def script_analysis(
         self,
@@ -10682,6 +11409,20 @@ def make_handler(
                         {"ok": False, "error": f"复盘数据读取失败：{exc}"},
                     )
                 return
+            if path == "/api/review/daily":
+                query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+                requested_day = (query.get("date") or [None])[0]
+                try:
+                    self._send_json(
+                        200,
+                        store.daily_review_document(requested_day),
+                    )
+                except Exception as exc:
+                    self._send_json(
+                        500,
+                        {"ok": False, "error": f"每日复盘文档读取失败：{exc}"},
+                    )
+                return
             if path == "/api/review/recorder":
                 self._send_json(200, store.recording_status())
                 return
@@ -10724,6 +11465,12 @@ def make_handler(
                         "sessionId": session_id,
                         **load_session_speaker_map(session_id),
                     },
+                )
+                return
+            if path == "/api/voiceprints":
+                self._send_json(
+                    200,
+                    {"ok": True, **voiceprint_status_payload()},
                 )
                 return
             if path.startswith("/speaker-faces/"):
@@ -11066,6 +11813,7 @@ def make_handler(
                         "liveRecorder": store.recording_status(),
                         "localAsr": store.asr_status(),
                         "deepseek": ai_client.status(),
+                        "voiceprint": voiceprint_status_payload(),
                         "syncRequest": store.sync_state(),
                         "reconciliation": next(
                             (
@@ -11139,24 +11887,108 @@ def make_handler(
                     session_id = str(body.get("sessionId") or "")
                     speaker = str(body.get("speaker") or "")
                     speaker_id = str(body.get("speakerId") or "")
-                    reference = next(
-                        (
-                            item
-                            for item in load_speakers()
-                            if str(item.get("id")) == speaker_id
-                        ),
-                        {
-                            "id": speaker_id,
-                            "name": str(body.get("name") or ""),
-                            "face": "",
-                        },
-                    )
+                    name = _sanitize_speaker_name(str(body.get("name") or ""))
+                    if name:
+                        reference = {"id": speaker_id or name, "name": name, "face": ""}
+                    else:
+                        reference = next(
+                            (
+                                item
+                                for item in load_speakers()
+                                if str(item.get("id")) == speaker_id
+                            ),
+                            {
+                                "id": speaker_id,
+                                "name": name,
+                                "face": "",
+                            },
+                        )
                     payload = save_session_speaker_map(session_id, speaker, reference)
                     self._send_json(200, {"ok": True, **payload})
                 except ValueError as exc:
                     self._send_json(400, {"ok": False, "error": str(exc)})
                 except Exception as exc:
                     self._send_json(500, {"ok": False, "error": f"说话人对应保存失败：{exc}"})
+                return
+            if path == "/api/voiceprints":
+                try:
+                    length = int(self.headers.get("Content-Length", "0") or 0)
+                except ValueError:
+                    length = 0
+                if length <= 0:
+                    self._send_json(400, {"ok": False, "error": "录音内容为空"})
+                    return
+                content = self.rfile.read(length)
+                raw_name = urllib.parse.unquote(self.headers.get("X-Speaker-Name", ""))
+                raw_file = urllib.parse.unquote(self.headers.get("X-File-Name", ""))
+                if not _sanitize_speaker_name(raw_name):
+                    raw_name = os.path.splitext(os.path.basename(raw_file or ""))[0]
+                try:
+                    record = enroll_voiceprint(raw_name, content, raw_file)
+                    self._send_json(
+                        201,
+                        {
+                            "ok": True,
+                            "voiceprint": record,
+                            "status": voiceprint_status_payload(),
+                        },
+                    )
+                except ValueError as exc:
+                    self._send_json(400, {"ok": False, "error": str(exc)})
+                except Exception as exc:
+                    self._send_json(500, {"ok": False, "error": f"声纹录入失败：{exc}"})
+                return
+            if path == "/api/review/speaker-segment":
+                body = self._read_json()
+                try:
+                    session_id = str(body.get("sessionId") or "")
+                    segment_ids = body.get("segmentIds") or []
+                    if not isinstance(segment_ids, list):
+                        segment_ids = [segment_ids]
+                    speaker = str(body.get("speaker") or "")
+                    payload = recording_store.update_segment_speakers(
+                        session_id,
+                        [str(value) for value in segment_ids],
+                        speaker,
+                        RECORDINGS_DIR,
+                        REVIEW_ARCHIVE_DIR / "sessions",
+                    )
+                    self._send_json(200, payload)
+                except ValueError as exc:
+                    self._send_json(400, {"ok": False, "error": str(exc)})
+                except Exception as exc:
+                    self._send_json(500, {"ok": False, "error": f"说话人修正失败：{exc}"})
+                return
+            if path == "/api/campaign/operation-forecast":
+                try:
+                    length = int(self.headers.get("Content-Length", "0") or 0)
+                except ValueError:
+                    self._send_json(400, {"ok": False, "error": "无效的请求长度"})
+                    return
+                if length > 256 * 1024:
+                    self.close_connection = True
+                    self._send_json(
+                        413,
+                        {"ok": False, "error": "操作推演数据不能超过 256 KB"},
+                    )
+                    return
+                body = self._read_json()
+                try:
+                    result = generate_campaign_operation_forecast(
+                        body.get("snapshot") if isinstance(body, dict) else {},
+                        body.get("action") if isinstance(body, dict) else {},
+                        body.get("percent") if isinstance(body, dict) else 0,
+                        learning_documents,
+                        ai_client,
+                    )
+                    self._send_json(200, result)
+                except ValueError as exc:
+                    self._send_json(400, {"ok": False, "error": str(exc)})
+                except Exception as exc:
+                    self._send_json(
+                        500,
+                        {"ok": False, "error": f"模型操作推演失败：{exc}"},
+                    )
                 return
             if path == "/api/assistant/chat":
                 try:
@@ -11472,6 +12304,27 @@ def make_handler(
 
         def do_DELETE(self) -> None:
             path = urllib.parse.urlparse(self.path).path
+            if path == "/api/voiceprints":
+                query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+                name = (query.get("name") or [""])[0]
+                try:
+                    deleted = delete_voiceprint(name)
+                    if deleted is None:
+                        self._send_json(404, {"ok": False, "error": "没有找到对应主播的声纹"})
+                    else:
+                        self._send_json(
+                            200,
+                            {
+                                "ok": True,
+                                "deleted": deleted,
+                                "status": voiceprint_status_payload(),
+                            },
+                        )
+                except ValueError as exc:
+                    self._send_json(400, {"ok": False, "error": str(exc)})
+                except Exception as exc:
+                    self._send_json(500, {"ok": False, "error": f"声纹删除失败：{exc}"})
+                return
             if path != "/api/learning/documents":
                 self._send_json(404, {"error": "not_found"})
                 return

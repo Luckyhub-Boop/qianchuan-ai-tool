@@ -260,6 +260,7 @@ class SpeechWorker:
         self.speaker_gallery_session = ""
         self.current_speaker = ""
         self.current_speaker_at = ""
+        self.voiceprint_signature = ""
 
     def _speaker_diarizer(self) -> Any:
         if self.diarizer is None:
@@ -287,6 +288,17 @@ class SpeechWorker:
                 threshold=0.55,
             )
             self.speaker_gallery_session = session_name
+            self.voiceprint_signature = ""
+        try:
+            import voiceprint
+
+            if voiceprint.available():
+                signature = voiceprint.index_signature()
+                if signature != self.voiceprint_signature:
+                    self.speaker_gallery.seed(voiceprint.known_vectors())
+                    self.voiceprint_signature = signature
+        except Exception as exc:
+            log(f"声纹库加载失败（继续使用匿名说话人）：{exc}")
         return self.speaker_gallery
 
     def publish_state(self, status: str, extra: dict[str, Any] | None = None) -> None:

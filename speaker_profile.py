@@ -247,6 +247,13 @@ def apply_speaker_map(
             profile["face"] = str(reference.get("face") or "")
             profile["label"] = profile["name"]
         else:
-            profile["name"] = ""
+            speaker = str(profile.get("speaker") or "")
+            profile["name"] = (
+                speaker
+                if speaker
+                and speaker not in {"_unassigned"}
+                and not re.fullmatch(r"speaker_\d+", speaker)
+                else ""
+            )
             profile["face"] = ""
     return profiles

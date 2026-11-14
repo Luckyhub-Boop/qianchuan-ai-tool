@@ -298,6 +298,79 @@ class RecordingStoreTests(unittest.TestCase):
                 recording_store.has_daily_recording("fashion", "2026-11-06", root)
             )
 
+    def test_coalesce_speech_phrases_splits_on_speaker_change(self) -> None:
+        segments = [
+            {
+                "id": "a",
+                "text": "hello",
+                "speaker": "alice",
+                "startSeconds": 0,
+                "endSeconds": 1.5,
+            },
+            {
+                "id": "b",
+                "text": "world",
+                "speaker": "alice",
+                "startSeconds": 1.5,
+                "endSeconds": 3.0,
+            },
+            {
+                "id": "c",
+                "text": "hi",
+                "speaker": "bob",
+                "startSeconds": 3.0,
+                "endSeconds": 4.5,
+            },
+        ]
+
+        merged = recording_store.coalesce_speech_phrases(segments)
+
+        self.assertEqual(len(merged), 2)
+        self.assertEqual([item["speaker"] for item in merged], ["alice", "bob"])
+        self.assertEqual(merged[0]["sourceSegmentIds"], ["a", "b"])
+
+    def test_update_segment_speakers_persists_override(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            directory = root / "2026-11-06_room_120000"
+            (directory / "asr").mkdir(parents=True)
+            segment_id = "2026-11-06_room_120000-part_000001-1"
+            transcript = {
+                "version": 1,
+                "segments": [
+                    {
+                        "id": "2026-11-06_room_120000-part_000001-0",
+                        "text": "a",
+                        "speaker": "alice",
+                    },
+                    {"id": segment_id, "text": "b", "speaker": "bob"},
+                ],
+            }
+            (directory / "asr" / "transcript.json").write_text(
+                json.dumps(transcript), encoding="utf-8"
+            )
+
+            result = recording_store.update_segment_speakers(
+                "2026-11-06_room_120000",
+                [segment_id],
+                "alice",
+                recordings_dir=root,
+                archive_sessions_dir=root / "archive",
+            )
+
+            self.assertEqual(result["updated"], 1)
+            saved = json.loads(
+                (directory / "asr" / "transcript.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(saved["segments"][1]["speaker"], "alice")
+            self.assertEqual(saved["segments"][1]["speakerSource"], "manual")
+            overrides = json.loads(
+                (directory / "asr" / "segment-speaker-overrides.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertIn(segment_id, overrides["overrides"])
+
 
 if __name__ == "__main__":
     unittest.main()

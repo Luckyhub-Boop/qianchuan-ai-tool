@@ -314,6 +314,97 @@ def _load_speaker_map(directory: Path) -> dict[str, Any]:
         return {}
 
 
+def resolve_session_directory(
+    session_id: str,
+    recordings_dir: Path = RECORDINGS_DIR,
+    archive_sessions_dir: Path = REVIEW_ARCHIVE_SESSIONS_DIR,
+) -> Path | None:
+    safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", str(session_id or ""))[:160]
+    candidates = [
+        recordings_dir / safe,
+        archive_sessions_dir / safe,
+    ]
+    for candidate in candidates:
+        if (candidate / "asr" / "transcript.json").is_file():
+            return candidate
+    for candidate in candidates:
+        if candidate.is_dir():
+            return candidate
+    return None
+
+
+def load_segment_speaker_overrides(directory: Path) -> dict[str, Any]:
+    try:
+        value = json.loads(
+            (directory / "asr" / "segment-speaker-overrides.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        return value if isinstance(value, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def update_segment_speakers(
+    session_id: str,
+    segment_ids: list[str],
+    speaker: str,
+    recordings_dir: Path = RECORDINGS_DIR,
+    archive_sessions_dir: Path = REVIEW_ARCHIVE_SESSIONS_DIR,
+) -> dict[str, Any]:
+    """Reassign one or more transcribed sentences to another speaker."""
+    directory = resolve_session_directory(
+        session_id, recordings_dir, archive_sessions_dir
+    )
+    if directory is None:
+        raise ValueError(f"找不到场次 {session_id} 的转写目录")
+    transcript = _load_asr_transcript(directory)
+    segments = transcript.get("segments") if isinstance(transcript, dict) else []
+    segments = [item for item in segments if isinstance(item, dict)]
+    wanted = {str(value) for value in (segment_ids or []) if value}
+    if not wanted:
+        raise ValueError("缺少需要修正的句子标识")
+    speaker_value = re.sub(r"[\r\n\t]+", " ", str(speaker or "")).strip()[:40]
+    updated = 0
+    for item in segments:
+        if str(item.get("id") or "") not in wanted:
+            continue
+        if str(item.get("speaker") or "") == speaker_value:
+            continue
+        item["speaker"] = speaker_value
+        item["speakerSource"] = "manual"
+        updated += 1
+    if updated:
+        transcript["segments"] = segments
+        transcript["updatedAt"] = now_iso()
+        atomic_write_json(directory / "asr" / "transcript.json", transcript)
+        overrides_path = directory / "asr" / "segment-speaker-overrides.json"
+        existing = load_segment_speaker_overrides(directory)
+        overrides = (
+            existing.get("overrides")
+            if isinstance(existing.get("overrides"), dict)
+            else {}
+        )
+        overrides = dict(overrides)
+        for segment_id in wanted:
+            overrides[str(segment_id)] = {
+                "speaker": speaker_value,
+                "updatedAt": now_iso(),
+            }
+        atomic_write_json(
+            overrides_path,
+            {"version": 1, "overrides": overrides, "updatedAt": now_iso()},
+        )
+    return {
+        "ok": True,
+        "sessionId": session_id,
+        "directory": directory.name,
+        "speaker": speaker_value,
+        "updated": updated,
+        "segmentIds": sorted(wanted),
+    }
+
+
 def _load_asr_metrics(directory: Path) -> list[dict[str, Any]]:
     try:
         value = json.loads(
@@ -484,6 +575,7 @@ def coalesce_speech_phrases(
             gap > max_gap_seconds
             or duration > max_duration_seconds
             or characters > max_characters
+            or str(item.get("speaker") or "") != str(previous.get("speaker") or "")
         ):
             groups.append(current)
             current = [item]
@@ -518,7 +610,7 @@ def coalesce_speech_phrases(
                 "endSeconds": last.get("endSeconds"),
                 "endedAt": last.get("endedAt"),
                 "sourceSegmentIds": [
-                    str(item.get("segmentId") or "") for item in group
+                    str(item.get("id") or "") for item in group
                 ],
             }
         )
@@ -534,6 +626,8 @@ def analyze_speech(
     phrases = phrases if isinstance(phrases, list) else []
     phrases = [item for item in phrases if isinstance(item, dict) and item.get("text")]
     phrases = coalesce_speech_phrases(phrases)
+    for item in phrases:
+        item["sessionId"] = directory.name
     if not phrases:
         return {
             "available": False,
@@ -1670,6 +1764,25 @@ def aggregate_daily_session(items: list[dict[str, Any]]) -> dict[str, Any]:
         reverse=True,
     )
     top_orders = top_orders[:5]
+    synthetic_segments = [
+        {
+            "text": item.get("text"),
+            "speaker": item.get("speaker"),
+            "startSeconds": item.get("startSeconds"),
+            "endSeconds": item.get("endSeconds"),
+        }
+        for item in phrases
+        if isinstance(item, dict) and item.get("text")
+    ]
+    aggregated_speaker_profiles = speaker_profile.apply_speaker_map(
+        speaker_profile.attach_speaker_metrics(
+            speaker_profile.build_speaker_profiles(
+                {"segments": synthetic_segments}
+            ),
+            phrases,
+        ),
+        {},
+    )
     latest = max(
         items,
         key=lambda item: (
@@ -1777,6 +1890,7 @@ def aggregate_daily_session(items: list[dict[str, Any]]) -> dict[str, Any]:
             "good": good[:8],
             "bad": bad[:8],
             "topOrders": top_orders,
+            "speakerProfiles": aggregated_speaker_profiles,
             "summary": speech_summary or "全天暂无可用话术转写。",
         },
         "annotations": sorted(

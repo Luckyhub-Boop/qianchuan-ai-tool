@@ -101,6 +101,11 @@ class FrontendContractTests(unittest.TestCase):
         self.assertIn("成交金额占比", html)
         self.assertIn("千次观看成交", html)
         self.assertIn("大屏渠道明细", html)
+        self.assertNotIn('["消耗 / 时"', html)
+        self.assertNotIn('["付费流量", paid', html)
+        self.assertIn("/api/campaign/operation-forecast", html)
+        self.assertIn("教培直播间承接动作", html)
+        self.assertIn("知识库只补充教培直播间投放逻辑", html)
         self.assertNotIn("未剔除退款", html)
         self.assertNotIn('id="dataLiveTrendChart"', html)
         self.assertNotIn('id="dataLiveBoard"', html)
@@ -2860,6 +2865,272 @@ class HandlerTests(unittest.TestCase):
                 httpd.shutdown()
                 httpd.server_close()
                 thread.join(timeout=2)
+
+
+class CampaignOperationForecastTests(unittest.TestCase):
+    def test_json_object_extraction_ignores_trailing_prose(self) -> None:
+        parsed = server._extract_json_object(
+            '以下是结果：\n```json\n'
+            '{"summary":"含 } 字符的 JSON",'
+            '"forecast":{"roi":{"low":0.4,"base":0.5,"high":0.6}}}\n'
+            "```\n补充说明：不要关注 {非 JSON 内容}"
+        )
+        self.assertEqual(parsed["summary"], "含 } 字符的 JSON")
+        self.assertEqual(parsed["forecast"]["roi"]["base"], 0.5)
+
+    @staticmethod
+    def _snapshot() -> dict[str, object]:
+        start = 1_794_500_000_000
+        points = []
+        for index in range(13):
+            points.append(
+                {
+                    "t": start + index * 5 * 60_000,
+                    "time": f"{(index * 5) // 60:02d}:{(index * 5) % 60:02d}",
+                    "spend": 1000 + index * 280,
+                    "gmv": 480 + index * 160,
+                    "orders": 3 + index,
+                    "watch": 100 + index * 12,
+                    "online": 18 + index % 5,
+                    "productClicks": 50 + index * 4,
+                }
+            )
+        return {
+            "metrics": {
+                "spend": 4360,
+                "gmv": 2400,
+                "orders": 15,
+                "roi": 0.55,
+                "cost": 290.67,
+                "watchCount": 244,
+                "productClicks": 98,
+                "online": 20,
+            },
+            "operationBasis": {
+                "spend": 22000,
+                "gmv": 11214,
+                "orders": 66.6,
+                "roi": 0.51,
+                "aov": 168.3,
+                "cost": 330.3,
+                "currentSpend": 11818,
+                "currentRoi": 0.48,
+                "currentClicks": 716,
+                "activeDays": 8,
+            },
+            "recentSeries": points,
+            "anomalies": [
+                {
+                    "time": "14:30",
+                    "metric": "5 分钟消耗增加 ¥300，成交不增",
+                    "suggestion": "检查课程承接",
+                }
+            ],
+            "flowDetails": [
+                {"key": "live_recommend", "trafficShare": 35, "gmvShare": 20}
+            ],
+            "room": {"title": "小数基本功直播间"},
+        }
+
+    def test_model_is_primary_and_learning_is_auxiliary(self) -> None:
+        captured: dict[str, object] = {}
+
+        class FakeAI:
+            def status(self):
+                return {
+                    "configured": True,
+                    "productModel": "deepseek-flash",
+                    "mode": "deepseek",
+                }
+
+            def model_id(self, purpose="product"):
+                return "deepseek-flash" if purpose == "product" else "deepseek-v4-pro"
+
+            def generate(self, messages, **kwargs):
+                captured["messages"] = messages
+                captured["kwargs"] = kwargs
+                return {
+                    "ok": True,
+                    "model": "deepseek-flash",
+                    "responseModel": "deepseek-flash",
+                    "text": json.dumps(
+                        {
+                            "summary": "小步放量后流量可能增加，但订单成本仍需观察。",
+                            "confidence": 72,
+                            "forecast": {
+                                "spend": {"low": 2600, "base": 2850, "high": 3100},
+                                "gmv": {"low": 1350, "base": 1570, "high": 1800},
+                                "orders": {"low": 7.5, "base": 9, "high": 10.5},
+                                "roi": {"low": 0.5, "base": 0.55, "high": 0.6},
+                                "cost": {"low": 280, "base": 317, "high": 350},
+                                "clicks": {"low": 110, "base": 125, "high": 140},
+                            },
+                            "rationale": ["近 60 分钟转化稳定。"],
+                            "risks": ["课程讲解切换可能降低承接。"],
+                            "guardrails": ["订单成本超过 350 元停止继续加量。"],
+                            "educationActions": ["先强化课程效果证明和价格锚点。"],
+                            "knowledgeNotes": ["教培千川SOP.md：先稳定承接再加预算"],
+                            "knowledgeConflicts": [],
+                            "assumptions": ["未提供到课和退款数据。"],
+                        },
+                        ensure_ascii=False,
+                    ),
+                    "usage": {"total_tokens": 100},
+                }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            learning = server.LearningDocumentStore(Path(temp_dir))
+            learning.save(
+                "教培千川SOP.md",
+                (
+                    "教培直播间投放逻辑：ROI 稳定且商品点击增长时小步加预算。"
+                    "订单成本连续升高时先检查课程讲解承接。"
+                ).encode("utf-8"),
+                "text/markdown",
+            )
+            result = server.generate_campaign_operation_forecast(
+                self._snapshot(),
+                {
+                    "id": "scale-boost",
+                    "title": "放量追投",
+                    "description": "小步提高预算",
+                    "kind": "boost",
+                    "direction": 1,
+                },
+                10,
+                learning,
+                FakeAI(),
+            )
+
+        self.assertEqual(result["source"], "deepseek_product_primary")
+        self.assertEqual(result["model"], "deepseek-flash")
+        self.assertEqual(result["confidence"], 72)
+        self.assertTrue(result["knowledge"]["usedByModel"])
+        self.assertEqual(result["horizonMinutes"], 60)
+        self.assertAlmostEqual(result["forecast"]["roi"]["base"], 0.55)
+        self.assertIn("订单成本超过 350 元", result["guardrails"][0])
+        messages = captured["messages"]
+        combined_prompt = json.dumps(messages, ensure_ascii=False)
+        self.assertIn("知识库只是辅助校准", combined_prompt)
+        self.assertIn("教培课程直播间", combined_prompt)
+        self.assertIn("教培千川SOP.md", combined_prompt)
+        self.assertEqual(captured["kwargs"]["purpose"], "product")
+
+    def test_model_failure_returns_visible_local_fallback(self) -> None:
+        class FailingAI:
+            def status(self):
+                return {
+                    "configured": True,
+                    "productModel": "deepseek-flash",
+                    "mode": "deepseek",
+                }
+
+            def model_id(self, purpose="product"):
+                return "deepseek-flash"
+
+            def generate(self, messages, **kwargs):
+                return {
+                    "ok": False,
+                    "model": "deepseek-flash",
+                    "error": "timeout",
+                }
+
+        result = server.generate_campaign_operation_forecast(
+            self._snapshot(),
+            {
+                "id": "reduce-all",
+                "title": "一键控量",
+                "description": "降低低效计划预算",
+                "kind": "reduce",
+                "direction": -1,
+            },
+            15,
+            None,
+            FailingAI(),
+        )
+        self.assertEqual(result["source"], "local_rule_fallback")
+        self.assertEqual(result["status"], "fallback")
+        self.assertEqual(result["action"]["signedPercent"], -15)
+        self.assertIn("timeout", result["aiFallback"]["error"])
+        self.assertTrue(result["forecast"]["spend"]["base"] < result["baseline"]["spend"])
+
+    def test_operation_forecast_http_endpoint_uses_product_model(self) -> None:
+        class FakeAI:
+            def status(self):
+                return {
+                    "configured": True,
+                    "productModel": "deepseek-flash",
+                    "mode": "deepseek",
+                }
+
+            def model_id(self, purpose="product"):
+                return "deepseek-flash"
+
+            def generate(self, messages, **kwargs):
+                return {
+                    "ok": True,
+                    "model": "deepseek-flash",
+                    "responseModel": "deepseek-flash",
+                    "text": json.dumps(
+                        {
+                            "summary": "模型已完成推演。",
+                            "confidence": 66,
+                            "forecast": {
+                                "spend": {"low": 2500, "base": 2800, "high": 3000},
+                                "gmv": {"low": 1350, "base": 1550, "high": 1750},
+                                "orders": {"low": 7, "base": 8, "high": 9},
+                                "roi": {"low": 0.5, "base": 0.55, "high": 0.6},
+                                "cost": {"low": 280, "base": 320, "high": 350},
+                                "clicks": {"low": 110, "base": 125, "high": 140},
+                            },
+                        },
+                        ensure_ascii=False,
+                    ),
+                }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "index.html").write_text("ok", encoding="utf-8")
+            store = server.DashboardStore(root / "snapshot.json")
+            httpd = ThreadingHTTPServer(
+                ("127.0.0.1", 0),
+                server.make_handler(store, root, ai_client=FakeAI()),
+            )
+            thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+            thread.start()
+            try:
+                request = urllib.request.Request(
+                    (
+                        f"http://127.0.0.1:{httpd.server_address[1]}"
+                        "/api/campaign/operation-forecast"
+                    ),
+                    data=json.dumps(
+                        {
+                            "snapshot": self._snapshot(),
+                            "action": {
+                                "id": "scale-boost",
+                                "title": "放量追投",
+                                "description": "小步提高预算",
+                                "kind": "boost",
+                                "direction": 1,
+                            },
+                            "percent": 10,
+                        },
+                        ensure_ascii=False,
+                    ).encode("utf-8"),
+                    method="POST",
+                    headers={"Content-Type": "application/json"},
+                )
+                with urllib.request.urlopen(request) as response:
+                    result = json.loads(response.read().decode("utf-8"))
+                    self.assertEqual(response.status, 200)
+            finally:
+                httpd.shutdown()
+                httpd.server_close()
+                thread.join(timeout=2)
+        self.assertEqual(result["source"], "deepseek_product_primary")
+        self.assertEqual(result["model"], "deepseek-flash")
+        self.assertEqual(result["action"]["signedPercent"], 10)
 
 
 class LearningDocumentTests(unittest.TestCase):

@@ -196,6 +196,31 @@ class SpeakerGallery:
             except Exception:
                 continue
 
+    def seed(self, vectors: dict[str, Any]) -> None:
+        """Preload named voiceprints from the global enrollment store.
+
+        Only adds names that are not already present so a live session keeps its
+        accumulated anonymous speakers while immediately adopting newly enrolled
+        anchors. Existing names are never overwritten.
+        """
+        if not isinstance(vectors, dict):
+            return
+        for name, vector in vectors.items():
+            name = str(name or "").strip()
+            if not name or name in self.means:
+                continue
+            try:
+                mean = np.asarray(vector, dtype=np.float32).reshape(-1)
+                if mean.size != self.dim:
+                    continue
+                norm = float(np.linalg.norm(mean))
+                if norm <= 0:
+                    continue
+                self.means[name] = (mean / norm).astype(np.float32)
+                self.counts[name] = 1
+            except Exception:
+                continue
+
     def _save(self) -> None:
         if not self.state_path:
             return
