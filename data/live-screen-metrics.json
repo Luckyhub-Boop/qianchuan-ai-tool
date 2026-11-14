@@ -1,7 +1,7 @@
 {
   "status": "error",
   "live": false,
-  "syncedAt": "2026-11-14T06:02:11.425Z",
+  "syncedAt": "2026-11-14T06:04:11.593Z",
   "source": "puppeteer-core",
   "sourceLabel": "千川直播大屏 · 无头 Chrome 抓取",
   "pageUrl": "https://qianchuan.jinritemai.com/board-next?live_room_id=7707794883850930986&aavid=1744479430946824&fromModule=uni_promotion_v2",
@@ -22,8 +22,9 @@
     "online"
   ],
   "error": "Attempted to use detached Frame '33A9C29A6D62CC7BBE36EC7DBBCE42D9'.",
-  "heartbeatAt": "2026-11-14T06:02:11.425Z",
+  "heartbeatAt": "2026-11-14T06:04:21.952Z",
   "pid": 9240,
   "accountId": "fashion",
-  "intervalSeconds": 10
+  "intervalSeconds": 10,
+  "heartbeatOnly": true
 }
