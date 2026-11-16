@@ -251,6 +251,7 @@ class SpeechWorker:
         self.current_session = ""
         self.current_part = ""
         self.last_error = ""
+        self.error_since: str | None = None
         self.processed_count = 0
         self.pending_count = 0
         self.last_metric_signature = ""
@@ -302,12 +303,17 @@ class SpeechWorker:
         return self.speaker_gallery
 
     def publish_state(self, status: str, extra: dict[str, Any] | None = None) -> None:
+        if status == "error":
+            self.error_since = self.error_since or now_iso()
+        else:
+            self.error_since = None
         atomic_write_json(
             STATE_PATH,
             {
                 "ok": status in {"idle", "processing", "finalizing", "ready"},
                 "status": status,
                 "updatedAt": now_iso(),
+                "errorSince": self.error_since,
                 "pid": os.getpid(),
                 "engine": "faster-whisper",
                 "model": "large-v3",

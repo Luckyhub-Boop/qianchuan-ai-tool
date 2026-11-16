@@ -204,7 +204,7 @@ class RecordingStoreTests(unittest.TestCase):
             self.assertEqual(len(session["recordingParts"]), 2)
             self.assertGreaterEqual(len(session["timeBuckets"]), 1)
             self.assertEqual(session["timeBucketGranularityMinutes"], 15)
-            self.assertEqual(session["durationSeconds"], 15 * 60)
+            self.assertEqual(session["durationSeconds"], 10 * 60)
             self.assertLess(session["series"][-1]["time"], 24 * 60 * 60)
 
     def test_attaches_buyin_audience_to_nearest_review_time(self) -> None:
@@ -370,6 +370,54 @@ class RecordingStoreTests(unittest.TestCase):
                 )
             )
             self.assertIn(segment_id, overrides["overrides"])
+
+    def test_funnel_from_sample_builds_four_dimensions_and_four_rates(self) -> None:
+        sample = {
+            "exposure": 1000,
+            "watch": 300,
+            "productClicks": 60,
+            "orders": 6,
+            "funnel": {
+                "source": "qianchuan_board_funnel_module",
+                "sourceLabel": "千川直播大屏 · 直播间核心漏斗",
+                "show": 1000,
+                "watch": 300,
+                "click": 60,
+                "orders": 6,
+                "rates": {},
+                "capturedAt": "2026-11-15T10:00:00+08:00",
+            },
+        }
+
+        funnel = recording_store._funnel_from_sample(sample)
+
+        self.assertEqual(funnel["exposure"], 1000)
+        self.assertEqual(funnel["watch"], 300)
+        self.assertEqual(funnel["productClicks"], 60)
+        self.assertEqual(funnel["orders"], 6)
+        self.assertEqual(funnel["rates"]["watchRate"], 30.0)
+        self.assertEqual(funnel["rates"]["productClickRate"], 20.0)
+        self.assertEqual(funnel["rates"]["clickToPayRate"], 10.0)
+        self.assertEqual(funnel["rates"]["exposureConversionRate"], 0.6)
+        self.assertEqual(
+            funnel["sourceLabel"], "千川直播大屏 · 直播间整体漏斗"
+        )
+
+    def test_funnel_from_sample_falls_back_to_top_level_counts(self) -> None:
+        sample = {
+            "exposure": 200,
+            "watchCount": 100,
+            "productClicks": 20,
+            "orders": 2,
+            "funnel": None,
+        }
+
+        funnel = recording_store._funnel_from_sample(sample)
+
+        self.assertEqual(funnel["watch"], 100)
+        self.assertEqual(funnel["rates"]["watchRate"], 50.0)
+        self.assertEqual(funnel["rates"]["clickToPayRate"], 10.0)
+        self.assertEqual(funnel["rates"]["exposureConversionRate"], 1.0)
 
 
 if __name__ == "__main__":

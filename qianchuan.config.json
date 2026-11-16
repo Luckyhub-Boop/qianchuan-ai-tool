@@ -318,7 +318,11 @@
       "live_click_product_count_alias",
       "total_live_comment_cnt",
       "room_delivery",
-      "total_live_follow_cnt"
+                       "total_live_follow_cnt",
+                       "start_time",
+                       "end_time",
+                       "room_title",
+                       "room_status"
     ],
     "flowSources": [
       "AllEcomFlowSource",

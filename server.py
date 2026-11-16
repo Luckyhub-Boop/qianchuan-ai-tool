@@ -366,6 +366,10 @@ DEFAULT_LIVE_CONFIG: dict[str, Any] = {
         "total_live_comment_cnt",
         "room_delivery",
         "total_live_follow_cnt",
+        "start_time",
+        "end_time",
+        "room_title",
+        "room_status",
     ],
     "flowSources": ["AllEcomFlowSource", "AllEcomGmvSource"],
 }
@@ -3573,6 +3577,38 @@ def to_number(value: Any) -> float | None:
         return float(str(value).replace(",", "").replace("%", ""))
     except (TypeError, ValueError):
         return None
+
+
+def field_age_seconds(state: dict[str, Any], fields: tuple[str, ...]) -> float | None:
+    for field in fields:
+        value = str(state.get(field) or "").strip()
+        if not value:
+            continue
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            return max(0.0, (datetime.now(parsed.tzinfo) - parsed).total_seconds())
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def _coerce_live_time(value: Any) -> str:
+    if value is None or value == "":
+        return ""
+    text = str(value).strip()
+    for pattern in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S"):
+        try:
+            return datetime.strptime(text, pattern).astimezone().isoformat(
+                timespec="seconds"
+            )
+        except ValueError:
+            continue
+    try:
+        return datetime.fromisoformat(text.replace("Z", "+00:00")).astimezone().isoformat(
+            timespec="seconds"
+        )
+    except (TypeError, ValueError):
+        return ""
 
 
 def pick_number(source: Any, fields: tuple[str, ...]) -> float | None:
@@ -7938,11 +7974,14 @@ class DashboardStore:
                 "recordingsDirectory": str(RECORDINGS_DIR),
                 "error": "录像器尚未写入状态",
             }
+        recorder_age = field_age_seconds(state, ("updatedAt", "heartbeatAt", "syncedAt"))
         return {
             **copy.deepcopy(state),
             "paused": bool(
                 load_json(DATA_DIR / "live-recorder-pause.json", {}).get("paused")
             ),
+            "ageSeconds": round(recorder_age, 2) if recorder_age is not None else None,
+            "stale": recorder_age is None or recorder_age > 45,
             "retentionDays": recording_store.RETENTION_DAYS,
             "recordingsDirectory": str(RECORDINGS_DIR),
         }
@@ -7959,7 +7998,11 @@ class DashboardStore:
                 "audioSource": "直播流 TS 分段 · ffmpeg 16k mono · 降噪",
                 "error": "ASR 服务尚未写入状态",
             }
-        return copy.deepcopy(state)
+        asr_age = field_age_seconds(state, ("updatedAt", "heartbeatAt", "syncedAt"))
+        result = copy.deepcopy(state)
+        result["ageSeconds"] = round(asr_age, 2) if asr_age is not None else None
+        result["stale"] = asr_age is None or asr_age > 90
+        return result
 
     @staticmethod
     def _speaker_display_label(speaker: str) -> str:
@@ -8025,6 +8068,24 @@ class DashboardStore:
             if requested_day in available_dates
             else available_dates[-1] if available_dates else None
         )
+        if selected_day:
+            room_ids: set[str] = set()
+            for _directory, manifest in recording_store.list_manifests(RECORDINGS_DIR):
+                if str(manifest.get("date") or "") == selected_day:
+                    room_ids.add(str(manifest.get("roomId") or ""))
+            for _directory, manifest in recording_store.list_archived_manifests(
+                REVIEW_ARCHIVE_DIR / "sessions"
+            ):
+                if str(manifest.get("date") or "") == selected_day:
+                    room_ids.add(str(manifest.get("roomId") or ""))
+            for room_id in sorted(room_ids):
+                if room_id:
+                    self.ensure_room_live_span(
+                        room_id,
+                        selected_day,
+                        recording_account_id,
+                    )
+            history = self._load_live_history()
         sessions = recording_store.review_sessions(
             history,
             account_id=recording_account_id,
@@ -8032,6 +8093,27 @@ class DashboardStore:
             archive_dir=REVIEW_ARCHIVE_DIR,
             day=selected_day,
         )
+        if selected_day:
+            for directory, manifest in recording_store.list_archived_manifests(
+                REVIEW_ARCHIVE_DIR / "sessions"
+            ):
+                if str(manifest.get("date") or "") != selected_day:
+                    continue
+                refreshed = recording_store.build_review_session(
+                    directory,
+                    manifest,
+                    history,
+                    archived=True,
+                )
+                refreshed["summary"] = recording_store.review_overview_summary(
+                    refreshed
+                )
+                recording_store.archive_session_review(
+                    directory,
+                    manifest,
+                    refreshed,
+                    REVIEW_ARCHIVE_DIR / "sessions",
+                )
         audience_history = load_json(self.buyin_audience_history_path, {})
         matched_audience_points = recording_store.attach_buyin_audience(
             sessions,
@@ -8170,12 +8252,64 @@ class DashboardStore:
                     viewers = metrics.get("viewers")
                     if viewers is None:
                         viewers = metrics.get("watchCount")
+                    funnel = data.get("funnel")
+                    if not isinstance(funnel, dict) or not any(
+                        funnel.get(key) is not None
+                        for key in ("exposure", "watch", "productClicks", "orders")
+                    ):
+                        screen_capture = data.get("screenCapture")
+                        last_cumulative = (
+                            screen_capture.get("lastCumulative")
+                            if isinstance(screen_capture, dict)
+                            else None
+                        ) or data.get("screenLastCumulative")
+                        if isinstance(last_cumulative, dict):
+                            funnel_source = last_cumulative
+                        else:
+                            series = data.get("series")
+                            funnel_source = (
+                                series[-1]
+                                if isinstance(series, list) and series
+                                else data
+                            )
+                        funnel = recording_store._funnel_from_sample(funnel_source)
+                    exposure = metrics.get("exposure")
+                    if exposure is None and isinstance(funnel, dict):
+                        exposure = funnel.get("exposure")
+                    if exposure is None:
+                        exposure_screen_capture = data.get("screenCapture")
+                        exposure_last_cumulative = (
+                            exposure_screen_capture.get("lastCumulative")
+                            if isinstance(exposure_screen_capture, dict)
+                            else None
+                        ) or data.get("screenLastCumulative")
+                        if isinstance(exposure_last_cumulative, dict):
+                            exposure = exposure_last_cumulative.get("exposure")
+                    efficiency = recording_store._efficiency_metrics(
+                        recording_store._number(metrics.get("spend")),
+                        recording_store._number(metrics.get("gmv")),
+                        recording_store._number(metrics.get("orders")),
+                        recording_store._number(exposure),
+                    )
                     summary = {
                         "title": data.get("title") or f"{selected_day} · 全天直播复盘",
                         "date": data.get("date") or selected_day,
+                        "accountId": data.get("accountId") or "",
+                        "awemeName": data.get("awemeName") or "",
+                        "room": data.get("room") or {
+                            "id": data.get("roomId") or "",
+                            "awemeName": data.get("awemeName") or "",
+                            "title": "",
+                            "status": "",
+                        },
                         "startTime": data.get("startTime") or "",
                         "endedAt": data.get("endedAt") or "",
                         "durationSeconds": data.get("durationSeconds") or 0,
+                        "liveDurationSeconds": data.get("liveDurationSeconds"),
+                        "coverage": data.get("coverage") or {},
+                        "screenCapture": data.get("screenCapture") or {},
+                        "recordingCoverage": data.get("recordingCoverage") or {},
+                        "asrCoverage": data.get("asrCoverage") or {},
                         "recordingStatus": data.get("recordingStatus") or "",
                         "recordingStatusLabel": data.get("recordingStatusLabel") or "",
                         "metrics": {
@@ -8184,7 +8318,12 @@ class DashboardStore:
                             "orders": metrics.get("orders"),
                             "roi": metrics.get("roi"),
                             "viewers": viewers,
+                            "exposure": exposure,
+                            "gpm": efficiency["gpm"],
+                            "cpm": efficiency["cpm"],
+                            "cpa": efficiency["cpa"],
                         },
+                        "funnel": funnel if isinstance(funnel, dict) else {},
                         "summary": data.get("summary") or "",
                         "sourceNote": data.get("sourceNote") or "",
                     }
@@ -8620,6 +8759,90 @@ class DashboardStore:
         else:
             samples.append(sample)
         del samples[:-6000]
+        last_sample = samples[-1] if samples else sample
+        last_cumulative = {
+            key: last_sample.get(key)
+            for key in (
+                "spend",
+                "gmv",
+                "orders",
+                "roi",
+                "watch",
+                "exposure",
+                "watchOneMinute",
+                "productClicks",
+                "peakOnline",
+                "gpm",
+                "online",
+                "comments",
+                "follows",
+                "entryRate",
+            )
+            if last_sample.get(key) is not None
+        }
+        room = state.get("room") if isinstance(state.get("room"), dict) else {}
+        live_started_at = _coerce_live_time(
+            room.get("startTime") or room.get("start_time")
+        )
+        live_ended_at = _coerce_live_time(
+            room.get("endTime") or room.get("end_time")
+        )
+        rooms_meta = history.setdefault("rooms", {})
+        if not isinstance(rooms_meta, dict):
+            rooms_meta = {}
+            history["rooms"] = rooms_meta
+        key = f"{day}::{room_id}"
+        meta = rooms_meta.get(key)
+        if not isinstance(meta, dict):
+            meta = {"key": key, "date": day, "roomId": room_id}
+        meta.update(
+            {
+                "date": day,
+                "roomId": room_id,
+                "accountId": str(
+                    state.get("accountId") or room.get("awemeId") or ""
+                ),
+                "awemeName": str(
+                    room.get("awemeName") or state.get("awemeName") or ""
+                ),
+                "roomTitle": str(
+                    room.get("roomTitle") or room.get("room_title") or ""
+                ),
+                "roomStatus": str(
+                    room.get("roomStatus") or room.get("room_status") or ""
+                ),
+                "screenCaptureStartedAt": datetime.fromtimestamp(
+                    samples[0]["t"] / 1000
+                ).astimezone().isoformat(timespec="seconds"),
+                "screenCaptureEndedAt": datetime.fromtimestamp(
+                    last_sample["t"] / 1000
+                ).astimezone().isoformat(timespec="seconds"),
+                "screenCaptureDurationSeconds": max(
+                    0, int((last_sample["t"] - samples[0]["t"]) / 1000)
+                ),
+                "screenSampleCount": len(samples),
+                "screenLastCumulative": last_cumulative,
+                "updatedAt": now_iso(),
+            }
+        )
+        if live_started_at:
+            meta["liveStartedAt"] = live_started_at
+        if live_ended_at:
+            meta["liveEndedAt"] = live_ended_at
+        if live_started_at and live_ended_at:
+            try:
+                meta["liveDurationSeconds"] = max(
+                    0,
+                    int(
+                        (
+                            datetime.fromisoformat(live_ended_at)
+                            - datetime.fromisoformat(live_started_at)
+                        ).total_seconds()
+                    ),
+                )
+            except (TypeError, ValueError):
+                pass
+        rooms_meta[key] = meta
         history["version"] = 1
         history["updatedAt"] = now_iso()
         self._write_live_history(history)
@@ -8707,6 +8930,131 @@ class DashboardStore:
         with self.live_history_cache_lock:
             self.live_history_memory = copy.deepcopy(history)
             self.live_history_mtime_ns = mtime_ns
+
+
+    def _history_room_meta(self, room_id: str, day: str) -> dict[str, Any]:
+        history = self._load_live_history()
+        rooms = history.get("rooms") if isinstance(history, dict) else {}
+        rooms = rooms if isinstance(rooms, dict) else {}
+        key = f"{day}::{room_id}"
+        meta = rooms.get(key)
+        if isinstance(meta, dict):
+            return copy.deepcopy(meta)
+        for candidate in rooms.values():
+            if not isinstance(candidate, dict):
+                continue
+            if str(candidate.get("roomId") or "") != room_id:
+                continue
+            if str(candidate.get("date") or candidate.get("day") or "") != day:
+                continue
+            return copy.deepcopy(candidate)
+        return {}
+
+    def _upsert_live_room_meta(
+        self,
+        room_id: str,
+        day: str,
+        updates: dict[str, Any],
+    ) -> dict[str, Any]:
+        history = self._load_live_history()
+        if not isinstance(history, dict):
+            history = {}
+        rooms = history.setdefault("rooms", {})
+        if not isinstance(rooms, dict):
+            rooms = {}
+            history["rooms"] = rooms
+        key = f"{day}::{room_id}"
+        meta = rooms.get(key)
+        if not isinstance(meta, dict):
+            meta = {"key": key, "date": day, "roomId": room_id}
+        meta.update(updates)
+        meta["updatedAt"] = now_iso()
+        rooms[key] = meta
+        history["updatedAt"] = now_iso()
+        self._write_live_history(history)
+        return copy.deepcopy(meta)
+
+    def ensure_room_live_span(
+        self,
+        room_id: str,
+        day: str,
+        account_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Return cached room meta, lazily backfilling real live start/end from API."""
+        meta = self._history_room_meta(room_id, day)
+        if meta.get("liveStartedAt") and meta.get("liveEndedAt"):
+            return meta
+        if meta.get("liveFetchAttemptedAt"):
+            try:
+                attempted_at = datetime.fromisoformat(
+                    str(meta.get("liveFetchAttemptedAt")).replace("Z", "+00:00")
+                )
+                if (datetime.now(attempted_at.tzinfo) - attempted_at).total_seconds() < 21600:
+                    return meta
+            except (TypeError, ValueError):
+                return meta
+        config = load_config()
+        token, _token_info, _credential_errors = resolve_access_token(config)
+        account = self._account_for(account_id)
+        if not token or not account:
+            self._upsert_live_room_meta(
+                room_id,
+                day,
+                {"liveFetchAttemptedAt": now_iso()},
+            )
+            return self._history_room_meta(room_id, day)
+        advertiser_id = str(
+            account.get("advertiserId") or account.get("qianchuanId")
+        )
+        aweme_ids = self._account_aweme_ids(account, config)
+        client = QianchuanClient(config, token)
+        try:
+            for aweme_id in aweme_ids:
+                rows = client.fetch_live_rooms(advertiser_id, aweme_id, day)
+                for room in rows:
+                    if not isinstance(room, dict):
+                        continue
+                    if str(room.get("room_id") or "") != room_id:
+                        continue
+                    updates = {
+                        "awemeName": str(room.get("aweme_name") or ""),
+                        "roomTitle": str(room.get("room_title") or ""),
+                        "roomStatus": str(room.get("room_status") or ""),
+                        "liveStartedAt": _coerce_live_time(
+                            room.get("start_time")
+                        ),
+                        "liveEndedAt": _coerce_live_time(
+                            room.get("end_time")
+                        ),
+                        "liveFetchAttemptedAt": now_iso(),
+                    }
+                    if updates["liveStartedAt"] and updates["liveEndedAt"]:
+                        try:
+                            updates["liveDurationSeconds"] = max(
+                                0,
+                                int(
+                                    (
+                                        datetime.fromisoformat(
+                                            updates["liveEndedAt"]
+                                        )
+                                        - datetime.fromisoformat(
+                                            updates["liveStartedAt"]
+                                        )
+                                    ).total_seconds()
+                                ),
+                            )
+                        except (TypeError, ValueError):
+                            pass
+                    self._upsert_live_room_meta(room_id, day, updates)
+                    return self._history_room_meta(room_id, day)
+        except Exception as exc:
+            print(f"直播间真实时长回填失败 room={room_id} day={day}: {exc}")
+        self._upsert_live_room_meta(
+            room_id,
+            day,
+            {"liveFetchAttemptedAt": now_iso()},
+        )
+        return self._history_room_meta(room_id, day)
 
     def live_history_snapshot(
         self,
@@ -10898,10 +11246,15 @@ class LiveStreamRegistry:
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
             raise ValueError("直播流地址必须是有效的 http/https URL")
         host = (parsed.hostname or "").lower()
-        if host not in {"douyincdn.com", "byteimg.com", "bytefcdnrd.com"} and not (
-            host.endswith(".douyincdn.com")
-            or host.endswith(".byteimg.com")
-            or host.endswith(".bytefcdnrd.com")
+        allowed_bases = {
+            "douyincdn.com",
+            "byteimg.com",
+            "bytefcdnrd.com",
+            "smtcdns.net",
+            "douyinvod.com",
+        }
+        if host not in allowed_bases and not any(
+            host.endswith("." + base) for base in allowed_bases
         ):
             raise ValueError("仅接受千川直播画面使用的抖音 CDN 地址")
         return value
@@ -11177,6 +11530,183 @@ class StreamTranscoder:
         return info
 
 
+def build_recording_monitor(
+    store: Any,
+    stream_registry: Any,
+) -> dict[str, Any]:
+    """Snapshot for the review-page recording monitor."""
+
+    def parse_iso(value: Any) -> datetime | None:
+        if not value:
+            return None
+        try:
+            return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        except (TypeError, ValueError):
+            return None
+
+    now = datetime.now().astimezone()
+    recorder = store.recording_status() if hasattr(store, "recording_status") else {}
+    asr = store.asr_status() if hasattr(store, "asr_status") else {}
+    guard = load_json(DATA_DIR / "live-recording-guard-state.json", {})
+    backup = load_json(DATA_DIR / "live-backup-recorder-state.json", {})
+    if not isinstance(guard, dict):
+        guard = {}
+    if not isinstance(backup, dict):
+        backup = {}
+    stream = stream_registry.status() if stream_registry else {}
+
+    session_id = str(recorder.get("sessionId") or "")
+    recorder_status = str(recorder.get("status") or "missing")
+    room_id = str(recorder.get("roomId") or "")
+    started_at = ""
+    ended_at = ""
+    session_dir: Path | None = None
+    manifest: dict[str, Any] = {}
+    for directory, item in recording_store.list_manifests(RECORDINGS_DIR):
+        if session_id and str(item.get("id") or "") == session_id:
+            session_dir = directory
+            manifest = item
+            started_at = str(item.get("startedAt") or "")
+            ended_at = str(item.get("endedAt") or "")
+            room_id = room_id or str(item.get("roomId") or "")
+            break
+
+    segments: list[dict[str, Any]] = []
+    interruptions: list[dict[str, Any]] = []
+    recorded_audio_seconds = 0.0
+    bytes_per_second = 16000 * 2  # 16k mono 16-bit PCM
+    previous_mtime: float | None = None
+    if session_dir is not None and (session_dir / "segments").is_dir():
+        parts: list[Path] = []
+        for pattern in ("part_*.wav", "part_*.flac", "part_*.ts"):
+            parts.extend(
+                item
+                for item in (session_dir / "segments").glob(pattern)
+                if item.is_file() and item.stat().st_size > 0
+            )
+        parts.sort(key=lambda item: item.stat().st_ctime)
+        for part in parts:
+            stat = part.stat()
+            duration = stat.st_size / bytes_per_second
+            recorded_audio_seconds += duration
+            created_at = datetime.fromtimestamp(stat.st_ctime).astimezone()
+            modified_at = datetime.fromtimestamp(stat.st_mtime).astimezone()
+            segments.append(
+                {
+                    "name": part.name,
+                    "sizeBytes": stat.st_size,
+                    "durationSeconds": round(duration, 1),
+                    "createdAt": created_at.isoformat(timespec="seconds"),
+                    "lastWriteAt": modified_at.isoformat(timespec="seconds"),
+                }
+            )
+            if previous_mtime is not None:
+                gap = stat.st_ctime - previous_mtime
+                if gap > 20:
+                    interruptions.append(
+                        {
+                            "startedAt": datetime.fromtimestamp(previous_mtime)
+                            .astimezone()
+                            .isoformat(timespec="seconds"),
+                            "endedAt": created_at.isoformat(timespec="seconds"),
+                            "gapSeconds": round(gap, 1),
+                        }
+                    )
+            previous_mtime = stat.st_mtime
+
+    start_dt = parse_iso(started_at)
+    end_dt = parse_iso(ended_at)
+    wall_duration_seconds = 0
+    if start_dt is not None:
+        wall_duration_seconds = max(
+            0.0,
+            ((end_dt if end_dt is not None else now) - start_dt).total_seconds(),
+        )
+
+    last_segment_at = str(recorder.get("lastSegmentAt") or "")
+    last_segment_age = field_age_seconds(
+        {"lastSegmentAt": last_segment_at},
+        ("lastSegmentAt",),
+    )
+    guard_primary = guard.get("primary") if isinstance(guard.get("primary"), dict) else {}
+    guard_backup = guard.get("backup") if isinstance(guard.get("backup"), dict) else {}
+    active_method = str(guard.get("activeMethod") or "")
+    if not active_method:
+        active_method = (
+            "backup"
+            if str(backup.get("status") or "") == "recording"
+            else ("primary" if recorder_status in {"recording", "waiting_stream"} else "")
+        )
+
+    return {
+        "ok": True,
+        "updatedAt": now.isoformat(timespec="seconds"),
+        "recording": recorder_status == "recording",
+        "status": recorder_status,
+        "statusLabel": {
+            "recording": "录制中",
+            "waiting_stream": "等待画面流",
+            "idle": "未在录制",
+            "error": "录制异常",
+            "paused": "已暂停",
+            "finalizing": "归档中",
+            "missing": "录像器未启动",
+        }.get(recorder_status, recorder_status),
+        "method": active_method,
+        "methodLabel": (
+            "备用采集(ffmpeg)"
+            if active_method == "backup"
+            else "主采集(PyAV)"
+            if active_method == "primary"
+            else "—"
+        ),
+        "roomId": room_id,
+        "sessionId": session_id,
+        "startedAt": started_at,
+        "endedAt": ended_at,
+        "wallDurationSeconds": round(wall_duration_seconds, 1),
+        "recordedAudioSeconds": round(recorded_audio_seconds, 1),
+        "continuity": (
+            round(min(1.0, recorded_audio_seconds / wall_duration_seconds), 4)
+            if wall_duration_seconds > 0
+            else None
+        ),
+        "segmentCount": len(segments),
+        "lastSegmentAt": last_segment_at,
+        "lastSegmentAgeSeconds": (
+            round(last_segment_age, 1) if last_segment_age is not None else None
+        ),
+        "interruptions": interruptions[-8:],
+        "interruptionCount": len(interruptions),
+        "error": str(recorder.get("error") or ""),
+        "errorSince": recorder.get("errorSince"),
+        "paused": bool(recorder.get("paused")),
+        "stream": {
+            "online": bool(stream.get("online")),
+            "active": bool(stream.get("active")),
+            "captured": bool(stream.get("captured")),
+            "roomId": str(stream.get("roomId") or ""),
+        },
+        "guard": {
+            "status": guard.get("status"),
+            "activeMethod": active_method,
+            "primaryHealthy": bool(guard_primary.get("healthy")),
+            "backupHealthy": bool(guard_backup.get("healthy")),
+            "primaryRunning": bool(guard_primary.get("running")),
+            "backupRunning": bool(guard_backup.get("running")),
+            "detections": guard.get("detections") or {},
+            "lastActions": guard.get("lastActions") or [],
+        },
+        "asr": {
+            "status": asr.get("status"),
+            "modelReady": bool(asr.get("modelReady")),
+            "processedParts": asr.get("processedParts"),
+            "pendingParts": asr.get("pendingParts"),
+        },
+        "recordingsDirectory": str(recorder.get("recordingsDirectory") or RECORDINGS_DIR),
+    }
+
+
 def make_handler(
     store: DashboardStore,
     directory: Path,
@@ -11428,6 +11958,9 @@ def make_handler(
                 return
             if path == "/api/review/asr":
                 self._send_json(200, store.asr_status())
+                return
+            if path == "/api/review/monitor":
+                self._send_json(200, build_recording_monitor(store, stream_registry))
                 return
             if path == "/api/review/daily-playlist":
                 query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
@@ -11812,6 +12345,14 @@ def make_handler(
                         },
                         "liveRecorder": store.recording_status(),
                         "localAsr": store.asr_status(),
+                        "liveRecordingGuard": load_json(
+                            DATA_DIR / "live-recording-guard-state.json",
+                            {},
+                        ),
+                        "liveBackupRecorder": load_json(
+                            DATA_DIR / "live-backup-recorder-state.json",
+                            {},
+                        ),
                         "deepseek": ai_client.status(),
                         "voiceprint": voiceprint_status_payload(),
                         "syncRequest": store.sync_state(),

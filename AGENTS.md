@@ -2,7 +2,7 @@
 
 本文件面向在本仓库工作的 AI 助手，说明项目背景、技术选型与必须遵守的约定。
 
-最近更新：2026-11-08
+最近更新：2026-11-16
 
 ## 0. 换电脑交接（先读）
 
@@ -19,12 +19,21 @@
 - 2026-10-25 运行态核验：`start.bat` 在无项目进程、8765 端口空闲时冷启动通过，看门狗、后端、单个采集器各 1 个进程；采集器状态为 `ok`，当前直播间 `7700373751996746532` 持续返回真实大屏指标。OAuth 应用参数尚未配置，因此当前只有已有 Access Token，没有 Refresh Token，不能宣称 OAuth 授权已完成。
 - 2026-11-05 运行态核验：看门狗、后端、单个采集器各 1 个进程；当前直播间 `7704532779547085622`，大屏心跳 `ok`、`streamCaptureOnline=true`，交易/行为字段均有真实值。今日直播间 Open API 当前仍为 `zero_pending`，五维四率保持 `partial`，不能用官方 0 覆盖大屏。OAuth 仍未配置。
 
+### 0.8 今日进度（2026-11-16）
+
+- 修复 11-16 直播完全未录制的根因：看门狗与录像器曾被一个 `CodexSandboxOffline` 受限账户下的 `start-autostart-loop.ps1` 无限循环拉起，该账户无权限写 `D:\DAI投放产品录屏备份`，导致录像器持续报 `[WinError 5] 拒绝访问` 建不了当天目录。已停止旧账户循环链，全部进程切回 `Administrator` 运行，当前场次 `2026-11-16_7708623258317114166_161650` 已恢复录制并出段。
+- 新增 `recording_guard.py`（独立录制守护，由看门狗拉起并守护）：实时检测①录制进程缺失、②持续 error、③心跳/状态超时、④直播中分段停滞、⑤录制目录不可写，并按需自动切换主/备录制方式、自动切回；状态写入 `data/live-recording-guard-state.json` 并在 `/api/health` 暴露 `liveRecordingGuard`。
+- 新增 `backup_recorder.py`（ffmpeg 分段 WAV 备用采集，独立于 PyAV 主采集），接管同一场次续录，状态在 `/api/health` 暴露 `liveBackupRecorder`；只有主录制异常/停滞时由录制守护拉起，避免双写。
+- `recording_store.py` 增加 `resolve_recordings_dir()`：优先 `D:\DAI投放产品录屏备份`，不可写时按 `D:\QianchuanRecordings`、`C:\QianchuanRecordings`、`%TEMP%\QianchuanRecordings` 顺序降级，全部进程共享同一解析结果，避免因权限问题静默停录。
+- `live_recorder.py` 状态新增 `lastSegmentAt` 与 `recordingsDirectory`，供停滞检测与目录核对。
+- 11-13/11-14/11-15 因录制不全产生的复盘记录已移到 `data/review-archive-trash-20261116/`（可恢复），复盘页仅保留 11-06/11-07/11-08 完整记录。
+
 ### 0.2 换电脑必须复制的文件
 
 建议复制整个 `AI投放工具` 目录，但排除本机浏览器缓存和临时目录：
 
 - 必须：`server.py`、`index.html`、`start.ps1`、`start.bat`、`start-background.ps1`、`start-autostart-loop.ps1`、`start-hidden.vbs`、`vendor/`、`test_server.py`、`test_live_watchdog.py`、`qianchuan.config.example.json`、`AGENTS.md`、`PRD.md`、`AUTOSTART.md`、`install-autostart.ps1`、`install-autostart.bat`、`uninstall-autostart.ps1`、`package.json`、`package-lock.json`、`live-screen-agent.js`、`live-screen-agent.test.js`、`buyin-live-agent.js`、`buyin-live-agent.test.js`、`live_watchdog.py`、`login-live-screen.bat`、`login-buyin.bat`、`live-screen.example.json`、`buyin-live.example.json`、`LIVE_SCREEN_DUAL_CHANNEL.md`、`OAUTH_OPENAPI.md`、`oauth_login.py`、`oauth-login.ps1`、`oauth-login.bat`、`data/qianchuan-oauth.example.json`。
-- 必须补充 `recording_store.py`、`review_finalizer.py`、`live_recorder.py`、`audio_capture.py`、`live_asr.py`、`test_recording_store.py`、`test_review_finalizer.py`、`test_audio_capture.py`、`test_live_asr.py`、`requirements-whisper.txt`、`install-whisper.ps1`、`install-whisper.bat`。临时音频固定保存在坚果云目录之外的 `D:\DAI投放产品录屏备份`，不得迁入项目或由坚果云同步，并在分析归档成功后立即删除；本地 Whisper 模型仍属于本机运行依赖。迁移录像/音频时必须按敏感经营数据安全传输。
+- 必须补充 `recording_store.py`、`review_finalizer.py`、`live_recorder.py`、`audio_capture.py`、`recording_guard.py`、`backup_recorder.py`、`live_asr.py`、`test_recording_store.py`、`test_review_finalizer.py`、`test_audio_capture.py`、`test_live_asr.py`、`requirements-whisper.txt`、`install-whisper.ps1`、`install-whisper.bat`。临时音频固定保存在坚果云目录之外的 `D:\DAI投放产品录屏备份`，不得迁入项目或由坚果云同步，并在分析归档成功后立即删除；本地 Whisper 模型仍属于本机运行依赖。迁移录像/音频时必须按敏感经营数据安全传输。
 - 需要继续同步千川时必须：`data/qianchuan-token.json`。该文件包含访问令牌，只能通过安全方式迁移，不能提交到公开仓库或发送到群聊。
 - 需要自动刷新 OAuth Token 时必须：`data/qianchuan-oauth.json`。该文件包含 App Secret、Refresh Token 所需的 App ID 和已登记回调地址，只能本机安全保存，不能提交或外发。
 - 需要使用千川 MCP 直播大屏数据时必须：`data/qianchuan-mcp.json`。该文件包含 MCP API Key URL，只能通过安全方式迁移。
@@ -48,7 +57,7 @@
 9. 验证回归：执行 `python -m unittest -v test_server.py`、`python -m unittest -v test_live_watchdog.py`、`npm run test:live-screen` 和 `npm run test:buyin-live`。
 10. `live-capture-extension` 仍可作为传统浏览器画面采集备用方案；直播大屏指标与交易字段默认由无头 Chrome 直接抓取，不需要常驻可见大屏。
 
-启动策略：当前 `start.ps1` 会请求后台监督进程拉起缺失的看门狗；如果原看门狗和主服务仍健康，则复用现有进程。冷启动已验证通过，但“双击 `start.bat` 强制重启现有服务”尚未实现。更新 Python 代码后若需要确保加载新版本，应先只结束本项目的 `server.py` 与 `live_watchdog.py`，再执行 `start.bat`；不要结束本机其他 Python 程序。
+启动策略：当前 `start.ps1` 会请求后台监督进程拉起缺失的看门狗；如果原看门狗和主服务仍健康，则复用现有进程。冷启动已验证通过；后端服务修改后使用根目录 `restart-backend.ps1` 做受控重启，只停止本项目 `server.py`，由看门狗拉起新进程并复验 `/api/health`。不要结束本机其他 Python 或 Node 程序。
 
 可用环境变量：
 
@@ -184,6 +193,14 @@
 - 当前可用会话模型由 Codex 客户端决定，仓库配置用于约束后续开发会话和子代理模型选择；不能通过修改业务代码切换当前正在运行的 Codex 会话模型。
 - DeepSeek API Key 只允许通过 `DEEPSEEK_API_KEY` 环境变量或已被 `.gitignore` 排除的本地配置文件提供，不得写入代码、测试、日志、快照或提交历史。
 - 未配置密钥、调用失败或被限流时，产品必须回退现有本地规则/本地检索结果并明确标注回退原因，不得伪造 DeepSeek 输出。
+
+### 3.1 后端代码修改后的重启规则（强制）
+
+- 每次修改会被 Python 主服务加载的后端文件后，例如 `server.py`、`recording_store.py`、`review_finalizer.py` 或主服务导入的其他 Python 模块，必须先运行根目录 `restart-backend.ps1`，再复验 `http://127.0.0.1:8765/api/health` 返回 `ok=true`。
+- `restart-backend.ps1` 只停止本项目路径下的 `server.py`；看门狗会拉起新后端进程。不要按进程名批量结束本机其他 Python、Node 或浏览器进程。
+- 只修改 `index.html`、CSS、前端 JS 文案或页面渲染逻辑时，不需要重启后端，浏览器刷新即可。
+- 修改 `live_watchdog.py`、`live_recorder.py`、`live_asr.py`、`live-screen-agent.js`、`buyin-live-agent.js` 时，需要分别重启对应守护进程或采集进程；不能只重启 `server.py` 后宣称代码已生效。
+- 重启后健康检查失败时，必须读取 `data/live-watchdog.log`、`data/live-server.log` 并报告失败原因；不能把“脚本已执行”当成后端已恢复。
 
 所有指标与千川后台逐字段对齐。
 

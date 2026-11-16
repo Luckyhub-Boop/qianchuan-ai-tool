@@ -7,7 +7,8 @@ const {
   BROWSER_LAUNCH_ARGS,
   cleanupBrowserProfileState,
   pidIsRunning,
-  safePageUrl
+  safePageUrl,
+  stopProfileBrowsers
 } = require("./live-screen-agent");
 
 const ROOT = __dirname;
@@ -315,9 +316,24 @@ function resolveBrowser(config) {
   return found;
 }
 
+async function clearProfileOwners(userDataDir) {
+  for (let attempt = 1; attempt <= 4; attempt += 1) {
+    const outcome = cleanupBrowserProfileState(userDataDir, {
+      terminateOrphans: true
+    });
+    if (outcome.remainingBrowsers === 0 && outcome.failed.length === 0) return;
+    log(
+      `第 ${attempt} 次清理浏览器配置目录未完成：` +
+      `残留浏览器 ${outcome.remainingBrowsers} 个，未能删除的锁 ${outcome.failed.length} 个`
+    );
+    await new Promise(resolve => setTimeout(resolve, 600));
+  }
+  log("浏览器配置目录多次清理仍未完全释放，继续尝试启动");
+}
+
 async function launchBrowser(puppeteer, config, headless) {
   const userDataDir = resolveUserDataDir(config.userDataDir || DEFAULT_CONFIG.userDataDir);
-  cleanupBrowserProfileState(userDataDir, { terminateOrphans: true });
+  await clearProfileOwners(userDataDir);
   fs.mkdirSync(userDataDir, { recursive: true });
   const visibleArgs = headless
     ? BROWSER_LAUNCH_ARGS
@@ -326,13 +342,25 @@ async function launchBrowser(puppeteer, config, headless) {
         "--window-size=1440,900",
         "--force-device-scale-factor=1"
       ];
-  const browser = await puppeteer.launch({
+  const launch = () => puppeteer.launch({
     executablePath: resolveBrowser(config),
     headless: headless ? "new" : false,
     userDataDir,
     defaultViewport: headless ? config.viewport : null,
     args: visibleArgs
   });
+  let browser;
+  try {
+    browser = await launch();
+  } catch (error) {
+    const message = String((error && error.message) || "");
+    if (!/already running|userDataDir|SingletonLock/i.test(message)) throw error;
+    log("浏览器配置目录仍被占用，强制清理后重试一次");
+    const remaining = stopProfileBrowsers(userDataDir);
+    log(`强制清理后残留浏览器 ${remaining} 个`);
+    await new Promise(resolve => setTimeout(resolve, 800));
+    browser = await launch();
+  }
   activeBrowser = browser;
   return browser;
 }
@@ -715,8 +743,13 @@ function loginRequired(snapshot) {
   const text = String(snapshot?.bodyText || "");
   return (
     /\/(login|passport|account\/login|roles-select)(?:[/?#]|$)/i.test(url) ||
-    /扫码登录|请登录|登录巨量百应|账号登录|选择登录角色/.test(text)
+    /扫码登录|请登录|登录巨量百应|账号登录|选择登录角色|登录状态已过期|登录已过期|登录已失效|登录失效|账号未登录|身份已过期/.test(text)
   );
+}
+
+function permissionDenied(snapshot) {
+  const text = String(snapshot?.bodyText || "");
+  return /当前账号类型不支持|账号无权限|权限不足|没有访问权限|无法访问该页面|无权限查看/.test(text);
 }
 
 function isBuyinTargetPage(snapshot, rawUrl = "") {
@@ -1146,15 +1179,18 @@ async function scrapePage(page) {
     /画像|男性|女性|岁|地域|城市|省份|地区|人数过少|数据不足/.test(String(line || ""))
   ).slice(0, 80);
   const login = loginRequired(snapshot);
+  const permission = permissionDenied(snapshot);
   const target = isBuyinTargetPage(snapshot, snapshot.url);
   const hasCore = CORE_METRICS.some(key => metrics[key] != null);
   const status = login
     ? "login_required"
-    : !target
-      ? "page_mismatch"
-      : hasCore || channels?.items?.length || extras.length || hasAudience
-        ? "ok"
-        : "no_metrics";
+    : permission
+      ? "permission_denied"
+      : !target
+        ? "page_mismatch"
+        : hasCore || channels?.items?.length || extras.length || hasAudience
+          ? "ok"
+          : "no_metrics";
   let roomId = "";
   try {
     roomId = String(new URL(snapshot.url).searchParams.get("live_room_id") || "").trim();
@@ -1189,11 +1225,13 @@ async function scrapePage(page) {
     error:
       status === "login_required"
         ? "巨量百应登录已过期，请运行 login-buyin.bat 重新登录"
-        : status === "page_mismatch"
-          ? "当前页面不是巨量百应直播中控台，请重新登录并保存正确页面"
-          : status === "no_metrics"
-            ? "百应页面已打开，但本轮未识别到可核验的数值"
-            : ""
+        : status === "permission_denied"
+          ? "当前账号类型或权限不支持访问百应直播大屏，需要更换有权限的账号"
+          : status === "page_mismatch"
+            ? "当前页面不是巨量百应直播中控台，请重新登录并保存正确页面"
+            : status === "no_metrics"
+              ? "百应页面已打开，但本轮未识别到可核验的数值"
+              : ""
   };
 }
 

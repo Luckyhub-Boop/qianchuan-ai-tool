@@ -1,0 +1,22 @@
+{
+  "id": "2026-11-16_7708623258317114166_161650",
+  "accountId": "fashion",
+  "roomId": "7708623258317114166",
+  "awemeName": "赵镭精讲小数基本功",
+  "date": "2026-11-16",
+  "title": "2026-11-16 16:16 赵镭精讲小数基本功 · 整场录像",
+  "startedAt": "2026-11-16T16:16:50+08:00",
+  "status": "archived_analysis",
+  "sourceLabel": "千川直播大屏签名FLV · 本地临时音频采集",
+  "videoPolicy": "analysis_first_then_delete",
+  "segmentSeconds": 300,
+  "retentionDays": 1,
+  "lastRunStartedAt": "2026-11-16T16:42:09+08:00",
+  "segmentStartNumber": 7,
+  "lastHeartbeatAt": "2026-11-16T16:46:45+08:00",
+  "updatedAt": "2026-11-16T16:48:24+08:00",
+  "endedAt": "2026-11-16T16:48:24+08:00",
+  "videoUrl": "",
+  "segmentCount": 8,
+  "archivedAt": "2026-11-16T17:11:29+08:00"
+}

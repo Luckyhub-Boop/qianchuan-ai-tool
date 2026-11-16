@@ -330,12 +330,26 @@ function acquireAgentLock(options = {}) {
 }
 
 function stopProfileBrowsers(userDataDir) {
-  if (process.platform !== "win32") return;
+  if (process.platform !== "win32") return 0;
+  // 主进程必须连同子进程一起结束，并等到确实退出为止；
+  // 否则配置目录仍被占用，下一次启动会被 puppeteer 判定为“浏览器已在运行”。
+  // 不用 taskkill 的返回码做判据（实测会出现“拒绝访问”但进程其实已退出），
+  // 一律以“复查后还剩几个进程”为准。
   const script = [
+    "$ErrorActionPreference='SilentlyContinue';",
     "$profile=$env:QIANCHUAN_PROFILE_PATH;",
-    "Get-CimInstance Win32_Process -Filter \"Name='msedge.exe' OR Name='chrome.exe'\" -ErrorAction SilentlyContinue |",
-    "Where-Object { $_.CommandLine -and $_.CommandLine.Contains($profile) } |",
-    "ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"
+    "$deadline=(Get-Date).AddSeconds(10);",
+    "function Get-Owners { @(Get-CimInstance Win32_Process -Filter \"Name='msedge.exe' OR Name='chrome.exe'\" |",
+    "  Where-Object { $_.CommandLine -and $_.CommandLine.Contains($profile) }) };",
+    "do {",
+    "  $owners=Get-Owners;",
+    "  $mains=@($owners | Where-Object { $_.CommandLine -notmatch '--type=' });",
+    "  foreach($p in $mains){ try { Stop-Process -Id $p.ProcessId -Force -ErrorAction Stop } catch {} };",
+    "  Start-Sleep -Milliseconds 400;",
+    "  foreach($p in (Get-Owners)){ try { Stop-Process -Id $p.ProcessId -Force -ErrorAction Stop } catch {} };",
+    "  Start-Sleep -Milliseconds 400;",
+    "} while ((Get-Owners).Count -gt 0 -and (Get-Date) -lt $deadline);",
+    "(Get-Owners).Count"
   ].join(" ");
   const result = spawnSync(
     "powershell.exe",
@@ -343,17 +357,25 @@ function stopProfileBrowsers(userDataDir) {
     {
       env: { ...process.env, QIANCHUAN_PROFILE_PATH: userDataDir },
       windowsHide: true,
-      timeout: 12000
+      timeout: 20000
     }
   );
-  if (result.error) log(`清理占用 chrome-profile 的浏览器失败: ${result.error.message}`);
+  if (result.error) {
+    log(`清理占用 chrome-profile 的浏览器失败: ${result.error.message}`);
+    return -1;
+  }
+  const remaining = Number(String(result.stdout || "0").trim());
+  if (Number.isFinite(remaining) && remaining > 0) {
+    log(`仍有 ${remaining} 个浏览器进程占用 ${userDataDir}`);
+    return remaining;
+  }
+  return 0;
 }
 
-function cleanupBrowserProfileState(userDataDir, options = {}) {
-  const terminateOrphans = options.terminateOrphans === true;
-  if (terminateOrphans) stopProfileBrowsers(userDataDir);
+function removeProfileLockFiles(userDataDir) {
   const directories = [userDataDir, path.join(userDataDir, "Default")];
   const removed = [];
+  const failed = [];
   for (const directory of directories) {
     if (!fs.existsSync(directory)) continue;
     for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
@@ -368,12 +390,20 @@ function cleanupBrowserProfileState(userDataDir, options = {}) {
         fs.rmSync(target, { force: true, recursive: entry.isDirectory() });
         removed.push(target);
       } catch (error) {
+        failed.push(target);
         log(`清理浏览器残留锁失败 ${target}: ${error.message}`);
       }
     }
   }
   if (removed.length) log(`已清理浏览器残留锁 ${removed.length} 个`);
-  return removed;
+  return { removed, failed };
+}
+
+function cleanupBrowserProfileState(userDataDir, options = {}) {
+  const terminateOrphans = options.terminateOrphans === true;
+  const remainingBrowsers = terminateOrphans ? stopProfileBrowsers(userDataDir) : 0;
+  const locks = removeProfileLockFiles(userDataDir);
+  return { remainingBrowsers, failed: locks.failed };
 }
 
 function ensureDataDir() {
@@ -1088,13 +1118,31 @@ async function launchBrowser(puppeteer, config, headless) {
   const userDataDir = resolveUserDataDir(config.userDataDir || "data/chrome-profile");
   activeProfileDir = userDataDir;
   fs.mkdirSync(userDataDir, { recursive: true });
-  const browser = await puppeteer.launch({
-    executablePath,
-    headless: headless ? "new" : false,
-    userDataDir,
-    defaultViewport: config.viewport,
-    args: BROWSER_LAUNCH_ARGS
-  });
+  const launch = () =>
+    puppeteer.launch({
+      executablePath,
+      headless: headless ? "new" : false,
+      userDataDir,
+      defaultViewport: config.viewport,
+      args: BROWSER_LAUNCH_ARGS
+    });
+  // 上一轮异常退出可能留下占着配置目录的浏览器进程或锁文件。
+  // 不先清干净就会一直报 “browser is already running”，
+  // 于是每次拉起都崩溃、看门狗再拉起，形成崩溃重启循环。
+  stopProfileBrowsers(userDataDir);
+  removeProfileLockFiles(userDataDir);
+  let browser;
+  try {
+    browser = await launch();
+  } catch (error) {
+    const message = String(error?.message || error);
+    if (!/already running|userDataDir|SingletonLock/i.test(message)) throw error;
+    log(`浏览器配置目录被占用，清理后再试一次：${userDataDir}`);
+    stopProfileBrowsers(userDataDir);
+    removeProfileLockFiles(userDataDir);
+    await new Promise(resolve => setTimeout(resolve, 800));
+    browser = await launch();
+  }
   activeBrowser = browser;
   return { browser, executablePath, userDataDir };
 }
@@ -1150,7 +1198,12 @@ function loginRequired(snapshot) {
   const url = String(snapshot.url || "").toLowerCase();
   const text = String(snapshot.bodyText || "");
   return /(^|\/)(login|check_login)|passport/.test(url) ||
-    /扫码登录|登录千川|请登录|立即登录/.test(text);
+    /扫码登录|登录千川|请登录|立即登录|登录状态已过期|登录已过期|登录已失效|登录失效|账号未登录|身份已过期/.test(text);
+}
+
+function permissionDenied(snapshot) {
+  const text = String(snapshot.bodyText || "");
+  return /当前账号类型不支持|账号无权限|权限不足|没有访问权限|无法访问该页面|无权限查看/.test(text);
 }
 
 async function clickEbPDetailTab(page, suffix, name) {
@@ -1241,6 +1294,10 @@ function normalizeRoomDiscoveryPayload(payload) {
     roomId,
     awemeId: String(payload.awemeId || room.aweme_id || room.awemeId || ""),
     awemeName: String(payload.awemeName || room.aweme_name || room.awemeName || ""),
+    startTime: String(room.start_time || room.startTime || ""),
+    endTime: String(room.end_time || room.endTime || ""),
+    roomTitle: String(room.room_title || room.roomTitle || ""),
+    roomStatus: String(room.room_status || room.roomStatus || ""),
     anchorId: String(room.anchor_id || room.anchorId || ""),
     advertiserId: String(payload.advertiserId || ""),
     officialLive: payload.officialLive && typeof payload.officialLive === "object"
@@ -1395,6 +1452,7 @@ async function scrapeEbPDetail(page, config) {
   const roomId = roomIdFromUrl(aggregate.url);
   let status = "ok";
   if (loginRequired(aggregate)) status = "login_required";
+  else if (permissionDenied(aggregate)) status = "permission_denied";
   else if (extracted.missing.length === METRIC_KEYS.length) status = "no_metrics";
   else if (extracted.missing.length) status = "partial";
   return {
@@ -1425,9 +1483,11 @@ async function scrapeEbPDetail(page, config) {
     tabs: tabs.map(tab => tab.name),
     error: status === "login_required"
       ? "登录已过期，正在使用持久化登录态自动恢复；持续失败再运行 login-live-screen.bat"
-      : status === "no_metrics"
-        ? "EBP 直播详情已打开，但未识别到大屏指标"
-        : ""
+      : status === "permission_denied"
+        ? "当前账号类型或权限不支持访问直播大屏，需要更换有权限的账号"
+        : status === "no_metrics"
+          ? "EBP 直播详情已打开，但未识别到大屏指标"
+          : ""
   };
 }
 
@@ -1449,6 +1509,7 @@ async function scrape(page, config) {
   const roomId = roomIdFromUrl(snapshot.url);
   let status = "ok";
   if (loginRequired(snapshot)) status = "login_required";
+  else if (permissionDenied(snapshot)) status = "permission_denied";
   else if (extracted.missing.length === METRIC_KEYS.length) status = "no_metrics";
   else if (extracted.missing.length) status = "partial";
   return {
@@ -1478,9 +1539,11 @@ async function scrape(page, config) {
     flows: flows.items,
     error: status === "login_required"
       ? "登录已过期，正在使用持久化登录态自动恢复；持续失败再运行 login-live-screen.bat"
-      : status === "no_metrics"
-        ? "页面已打开，但未识别到大屏指标，请检查 data/live-screen.json 的 labels 或 selector"
-        : ""
+      : status === "permission_denied"
+        ? "当前账号类型或权限不支持访问直播大屏，需要更换有权限的账号"
+        : status === "no_metrics"
+          ? "页面已打开，但未识别到大屏指标，请检查 data/live-screen.json 的 labels 或 selector"
+          : ""
   };
 }
 
@@ -2006,7 +2069,11 @@ async function runAgent(config) {
         ...(result.room || {}),
         id: currentRoomId || result.room?.id || "",
         awemeId: discovery.awemeId || result.room?.awemeId || "",
-        awemeName: discovery.awemeName || result.room?.awemeName || ""
+        awemeName: discovery.awemeName || result.room?.awemeName || "",
+        startTime: discovery.startTime || result.room?.startTime || "",
+        endTime: discovery.endTime || result.room?.endTime || "",
+        roomTitle: discovery.roomTitle || result.room?.roomTitle || "",
+        roomStatus: discovery.roomStatus || result.room?.roomStatus || ""
       };
       result.detectionStatus = discovery.status;
       result.officialLive = discovery.officialLive || null;
@@ -2269,7 +2336,9 @@ module.exports = {
   pidIsRunning,
   readAgentLock,
   releaseAgentLock,
+  removeProfileLockFiles,
   replaceRoomIdInUrl,
+  stopProfileBrowsers,
   roomIdFromUrl,
   safePageUrl,
   buildInactiveScreenState,

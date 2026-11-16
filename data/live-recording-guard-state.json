@@ -1,0 +1,42 @@
+{
+  "ok": true,
+  "status": "active",
+  "updatedAt": "2026-11-16T17:41:35+08:00",
+  "pid": 18704,
+  "lastActions": [],
+  "activeMethod": "primary",
+  "live": true,
+  "captured": true,
+  "roomId": "7708623258317114166",
+  "primary": {
+    "running": true,
+    "status": "recording",
+    "updatedAge": 3.0,
+    "lastSegmentAge": 3.0,
+    "error": false,
+    "stale": false,
+    "stalled": false,
+    "healthy": true,
+    "detail": ""
+  },
+  "backup": {
+    "running": false,
+    "status": "unknown",
+    "updatedAge": null,
+    "lastSegmentAge": null,
+    "error": false,
+    "stale": true,
+    "stalled": false,
+    "healthy": false,
+    "detail": ""
+  },
+  "recordingsDirectory": "D:\\DAI投放产品录屏备份",
+  "recordingsDirectoryWritable": true,
+  "detections": {
+    "processAlive": true,
+    "persistentError": true,
+    "staleHeartbeat": true,
+    "segmentStall": true,
+    "directoryWritable": true
+  }
+}

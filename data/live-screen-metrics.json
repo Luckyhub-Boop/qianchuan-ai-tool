@@ -1,29 +1,763 @@
 {
-  "status": "error",
-  "live": false,
-  "syncedAt": "2026-11-14T06:05:41.848Z",
+  "status": "ok",
+  "live": true,
+  "syncedAt": "2026-11-16T09:41:31.405Z",
   "source": "puppeteer-core",
   "sourceLabel": "千川直播大屏 · 无头 Chrome 抓取",
-  "pageUrl": "https://qianchuan.jinritemai.com/board-next?live_room_id=7707794883850930986&aavid=1744479430946824&fromModule=uni_promotion_v2",
+  "pageUrl": "https://qianchuan.jinritemai.com/board-next?live_room_id=7708623258317114166&aavid=1744479430946824&fromModule=uni_promotion_v2",
+  "pageTitle": "直播大屏",
   "room": {
-    "id": "7707794883850930986"
+    "id": "7708623258317114166",
+    "awemeId": "2904261216450640",
+    "awemeName": "赵镭精讲小数基本功",
+    "startTime": "2026-11-16 12:35:43",
+    "endTime": "",
+    "roomTitle": "赵镭精讲小数基本功",
+    "roomStatus": "LIVING"
   },
-  "metrics": {},
-  "missingMetrics": [
-    "spend",
-    "gmv",
-    "orders",
-    "orderCost",
-    "roi",
-    "watchCount",
-    "productClicks",
-    "peakOnline",
-    "gpm",
-    "online"
+  "metrics": {
+    "spend": 6269.49,
+    "gmv": 3528,
+    "orders": 23,
+    "orderCost": 272.59,
+    "roi": 0.56,
+    "watchCount": 1519,
+    "productClicks": 398,
+    "gpm": 1927,
+    "exposure": 38374,
+    "online": 2,
+    "peakOnline": 8
+  },
+  "matches": {
+    "spend": {
+      "evidence": "整体消耗(元) 6,269.49",
+      "confidence": 94
+    },
+    "gmv": {
+      "evidence": "净成交金额(元) 3,528.00",
+      "confidence": 94
+    },
+    "orders": {
+      "evidence": "整体成交订单数 23",
+      "confidence": 94
+    },
+    "orderCost": {
+      "evidence": "整体成交订单成本(元) 272.59",
+      "confidence": 94
+    },
+    "roi": {
+      "evidence": "净成交ROI 0.56",
+      "confidence": 94
+    },
+    "watchCount": {
+      "evidence": "直播间整体观看人数 1,519",
+      "confidence": 94
+    },
+    "productClicks": {
+      "evidence": "商品点击次数 398",
+      "confidence": 94
+    },
+    "gpm": {
+      "evidence": "GPM(元) 1,927.00",
+      "confidence": 94
+    },
+    "exposure": {
+      "evidence": "直播间整体曝光次数 38,374",
+      "confidence": 94
+    },
+    "online": {
+      "evidence": "实时在线人数 2",
+      "confidence": 94
+    },
+    "peakOnline": {
+      "evidence": "实时在线人数最高观测 8",
+      "confidence": 60,
+      "source": "observed_since_capture"
+    }
+  },
+  "missingMetrics": [],
+  "tradeMetrics": {
+    "spend": 6269.49,
+    "gmv": 3528,
+    "orders": 23,
+    "orderCost": 272.59,
+    "roi": 0.56
+  },
+  "missingTradeMetrics": [],
+  "behaviorMetrics": {
+    "watchCount": 1519,
+    "productClicks": 398,
+    "peakOnline": 8,
+    "gpm": 1927,
+    "online": 2
+  },
+  "missingBehaviorMetrics": [],
+  "flows": [
+    {
+      "key": "video_to_live",
+      "label": "短视频及图文引流",
+      "trafficCount": 377,
+      "gmv": 2299.6,
+      "trafficShare": 19.0789,
+      "gmvShare": 60.3316,
+      "gpm": 6099.73,
+      "unit": "percent",
+      "value": 19.0789
+    },
+    {
+      "key": "ohter",
+      "label": "其他",
+      "trafficCount": 974,
+      "gmv": 840,
+      "trafficShare": 49.2915,
+      "gmvShare": 22.038,
+      "gpm": 862.42,
+      "unit": "percent",
+      "value": 49.2915
+    },
+    {
+      "key": "live_recommend",
+      "label": "直播推荐",
+      "trafficCount": 342,
+      "gmv": 336,
+      "trafficShare": 17.3077,
+      "gmvShare": 8.8152,
+      "gpm": 982.46,
+      "unit": "percent",
+      "value": 17.3077
+    },
+    {
+      "key": "touxi_saas",
+      "label": "头条西瓜",
+      "trafficCount": 138,
+      "gmv": 168,
+      "trafficShare": 6.9838,
+      "gmvShare": 4.4076,
+      "gpm": 1217.39,
+      "unit": "percent",
+      "value": 6.9838
+    },
+    {
+      "key": "general_search",
+      "label": "搜索",
+      "trafficCount": 75,
+      "gmv": 168,
+      "trafficShare": 3.7955,
+      "gmvShare": 4.4076,
+      "gpm": 2240,
+      "unit": "percent",
+      "value": 3.7955
+    },
+    {
+      "key": "homepage_follow",
+      "label": "关注",
+      "trafficCount": 35,
+      "gmv": 0,
+      "trafficShare": 1.7713,
+      "gmvShare": 0,
+      "gpm": 0,
+      "unit": "percent",
+      "value": 1.7713
+    },
+    {
+      "key": "douyin_shopping_center",
+      "label": "抖音商城推荐",
+      "trafficCount": 31,
+      "gmv": 0,
+      "trafficShare": 1.5688,
+      "gmvShare": 0,
+      "gpm": 0,
+      "unit": "percent",
+      "value": 1.5688
+    },
+    {
+      "key": "other_homepage",
+      "label": "个人主页&店铺&橱窗",
+      "trafficCount": 3,
+      "gmv": 0,
+      "trafficShare": 0.1518,
+      "gmvShare": 0,
+      "gpm": 0,
+      "unit": "percent",
+      "value": 0.1518
+    },
+    {
+      "key": "activity",
+      "label": "活动页",
+      "trafficCount": 1,
+      "gmv": 0,
+      "trafficShare": 0.0506,
+      "gmvShare": 0,
+      "gpm": 0,
+      "unit": "percent",
+      "value": 0.0506
+    }
   ],
-  "error": "Attempted to use detached Frame '33A9C29A6D62CC7BBE36EC7DBBCE42D9'.",
-  "heartbeatAt": "2026-11-14T06:05:42.110Z",
-  "pid": 9240,
+  "error": "",
+  "flowBreakdown": {
+    "source": "qianchuan_board_network",
+    "sourceLabel": "千川/巨量百应直播大屏 · 渠道明细",
+    "dimension": "combined_first_compass_entrance_code",
+    "totalTraffic": 1976,
+    "totalGmv": 3811.6,
+    "items": [
+      {
+        "key": "video_to_live",
+        "label": "短视频及图文引流",
+        "trafficCount": 377,
+        "gmv": 2299.6,
+        "trafficShare": 19.0789,
+        "gmvShare": 60.3316,
+        "gpm": 6099.73,
+        "unit": "percent"
+      },
+      {
+        "key": "ohter",
+        "label": "其他",
+        "trafficCount": 974,
+        "gmv": 840,
+        "trafficShare": 49.2915,
+        "gmvShare": 22.038,
+        "gpm": 862.42,
+        "unit": "percent"
+      },
+      {
+        "key": "live_recommend",
+        "label": "直播推荐",
+        "trafficCount": 342,
+        "gmv": 336,
+        "trafficShare": 17.3077,
+        "gmvShare": 8.8152,
+        "gpm": 982.46,
+        "unit": "percent"
+      },
+      {
+        "key": "touxi_saas",
+        "label": "头条西瓜",
+        "trafficCount": 138,
+        "gmv": 168,
+        "trafficShare": 6.9838,
+        "gmvShare": 4.4076,
+        "gpm": 1217.39,
+        "unit": "percent"
+      },
+      {
+        "key": "general_search",
+        "label": "搜索",
+        "trafficCount": 75,
+        "gmv": 168,
+        "trafficShare": 3.7955,
+        "gmvShare": 4.4076,
+        "gpm": 2240,
+        "unit": "percent"
+      },
+      {
+        "key": "homepage_follow",
+        "label": "关注",
+        "trafficCount": 35,
+        "gmv": 0,
+        "trafficShare": 1.7713,
+        "gmvShare": 0,
+        "gpm": 0,
+        "unit": "percent"
+      },
+      {
+        "key": "douyin_shopping_center",
+        "label": "抖音商城推荐",
+        "trafficCount": 31,
+        "gmv": 0,
+        "trafficShare": 1.5688,
+        "gmvShare": 0,
+        "gpm": 0,
+        "unit": "percent"
+      },
+      {
+        "key": "other_homepage",
+        "label": "个人主页&店铺&橱窗",
+        "trafficCount": 3,
+        "gmv": 0,
+        "trafficShare": 0.1518,
+        "gmvShare": 0,
+        "gpm": 0,
+        "unit": "percent"
+      },
+      {
+        "key": "activity",
+        "label": "活动页",
+        "trafficCount": 1,
+        "gmv": 0,
+        "trafficShare": 0.0506,
+        "gmvShare": 0,
+        "gpm": 0,
+        "unit": "percent"
+      }
+    ],
+    "capturedAt": "2026-11-16T09:41:08.800Z"
+  },
+  "funnel": {
+    "source": "qianchuan_board_funnel_module",
+    "sourceLabel": "千川直播大屏 · 直播间核心漏斗",
+    "show": 38374,
+    "watch": 1978,
+    "click": 398,
+    "orders": 23,
+    "rates": {
+      "showToWatch": 5.15,
+      "watchToClick": 20.12,
+      "clickToPay": 5.78,
+      "watchToPay": 1.16
+    },
+    "capturedAt": "2026-11-16T09:41:17.400Z"
+  },
+  "trend": {
+    "source": "qianchuan_board_total_trend",
+    "sourceLabel": "千川直播大屏 · 趋势曲线（5 分钟）",
+    "bucketMinutes": 5,
+    "points": [
+      {
+        "t": 1794803700000,
+        "time": "2026-11-16 12:35:00",
+        "spend": 49.99,
+        "gmv": 0
+      },
+      {
+        "t": 1794804000000,
+        "time": "2026-11-16 12:40:00",
+        "spend": 349.9,
+        "gmv": 0
+      },
+      {
+        "t": 1794804300000,
+        "time": "2026-11-16 12:45:00",
+        "spend": 265.55,
+        "gmv": 336
+      },
+      {
+        "t": 1794804600000,
+        "time": "2026-11-16 12:50:00",
+        "spend": 157.39,
+        "gmv": 0
+      },
+      {
+        "t": 1794804900000,
+        "time": "2026-11-16 12:55:00",
+        "spend": 138.34,
+        "gmv": 0
+      },
+      {
+        "t": 1794805200000,
+        "time": "2026-11-16 13:00:00",
+        "spend": 114.06,
+        "gmv": 168
+      },
+      {
+        "t": 1794805500000,
+        "time": "2026-11-16 13:05:00",
+        "spend": 82,
+        "gmv": 0
+      },
+      {
+        "t": 1794805800000,
+        "time": "2026-11-16 13:10:00",
+        "spend": 89.3,
+        "gmv": 168
+      },
+      {
+        "t": 1794806100000,
+        "time": "2026-11-16 13:15:00",
+        "spend": 76.77,
+        "gmv": 0
+      },
+      {
+        "t": 1794806400000,
+        "time": "2026-11-16 13:20:00",
+        "spend": 71.48,
+        "gmv": 168
+      },
+      {
+        "t": 1794806700000,
+        "time": "2026-11-16 13:25:00",
+        "spend": 64.42,
+        "gmv": 0
+      },
+      {
+        "t": 1794807000000,
+        "time": "2026-11-16 13:30:00",
+        "spend": 69.13,
+        "gmv": 0
+      },
+      {
+        "t": 1794807300000,
+        "time": "2026-11-16 13:35:00",
+        "spend": 120.55,
+        "gmv": 0
+      },
+      {
+        "t": 1794807600000,
+        "time": "2026-11-16 13:40:00",
+        "spend": 66.33,
+        "gmv": 0
+      },
+      {
+        "t": 1794807900000,
+        "time": "2026-11-16 13:45:00",
+        "spend": 70.82,
+        "gmv": 168
+      },
+      {
+        "t": 1794808200000,
+        "time": "2026-11-16 13:50:00",
+        "spend": 80.14,
+        "gmv": 168
+      },
+      {
+        "t": 1794808500000,
+        "time": "2026-11-16 13:55:00",
+        "spend": 108.56,
+        "gmv": 0
+      },
+      {
+        "t": 1794808800000,
+        "time": "2026-11-16 14:00:00",
+        "spend": 112.06,
+        "gmv": 0
+      },
+      {
+        "t": 1794809100000,
+        "time": "2026-11-16 14:05:00",
+        "spend": 124.49,
+        "gmv": 168
+      },
+      {
+        "t": 1794809400000,
+        "time": "2026-11-16 14:10:00",
+        "spend": 103.06,
+        "gmv": 0
+      },
+      {
+        "t": 1794809700000,
+        "time": "2026-11-16 14:15:00",
+        "spend": 91.46,
+        "gmv": 0
+      },
+      {
+        "t": 1794810000000,
+        "time": "2026-11-16 14:20:00",
+        "spend": 70.96,
+        "gmv": 0
+      },
+      {
+        "t": 1794810300000,
+        "time": "2026-11-16 14:25:00",
+        "spend": 54.07,
+        "gmv": 0
+      },
+      {
+        "t": 1794810600000,
+        "time": "2026-11-16 14:30:00",
+        "spend": 64.59,
+        "gmv": 0
+      },
+      {
+        "t": 1794810900000,
+        "time": "2026-11-16 14:35:00",
+        "spend": 53.28,
+        "gmv": 336
+      },
+      {
+        "t": 1794811200000,
+        "time": "2026-11-16 14:40:00",
+        "spend": 57.39,
+        "gmv": 0
+      },
+      {
+        "t": 1794811500000,
+        "time": "2026-11-16 14:45:00",
+        "spend": 100.04,
+        "gmv": 0
+      },
+      {
+        "t": 1794811800000,
+        "time": "2026-11-16 14:50:00",
+        "spend": 167.66,
+        "gmv": 0
+      },
+      {
+        "t": 1794812100000,
+        "time": "2026-11-16 14:55:00",
+        "spend": 109.88,
+        "gmv": 0
+      },
+      {
+        "t": 1794812400000,
+        "time": "2026-11-16 15:00:00",
+        "spend": 138.71,
+        "gmv": 168
+      },
+      {
+        "t": 1794812700000,
+        "time": "2026-11-16 15:05:00",
+        "spend": 86.48,
+        "gmv": 0
+      },
+      {
+        "t": 1794813000000,
+        "time": "2026-11-16 15:10:00",
+        "spend": 71.28,
+        "gmv": 336
+      },
+      {
+        "t": 1794813300000,
+        "time": "2026-11-16 15:15:00",
+        "spend": 80.95,
+        "gmv": 0
+      },
+      {
+        "t": 1794813600000,
+        "time": "2026-11-16 15:20:00",
+        "spend": 73.85,
+        "gmv": 0
+      },
+      {
+        "t": 1794813900000,
+        "time": "2026-11-16 15:25:00",
+        "spend": 102.67,
+        "gmv": 168
+      },
+      {
+        "t": 1794814200000,
+        "time": "2026-11-16 15:30:00",
+        "spend": 65.13,
+        "gmv": 168
+      },
+      {
+        "t": 1794814500000,
+        "time": "2026-11-16 15:35:00",
+        "spend": 82.49,
+        "gmv": 0
+      },
+      {
+        "t": 1794814800000,
+        "time": "2026-11-16 15:40:00",
+        "spend": 132.41,
+        "gmv": 0
+      },
+      {
+        "t": 1794815100000,
+        "time": "2026-11-16 15:45:00",
+        "spend": 81.72,
+        "gmv": 336
+      },
+      {
+        "t": 1794815400000,
+        "time": "2026-11-16 15:50:00",
+        "spend": 83.87,
+        "gmv": 0
+      },
+      {
+        "t": 1794815700000,
+        "time": "2026-11-16 15:55:00",
+        "spend": 179.96,
+        "gmv": 0
+      },
+      {
+        "t": 1794816000000,
+        "time": "2026-11-16 16:00:00",
+        "spend": 148.35,
+        "gmv": 0
+      },
+      {
+        "t": 1794816300000,
+        "time": "2026-11-16 16:05:00",
+        "spend": 88.92,
+        "gmv": 0
+      },
+      {
+        "t": 1794816600000,
+        "time": "2026-11-16 16:10:00",
+        "spend": 124.19,
+        "gmv": 168
+      },
+      {
+        "t": 1794816900000,
+        "time": "2026-11-16 16:15:00",
+        "spend": 113.89,
+        "gmv": 0
+      },
+      {
+        "t": 1794817200000,
+        "time": "2026-11-16 16:20:00",
+        "spend": 120.6,
+        "gmv": 168
+      },
+      {
+        "t": 1794817500000,
+        "time": "2026-11-16 16:25:00",
+        "spend": 102.84,
+        "gmv": 0
+      },
+      {
+        "t": 1794817800000,
+        "time": "2026-11-16 16:30:00",
+        "spend": 88.99,
+        "gmv": 0
+      },
+      {
+        "t": 1794818100000,
+        "time": "2026-11-16 16:35:00",
+        "spend": 97.13,
+        "gmv": 0
+      },
+      {
+        "t": 1794818400000,
+        "time": "2026-11-16 16:40:00",
+        "spend": 100.31,
+        "gmv": 168
+      },
+      {
+        "t": 1794818700000,
+        "time": "2026-11-16 16:45:00",
+        "spend": 87.87,
+        "gmv": 0
+      },
+      {
+        "t": 1794819000000,
+        "time": "2026-11-16 16:50:00",
+        "spend": 60.15,
+        "gmv": 0
+      },
+      {
+        "t": 1794819300000,
+        "time": "2026-11-16 16:55:00",
+        "spend": 96.36,
+        "gmv": 0
+      },
+      {
+        "t": 1794819600000,
+        "time": "2026-11-16 17:00:00",
+        "spend": 256.13,
+        "gmv": 0
+      },
+      {
+        "t": 1794819900000,
+        "time": "2026-11-16 17:05:00",
+        "spend": 102.99,
+        "gmv": 0
+      },
+      {
+        "t": 1794820200000,
+        "time": "2026-11-16 17:10:00",
+        "spend": 101.43,
+        "gmv": 0
+      },
+      {
+        "t": 1794820500000,
+        "time": "2026-11-16 17:15:00",
+        "spend": 73.86,
+        "gmv": 0
+      },
+      {
+        "t": 1794820800000,
+        "time": "2026-11-16 17:20:00",
+        "spend": 72.27,
+        "gmv": 0
+      },
+      {
+        "t": 1794821100000,
+        "time": "2026-11-16 17:25:00",
+        "spend": 66.48,
+        "gmv": 168
+      },
+      {
+        "t": 1794821400000,
+        "time": "2026-11-16 17:30:00",
+        "spend": 43.7,
+        "gmv": 0
+      },
+      {
+        "t": 1794821700000,
+        "time": "2026-11-16 17:35:00",
+        "spend": 43.32,
+        "gmv": 0
+      },
+      {
+        "t": 1794822000000,
+        "time": "2026-11-16 17:40:00",
+        "spend": 0.61,
+        "gmv": 0
+      }
+    ],
+    "capturedAt": "2026-11-16T09:41:13.570Z"
+  },
+  "detectionStatus": "live",
+  "officialLive": {
+    "status": "zero_pending",
+    "metrics": {},
+    "fieldSources": {},
+    "missingMetrics": [
+      "spend",
+      "gmv",
+      "orders",
+      "roi",
+      "watchCount",
+      "watchOneMinute",
+      "productClicks",
+      "comments",
+      "follows",
+      "deliveryPlans",
+      "online",
+      "peakOnline",
+      "gpm",
+      "orderCost",
+      "grossGmv",
+      "grossOrders",
+      "grossRoi"
+    ],
+    "zeroValueWarning": true,
+    "source": "qianchuan_open_api_today_live",
+    "sourceLabel": "千川今日直播间 Open API · 直接字段",
+    "gmvScope": "net",
+    "note": "官方接口当前返回累计值为 0，不能据此覆盖大屏实时值"
+  },
+  "checkedAccounts": [
+    {
+      "awemeId": "2904261216450640",
+      "name": "赵镭精讲小数基本功",
+      "status": "live",
+      "roomId": "7708623258317114166",
+      "error": ""
+    },
+    {
+      "awemeId": "7534976849169040442",
+      "name": "赵镭通解小数基本功",
+      "status": "not_live",
+      "roomId": "",
+      "error": ""
+    },
+    {
+      "awemeId": "7665361622538945585",
+      "name": "赵镭拆解小数基本功",
+      "status": "not_live",
+      "roomId": "",
+      "error": ""
+    },
+    {
+      "awemeId": "7637818476896437305",
+      "name": "赵镭图解小数基本功",
+      "status": "not_live",
+      "roomId": "",
+      "error": ""
+    }
+  ],
+  "peakOnlineSource": "observed_since_capture",
+  "peakObservedAt": "2026-11-16T09:29:42.650Z",
+  "browser": {
+    "executablePath": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+    "profile": "D:\\AI投放产品\\chrome-profile",
+    "headless": true
+  },
+  "heartbeatAt": "2026-11-16T09:41:37.797Z",
+  "pid": 33308,
   "accountId": "fashion",
   "intervalSeconds": 10,
   "heartbeatOnly": true

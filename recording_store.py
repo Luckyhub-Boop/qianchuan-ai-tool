@@ -15,9 +15,49 @@ import speaker_profile
 
 
 ROOT = Path(__file__).resolve().parent
-RECORDINGS_DIR = Path(
+DEFAULT_RECORDINGS_DIR = Path(
     os.getenv("QIANCHUAN_RECORDINGS_DIR", r"D:\DAI投放产品录屏备份")
 ).expanduser()
+
+
+def dir_is_writable(directory: Path) -> bool:
+    """Probe-create a tiny file to verify the directory is truly writable."""
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+        probe = directory / f".write-probe-{os.getpid()}"
+        probe.write_text("ok", encoding="utf-8")
+        probe.unlink()
+        return True
+    except OSError:
+        return False
+
+
+def resolve_recordings_dir() -> Path:
+    """Pick the first writable recordings directory.
+
+    The primary location stays ``D:\\DAI投放产品录屏备份`` (outside the
+    Nutstore-synced project). If the running account loses write access there,
+    we transparently fall back to other local, non-synced directories so the
+    recording pipeline never silently stops. Every process imports this same
+    function, so the recorder, ASR, finalizer and server agree on one root.
+    """
+    candidates: list[Path] = [DEFAULT_RECORDINGS_DIR]
+    for fallback in (
+        Path(r"D:\QianchuanRecordings"),
+        Path(r"C:\QianchuanRecordings"),
+        Path(os.getenv("TEMP", r"C:\Windows\Temp")) / "QianchuanRecordings",
+    ):
+        if fallback != DEFAULT_RECORDINGS_DIR and fallback not in candidates:
+            candidates.append(fallback)
+    for candidate in candidates:
+        if dir_is_writable(candidate):
+            return candidate
+    # Last resort: report the primary path so callers surface a clear error
+    # instead of silently recording into the wrong place.
+    return DEFAULT_RECORDINGS_DIR
+
+
+RECORDINGS_DIR = resolve_recordings_dir()
 REVIEW_ARCHIVE_DIR = ROOT / "data" / "review-archive"
 REVIEW_ARCHIVE_SESSIONS_DIR = REVIEW_ARCHIVE_DIR / "sessions"
 RETENTION_DAYS = 1
@@ -280,6 +320,30 @@ def _number(value: Any) -> float | None:
         return None
 
 
+def _efficiency_metrics(
+    spend: float | None,
+    gmv: float | None,
+    orders: float | None,
+    exposure: float | None,
+) -> dict[str, float | None]:
+    """千川直播大屏效率指标：GPM/CPM/CPA，分母为 0 或缺失时留空。"""
+
+    def ratio(
+        numerator: float | None,
+        denominator: float | None,
+        scale: float = 1.0,
+    ) -> float | None:
+        if numerator is None or denominator is None or denominator == 0:
+            return None
+        return round(numerator / denominator * scale, 4)
+
+    return {
+        "gpm": ratio(gmv, exposure, 1000),
+        "cpm": ratio(spend, exposure, 1000),
+        "cpa": ratio(spend, orders),
+    }
+
+
 def _floor_seconds(raw_value: Any, fallback: float = 0.0) -> int:
     value = _number(raw_value)
     return max(0, int(round(value if value is not None else fallback)))
@@ -302,6 +366,331 @@ def has_asr_transcript(directory: Path) -> bool:
         isinstance(item, dict) and str(item.get("text") or "").strip()
         for item in segments
     )
+
+
+def _parse_epoch_ms(value: Any) -> int | None:
+    if value is None or value == "":
+        return None
+    try:
+        return int(
+            datetime.fromisoformat(str(value).replace("Z", "+00:00")).timestamp()
+            * 1000
+        )
+    except (TypeError, ValueError):
+        return None
+
+
+def _iso_epoch_ms(epoch_ms: int | None) -> str:
+    if epoch_ms is None:
+        return ""
+    try:
+        return datetime.fromtimestamp(epoch_ms / 1000).astimezone().isoformat(
+            timespec="seconds"
+        )
+    except (OSError, OverflowError, ValueError):
+        return ""
+
+
+def _coverage_duration_seconds(started_at: Any, ended_at: Any) -> int | None:
+    start_ms = _parse_epoch_ms(started_at)
+    end_ms = _parse_epoch_ms(ended_at)
+    if start_ms is None or end_ms is None or end_ms < start_ms:
+        return None
+    return max(0, int((end_ms - start_ms) / 1000))
+
+
+def _history_room_meta(
+    history: dict[str, Any],
+    room_id: str,
+    day: str,
+) -> dict[str, Any]:
+    rooms = history.get("rooms") if isinstance(history, dict) else {}
+    rooms = rooms if isinstance(rooms, dict) else {}
+    key = f"{day}::{room_id}"
+    meta = rooms.get(key)
+    if isinstance(meta, dict):
+        return copy.deepcopy(meta)
+    for candidate in rooms.values():
+        if not isinstance(candidate, dict):
+            continue
+        if str(candidate.get("roomId") or "") != room_id:
+            continue
+        if str(candidate.get("day") or candidate.get("date") or "") != day:
+            continue
+        return copy.deepcopy(candidate)
+    return {}
+
+
+def _room_samples(
+    history: dict[str, Any],
+    room_id: str,
+) -> list[dict[str, Any]]:
+    days = history.get("days") if isinstance(history, dict) else {}
+    days = days if isinstance(days, dict) else {}
+    samples: list[dict[str, Any]] = []
+    for rooms in days.values():
+        if not isinstance(rooms, dict):
+            continue
+        room_samples = rooms.get(room_id)
+        if not isinstance(room_samples, list):
+            continue
+        samples.extend(item for item in room_samples if isinstance(item, dict))
+    return samples
+
+
+def _cumulative_fields(sample: dict[str, Any]) -> dict[str, Any]:
+    fields = (
+        "spend",
+        "gmv",
+        "orders",
+        "roi",
+        "watch",
+        "exposure",
+        "watchOneMinute",
+        "productClicks",
+        "peakOnline",
+        "gpm",
+        "online",
+        "comments",
+        "follows",
+        "entryRate",
+    )
+    return {key: sample.get(key) for key in fields if sample.get(key) is not None}
+
+
+def _funnel_from_sample(sample: dict[str, Any] | None) -> dict[str, Any]:
+    """汇总直播大屏四维四率：曝光、观看、商品点击、成交订单及四个转化率。
+
+    优先使用直播大屏漏斗模块（funnel.show/watch/click/orders）的直抓值，
+    缺失时回退到 5 分钟采样点的 exposure/watch/productClicks/orders 字段。
+    四率严格按用户口径用四维相除计算；仅对直播大屏本身提供同口径的
+    showToWatch / watchToClick / clickToPay 做百分比回退。
+    """
+    if not isinstance(sample, dict):
+        sample = {}
+    board = sample.get("funnel")
+    board = board if isinstance(board, dict) else {}
+
+    def pick(*keys: str) -> float | None:
+        for key in keys:
+            value = _number(sample.get(key))
+            if value is not None:
+                return value
+        return None
+
+    exposure = pick("exposure")
+    if exposure is None:
+        exposure = _number(board.get("show"))
+    watch = pick("watch", "watchCount")
+    if watch is None:
+        watch = _number(board.get("watch"))
+    product_clicks = pick("productClicks")
+    if product_clicks is None:
+        product_clicks = _number(board.get("click"))
+    orders = pick("orders")
+    if orders is None:
+        orders = _number(board.get("orders"))
+
+    def rate(numerator: float | None, denominator: float | None) -> float | None:
+        if numerator is None or denominator is None:
+            return None
+        if denominator == 0:
+            return None
+        return round(numerator / denominator * 100, 4)
+
+    board_rates = board.get("rates")
+    board_rates = board_rates if isinstance(board_rates, dict) else {}
+
+    def rate_with_fallback(
+        computed: float | None,
+        *board_keys: str,
+    ) -> float | None:
+        if computed is not None:
+            return computed
+        for key in board_keys:
+            value = _number(board_rates.get(key))
+            if value is not None:
+                return round(value, 4)
+        return None
+
+    watch_rate = rate_with_fallback(rate(watch, exposure), "showToWatch")
+    product_click_rate = rate_with_fallback(
+        rate(product_clicks, watch), "watchToClick"
+    )
+    click_to_pay_rate = rate_with_fallback(
+        rate(orders, product_clicks), "clickToPay"
+    )
+    exposure_conversion_rate = rate(orders, exposure)
+
+    return {
+        "source": str(board.get("source") or "qianchuan_live_screen"),
+        "sourceLabel": "千川直播大屏 · 直播间整体漏斗",
+        "exposure": exposure,
+        "watch": watch,
+        "productClicks": product_clicks,
+        "orders": orders,
+        "rates": {
+            "watchRate": watch_rate,
+            "productClickRate": product_click_rate,
+            "clickToPayRate": click_to_pay_rate,
+            "exposureConversionRate": exposure_conversion_rate,
+        },
+        "capturedAt": str(
+            board.get("capturedAt")
+            or sample.get("sourceAt")
+            or sample.get("syncedAt")
+            or ""
+        ),
+    }
+
+
+def _screen_coverage(samples: list[dict[str, Any]]) -> dict[str, Any]:
+    valid = [
+        item
+        for item in samples
+        if isinstance(item, dict) and _number(item.get("t")) is not None
+    ]
+    if not valid:
+        return {
+            "startedAt": "",
+            "endedAt": "",
+            "durationSeconds": 0,
+            "sampleCount": 0,
+            "lastCumulative": {},
+        }
+    valid.sort(key=lambda item: _number(item.get("t")) or 0)
+    first_ms = int(_number(valid[0].get("t")) or 0)
+    last_ms = int(_number(valid[-1].get("t")) or 0)
+    return {
+        "startedAt": _iso_epoch_ms(first_ms),
+        "endedAt": _iso_epoch_ms(last_ms),
+        "durationSeconds": max(0, int((last_ms - first_ms) / 1000)),
+        "sampleCount": len(valid),
+        "lastCumulative": _cumulative_fields(valid[-1]),
+    }
+
+
+def _recording_coverage(
+    directory: Path,
+    manifest: dict[str, Any],
+) -> dict[str, Any]:
+    started_at = str(manifest.get("startedAt") or "")
+    ended_at = str(manifest.get("endedAt") or "")
+    span_seconds = _coverage_duration_seconds(started_at, ended_at)
+    segment_files = [
+        item
+        for item in sorted((directory / "segments").glob("part_*"))
+        if item.is_file()
+        and item.stat().st_size > 0
+        and item.suffix.lower() in {".ts", ".wav", ".flac"}
+    ]
+    active_seconds = 0.0
+    for item in segment_files:
+        if item.suffix.lower() == ".wav":
+            try:
+                data_bytes = max(0, item.stat().st_size - 44)
+                active_seconds += data_bytes / 32000.0
+            except OSError:
+                continue
+        elif item.suffix.lower() in {".ts", ".flac"}:
+            active_seconds += media_duration(item)
+    duration_seconds = (
+        span_seconds
+        if span_seconds is not None and span_seconds > 0
+        else int(round(active_seconds))
+        if active_seconds > 0
+        else 0
+    )
+    return {
+        "startedAt": started_at,
+        "endedAt": ended_at,
+        "durationSeconds": duration_seconds,
+        "spanSeconds": span_seconds or 0,
+        "activeSeconds": int(round(active_seconds)),
+        "segmentCount": len(segment_files),
+    }
+
+
+def _asr_coverage(directory: Path) -> dict[str, Any]:
+    transcript = _load_asr_transcript(directory)
+    segments = transcript.get("segments") if isinstance(transcript, dict) else []
+    segments = [item for item in segments if isinstance(item, dict)] if isinstance(segments, list) else []
+    start_epochs = [
+        value
+        for item in segments
+        for value in (_parse_epoch_ms(item.get("startedAt")),)
+        if value is not None
+    ]
+    end_epochs = [
+        value
+        for item in segments
+        for value in (_parse_epoch_ms(item.get("endedAt")),)
+        if value is not None
+    ]
+    start_ms = min(start_epochs) if start_epochs else None
+    end_ms = max(end_epochs) if end_epochs else None
+    duration_seconds = (
+        max(0, int((end_ms - start_ms) / 1000))
+        if start_ms is not None and end_ms is not None and end_ms >= start_ms
+        else 0
+    )
+    processed = transcript.get("processedParts") if isinstance(transcript, dict) else []
+    processed = processed if isinstance(processed, list) else []
+    return {
+        "startedAt": _iso_epoch_ms(start_ms),
+        "endedAt": _iso_epoch_ms(end_ms),
+        "durationSeconds": duration_seconds,
+        "phraseCount": len(segments),
+        "processedPartCount": len(processed),
+    }
+
+
+def _coverage_clock_range(coverage: dict[str, Any]) -> str:
+    started_at = str(coverage.get("startedAt") or "")
+    ended_at = str(coverage.get("endedAt") or "")
+    parts = []
+    for value in (started_at, ended_at):
+        try:
+            parts.append(
+                datetime.fromisoformat(value.replace("Z", "+00:00"))
+                .astimezone()
+                .strftime("%H:%M:%S")
+            )
+        except (TypeError, ValueError):
+            parts.append("--:--:--")
+    return f"{parts[0]} - {parts[1]}"
+
+
+def _build_coverage(
+    live_started_at: str,
+    live_ended_at: str,
+    screen: dict[str, Any],
+    recording: dict[str, Any],
+    asr: dict[str, Any],
+) -> dict[str, Any]:
+    live_duration = _coverage_duration_seconds(live_started_at, live_ended_at)
+    return {
+        "live": {
+            "startedAt": live_started_at or "",
+            "endedAt": live_ended_at or "",
+            "durationSeconds": live_duration,
+            "available": live_duration is not None,
+            "note": (
+                "千川今日直播间 Open API 真实开播/下播时间"
+                if live_duration is not None
+                else "未获取真实开播/下播时间，不将采集时长当作直播时长"
+            ),
+        },
+        "screenCapture": screen,
+        "recording": recording,
+        "asr": asr,
+        "liveClockRange": _coverage_clock_range(
+            {"startedAt": live_started_at, "endedAt": live_ended_at}
+        ),
+        "screenClockRange": _coverage_clock_range(screen),
+        "recordingClockRange": _coverage_clock_range(recording),
+        "asrClockRange": _coverage_clock_range(asr),
+    }
 
 
 def _load_speaker_map(directory: Path) -> dict[str, Any]:
@@ -510,6 +899,12 @@ def build_15_minute_buckets(
             values[key] = round(delta, 4)
             has_any = True
         if has_any:
+            efficiency = _efficiency_metrics(
+                values["spend"],
+                values["gmv"],
+                values["orders"],
+                values["exposure"],
+            )
             buckets.append(
                 {
                     "label": f"{cursor:%H:%M}-{next_cursor:%H:%M}",
@@ -521,6 +916,9 @@ def build_15_minute_buckets(
                     "orders": values["orders"],
                     "spend": values["spend"],
                     "gmv": values["gmv"],
+                    "gpm": efficiency["gpm"],
+                    "cpm": efficiency["cpm"],
+                    "cpa": efficiency["cpa"],
                     "source": "qianchuan_live_screen_5m_to_15m",
                 }
             )
@@ -1141,26 +1539,38 @@ def build_review_session(
 ) -> dict[str, Any]:
     room_id = str(manifest.get("roomId") or "")
     day = str(manifest.get("date") or "")
-    days = history.get("days") if isinstance(history, dict) else {}
-    rooms = (days or {}).get(day, {}) if isinstance(days, dict) else {}
-    raw_samples = rooms.get(room_id, []) if isinstance(rooms, dict) else []
-    samples = [item for item in raw_samples if isinstance(item, dict)]
-    start_ms: int | None = None
-    try:
-        start_ms = int(
-            datetime.fromisoformat(
-                str(manifest.get("startedAt") or "").replace("Z", "+00:00")
-            ).timestamp()
-            * 1000
-        )
-    except (TypeError, ValueError):
-        start_ms = None
+    raw_samples = _room_samples(history, room_id)
+    room_meta = _history_room_meta(history, room_id, day)
+    recording = _recording_coverage(directory, manifest)
+    asr = _asr_coverage(directory)
+    screen_from_samples = _screen_coverage(raw_samples)
+    screen_meta_cumulative = room_meta.get("screenLastCumulative")
+    screen = copy.deepcopy(screen_from_samples)
+    if not screen["sampleCount"] and isinstance(screen_meta_cumulative, dict):
+        screen["lastCumulative"] = screen_meta_cumulative
+    live_started_at = str(room_meta.get("liveStartedAt") or "")
+    live_ended_at = str(room_meta.get("liveEndedAt") or "")
+    recording_start_ms = _parse_epoch_ms(recording.get("startedAt"))
+    recording_end_ms = _parse_epoch_ms(recording.get("endedAt"))
+    screen_start_ms = _parse_epoch_ms(screen.get("startedAt"))
+    screen_end_ms = _parse_epoch_ms(screen.get("endedAt"))
+    start_ms = recording_start_ms or screen_start_ms
+    end_ms = recording_end_ms or screen_end_ms
+    samples = raw_samples
     if start_ms is not None:
         samples = [
             item
             for item in samples
             if int(_number(item.get("t")) or 0) >= start_ms
         ]
+    if end_ms is not None:
+        samples = [
+            item
+            for item in samples
+            if int(_number(item.get("t")) or 0) <= end_ms
+        ]
+    if not samples:
+        samples = raw_samples
     samples.sort(key=lambda item: _number(item.get("t")) or 0)
     series: list[dict[str, Any]] = []
     for item in samples:
@@ -1173,8 +1583,8 @@ def build_review_session(
         )
     final = samples[-1] if samples else {}
     first = samples[0] if samples else {}
-    started_at = str(manifest.get("startedAt") or "")
-    ended_at = str(manifest.get("endedAt") or "")
+    started_at = str(recording.get("startedAt") or manifest.get("startedAt") or "")
+    ended_at = str(recording.get("endedAt") or manifest.get("endedAt") or "")
     try:
         start_dt = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
     except (TypeError, ValueError):
@@ -1183,9 +1593,11 @@ def build_review_session(
         end_dt = datetime.fromisoformat(ended_at.replace("Z", "+00:00"))
     except (TypeError, ValueError):
         end_dt = datetime.now().astimezone()
-    duration = max(0, int((end_dt - start_dt).total_seconds()))
-    if series:
-        duration = max(duration, int(series[-1].get("time") or 0) + 300)
+    duration = int(_number(recording.get("durationSeconds")) or 0)
+    if duration <= 0:
+        duration = max(0, int((end_dt - start_dt).total_seconds()))
+    if duration <= 0 and series:
+        duration = int(series[-1].get("time") or 0) + 300
     time_buckets = build_15_minute_buckets(samples, start_ms)
 
     def cumulative(key: str) -> float | None:
@@ -1195,6 +1607,9 @@ def build_review_session(
     gmv = cumulative("gmv")
     orders = cumulative("orders")
     watch = cumulative("watch")
+    exposure = cumulative("exposure")
+    if exposure is None:
+        exposure = _number(_funnel_from_sample(final).get("exposure"))
     annotations: list[dict[str, Any]] = []
     for previous, current in zip(samples, samples[1:]):
         previous_time = _floor_seconds(previous.get("t"))
@@ -1329,13 +1744,31 @@ def build_review_session(
     advantage_count = sum(item["type"] == "advantage" for item in annotations)
     roi = gmv / spend if spend and gmv is not None else None
     cvr = orders / watch * 100 if watch and orders is not None else None
+    efficiency = _efficiency_metrics(spend, gmv, orders, exposure)
+    coverage = _build_coverage(
+        live_started_at,
+        live_ended_at,
+        screen,
+        recording,
+        asr,
+    )
+    room_label = str(manifest.get("awemeName") or room_meta.get("awemeName") or room_id)
+    live_duration_text = (
+        _duration_label(coverage_live_duration)
+        if (coverage_live_duration := coverage["live"]["durationSeconds"]) is not None
+        else "未获取真实开播/下播时间"
+    )
     summary = (
-        f"本场复盘已归档，读取千川直播大屏 {len(samples)} 个 5 分钟节点。"
-        f"累计消耗 ¥{(spend or 0):.2f}、净成交 ¥{(gmv or 0):.2f}、"
-        f"净成交订单 {(orders or 0):.0f}、净成交ROI "
-        f"{roi:.2f}。" if roi is not None else
-        f"本场复盘已归档，读取千川直播大屏 {len(samples)} 个 5 分钟节点；"
-        "消耗、成交或订单尚未返回，暂不计算 ROI。"
+        f"直播间 {room_label}（{room_id}）本场复盘已归档；"
+        f"真实直播时长 {live_duration_text}，"
+        f"录屏覆盖 {_duration_label(duration)}。"
+        + (
+            f" 读取千川直播大屏 {len(samples)} 个 5 分钟节点，"
+            f"累计消耗 ¥{(spend or 0):.2f}、净成交 ¥{(gmv or 0):.2f}、"
+            f"净成交订单 {(orders or 0):.0f}、净成交ROI {roi:.2f}。"
+            if roi is not None
+            else " 消耗、成交或订单尚未返回，暂不计算 ROI。"
+        )
     )
     if annotations:
         summary += (
@@ -1359,7 +1792,26 @@ def build_review_session(
     return {
         "id": str(manifest.get("id") or directory.name),
         "accountId": str(manifest.get("accountId") or "fashion"),
+        "awemeName": str(
+            manifest.get("awemeName")
+            or room_meta.get("awemeName")
+            or ""
+        ),
         "roomId": room_id,
+        "room": {
+            "id": room_id,
+            "awemeName": str(
+                manifest.get("awemeName")
+                or room_meta.get("awemeName")
+                or ""
+            ),
+            "title": str(
+                room_meta.get("roomTitle")
+                or manifest.get("title")
+                or ""
+            ),
+            "status": str(room_meta.get("roomStatus") or ""),
+        },
         "date": day,
         "title": str(
             manifest.get("title")
@@ -1369,6 +1821,12 @@ def build_review_session(
         "startedAt": start_dt.astimezone().isoformat(timespec="seconds"),
         "endedAt": end_dt.astimezone().isoformat(timespec="seconds"),
         "durationSeconds": duration,
+        "liveDurationSeconds": coverage["live"]["durationSeconds"],
+        "screenCapture": screen,
+        "screenLastCumulative": screen["lastCumulative"],
+        "recordingCoverage": recording,
+        "asrCoverage": asr,
+        "coverage": coverage,
         "recordingStatus": str(manifest.get("status") or "completed"),
         "recordingStatusLabel": (
             "录制中"
@@ -1403,9 +1861,14 @@ def build_review_session(
             "orders": orders,
             "roi": roi,
             "cvr": cvr,
+            "exposure": exposure,
+            "gpm": efficiency["gpm"],
+            "cpm": efficiency["cpm"],
+            "cpa": efficiency["cpa"],
             "firstSpend": _number(first.get("spend")),
             "firstOrders": _number(first.get("orders")),
         },
+        "funnel": _funnel_from_sample(final),
         "series": series,
         "timeBuckets": time_buckets,
         "timeBucketGranularityMinutes": 15,
@@ -1805,17 +2268,77 @@ def aggregate_daily_session(items: list[dict[str, Any]]) -> dict[str, Any]:
                 )
             except (TypeError, ValueError):
                 continue
-    duration = 0
-    if start_datetimes and end_datetimes:
-        duration = max(
+    recording_duration = sum(
+        max(
             0,
-            round((max(end_datetimes) - min(start_datetimes)).total_seconds()),
+            int(
+                _number(
+                    item.get("recordingCoverage", {}).get("durationSeconds")
+                    if isinstance(item.get("recordingCoverage"), dict)
+                    else None
+                )
+                or item.get("durationSeconds")
+                or 0
+            ),
         )
+        for item in items
+    )
+    duration = recording_duration
     if duration <= 0:
         duration = round(
             max((_number(point.get("time")) or 0 for point in combined_series), default=0)
             + 300
         )
+    if start_datetimes and end_datetimes:
+        recording_span = max(
+            0,
+            round((max(end_datetimes) - min(start_datetimes)).total_seconds()),
+        )
+    else:
+        recording_span = duration
+    live_started_values = [
+        str(item.get("coverage", {}).get("live", {}).get("startedAt") or "")
+        for item in items
+        if item.get("coverage", {}).get("live", {}).get("startedAt")
+    ]
+    live_ended_values = [
+        str(item.get("coverage", {}).get("live", {}).get("endedAt") or "")
+        for item in items
+        if item.get("coverage", {}).get("live", {}).get("endedAt")
+    ]
+    live_started_at = min(live_started_values) if live_started_values else ""
+    live_ended_at = max(live_ended_values) if live_ended_values else ""
+    live_duration = _coverage_duration_seconds(live_started_at, live_ended_at)
+    screen_started_values = [
+        str(item.get("screenCapture", {}).get("startedAt") or "")
+        for item in items
+        if item.get("screenCapture", {}).get("startedAt")
+    ]
+    screen_ended_values = [
+        str(item.get("screenCapture", {}).get("endedAt") or "")
+        for item in items
+        if item.get("screenCapture", {}).get("endedAt")
+    ]
+    screen_started_at = min(screen_started_values) if screen_started_values else ""
+    screen_ended_at = max(screen_ended_values) if screen_ended_values else ""
+    screen_duration = _coverage_duration_seconds(screen_started_at, screen_ended_at) or 0
+    asr_started_values = [
+        str(item.get("asrCoverage", {}).get("startedAt") or "")
+        for item in items
+        if item.get("asrCoverage", {}).get("startedAt")
+    ]
+    asr_ended_values = [
+        str(item.get("asrCoverage", {}).get("endedAt") or "")
+        for item in items
+        if item.get("asrCoverage", {}).get("endedAt")
+    ]
+    asr_started_at = min(asr_started_values) if asr_started_values else ""
+    asr_ended_at = max(asr_ended_values) if asr_ended_values else ""
+    asr_duration = _coverage_duration_seconds(asr_started_at, asr_ended_at) or 0
+    if combined_series:
+        screen_last_cumulative = _cumulative_fields(combined_series[-1])
+    else:
+        screen_last_cumulative = {}
     parts = [
         {
             "id": item.get("id"),
@@ -1858,16 +2381,153 @@ def aggregate_daily_session(items: list[dict[str, Any]]) -> dict[str, Any]:
             for item in bad[:5]
         ) or "暂无明确掉人话术"
         speech_summary = f"效果较好：{good_summary}。效果较差：{bad_summary}。"
+    recording_started_at = (
+        min(start_datetimes).isoformat(timespec="seconds")
+        if start_datetimes
+        else ""
+    )
+    recording_ended_at = (
+        max(end_datetimes).isoformat(timespec="seconds")
+        if end_datetimes
+        else ""
+    )
+    coverage = {
+        "live": {
+            "startedAt": live_started_at,
+            "endedAt": live_ended_at,
+            "durationSeconds": live_duration,
+            "available": live_duration is not None,
+            "note": (
+                "千川今日直播间 Open API 真实开播/下播时间"
+                if live_duration is not None
+                else "未获取真实开播/下播时间，不将采集时长当作直播时长"
+            ),
+        },
+        "screenCapture": {
+            "startedAt": screen_started_at,
+            "endedAt": screen_ended_at,
+            "durationSeconds": screen_duration,
+            "sampleCount": len(combined_series),
+            "lastCumulative": screen_last_cumulative,
+        },
+        "recording": {
+            "startedAt": recording_started_at,
+            "endedAt": recording_ended_at,
+            "durationSeconds": duration,
+            "spanSeconds": recording_span,
+            "partCount": len(items),
+        },
+        "asr": {
+            "startedAt": asr_started_at,
+            "endedAt": asr_ended_at,
+            "durationSeconds": asr_duration,
+            "phraseCount": len(phrases),
+        },
+        "liveClockRange": _coverage_clock_range(
+            {"startedAt": live_started_at, "endedAt": live_ended_at}
+        ),
+        "screenClockRange": _coverage_clock_range(
+            {"startedAt": screen_started_at, "endedAt": screen_ended_at}
+        ),
+        "recordingClockRange": _coverage_clock_range(
+            {"startedAt": recording_started_at, "endedAt": recording_ended_at}
+        ),
+        "asrClockRange": _coverage_clock_range(
+            {"startedAt": asr_started_at, "endedAt": asr_ended_at}
+        ),
+    }
+    live_duration_text = (
+        _duration_label(live_duration)
+        if live_duration is not None
+        else "未获取真实开播/下播时间"
+    )
+    day_spend = _number(screen_last_cumulative.get("spend"))
+    day_gmv = _number(screen_last_cumulative.get("gmv"))
+    day_orders = _number(screen_last_cumulative.get("orders"))
+    day_watch = _number(screen_last_cumulative.get("watch"))
+    day_exposure = _number(screen_last_cumulative.get("exposure"))
+    if day_spend is None:
+        day_spend = _number(latest.get("metrics", {}).get("spend"))
+    if day_gmv is None:
+        day_gmv = _number(latest.get("metrics", {}).get("gmv"))
+    if day_orders is None:
+        day_orders = _number(latest.get("metrics", {}).get("orders"))
+    if day_watch is None:
+        day_watch = _number(latest.get("metrics", {}).get("viewers"))
+        if day_watch is None:
+            day_watch = _number(latest.get("metrics", {}).get("watchCount"))
+    if day_exposure is None:
+        day_exposure = _number(latest.get("metrics", {}).get("exposure"))
+    if day_exposure is None:
+        day_exposure = _number(
+            _funnel_from_sample(
+                combined_series[-1] if combined_series else None
+            ).get("exposure")
+        )
+    day_roi = day_gmv / day_spend if day_spend and day_gmv is not None else None
+    day_cvr = (
+        day_orders / day_watch * 100
+        if day_watch and day_orders is not None
+        else None
+    )
+    day_efficiency = _efficiency_metrics(day_spend, day_gmv, day_orders, day_exposure)
+    first_spend = (
+        _number(combined_series[0].get("spend"))
+        if combined_series
+        else _number(latest.get("metrics", {}).get("firstSpend"))
+    )
+    first_orders = (
+        _number(combined_series[0].get("orders"))
+        if combined_series
+        else _number(latest.get("metrics", {}).get("firstOrders"))
+    )
+    daily_metrics = {
+        "viewers": day_watch,
+        "watchCount": day_watch,
+        "spend": day_spend,
+        "gmv": day_gmv,
+        "orders": day_orders,
+        "roi": day_roi,
+        "cvr": day_cvr,
+        "exposure": day_exposure,
+        "gpm": day_efficiency["gpm"],
+        "cpm": day_efficiency["cpm"],
+        "cpa": day_efficiency["cpa"],
+        "firstSpend": first_spend,
+        "firstOrders": first_orders,
+    }
     return {
         **copy.deepcopy(latest),
         "id": f"daily-{account_id}-{day}",
         "accountId": account_id,
+        "awemeName": str(
+            items[0].get("awemeName")
+            or latest.get("awemeName")
+            or ""
+        ),
+        "room": latest.get("room")
+        or {
+            "id": str(latest.get("roomId") or ""),
+            "awemeName": str(latest.get("awemeName") or ""),
+            "title": "",
+            "status": "",
+        },
         "date": day,
         "title": f"{day} · 全天直播复盘",
         "startTime": items[0].get("startTime"),
         "startedAt": items[0].get("startedAt"),
         "endedAt": items[-1].get("endedAt"),
         "durationSeconds": duration,
+        "metrics": daily_metrics,
+        "funnel": _funnel_from_sample(
+            combined_series[-1] if combined_series else None
+        ),
+        "liveDurationSeconds": live_duration,
+        "screenCapture": coverage["screenCapture"],
+        "screenLastCumulative": screen_last_cumulative,
+        "recordingCoverage": coverage["recording"],
+        "asrCoverage": coverage["asr"],
+        "coverage": coverage,
         "recordingStatus": (
             "recording"
             if any(item.get("recordingStatus") == "recording" for item in items)
@@ -1898,11 +2558,14 @@ def aggregate_daily_session(items: list[dict[str, Any]]) -> dict[str, Any]:
             key=lambda item: _number(item.get("time")) or 0,
         )[:20],
         "summary": (
-            f"全天共合并 {len(items)} 段录像，累计时长约 {duration / 3600:.1f} 小时。"
+            f"全天共合并 {len(items)} 段录像；真实直播时长 {live_duration_text}，"
+            f"录屏覆盖 {_duration_label(duration)}。"
             + (
-                f" 最新累计净成交 ¥{(_number(latest.get('metrics', {}).get('gmv')) or 0):.2f}、"
-                f"订单 {(_number(latest.get('metrics', {}).get('orders')) or 0):.0f}。"
-                if latest.get("metrics")
+                f" 最新累计净成交 ¥{(day_gmv or 0):.2f}、"
+                f"订单 {(day_orders or 0):.0f}。"
+                if day_spend is not None
+                or day_gmv is not None
+                or day_orders is not None
                 else " 交易指标尚未返回。"
             )
             + (
@@ -1942,12 +2605,48 @@ def review_markdown(session: dict[str, Any]) -> str:
         if isinstance(session.get("transcript"), dict)
         else {}
     )
+    coverage = session.get("coverage") if isinstance(session.get("coverage"), dict) else {}
+    live_duration_text = (
+        _duration_label(coverage.get("live", {}).get("durationSeconds"))
+        if coverage.get("live", {}).get("durationSeconds") is not None
+        else "未获取真实开播/下播时间"
+    )
+    screen_coverage = coverage.get("screenCapture") if isinstance(coverage.get("screenCapture"), dict) else {}
+    recording_coverage = coverage.get("recording") if isinstance(coverage.get("recording"), dict) else {}
+    asr_coverage = coverage.get("asr") if isinstance(coverage.get("asr"), dict) else {}
+    room = session.get("room") if isinstance(session.get("room"), dict) else {}
+    aweme_name = str(session.get("awemeName") or room.get("awemeName") or "")
+    funnel = session.get("funnel")
+    funnel = funnel if isinstance(funnel, dict) else {}
+    funnel_rates = funnel.get("rates") if isinstance(funnel.get("rates"), dict) else {}
+
+    def percent(value: Any) -> str:
+        number = _number(value)
+        return "—" if number is None else f"{number:.2f}%"
+
+    def count(value: Any) -> str:
+        number = _number(value)
+        return "—" if number is None else f"{number:.0f}"
+
+    def money(value: Any) -> str:
+        number = _number(value)
+        return "—" if number is None else f"¥{number:.2f}"
+
     lines = [
         f"# {session.get('title') or '直播复盘'}",
         "",
         f"- 日期：{session.get('date') or '未记录'}",
+        f"- 直播账号：{aweme_name or session.get('accountId') or '未记录'}",
+        f"- 直播间：{room.get('id') or session.get('roomId') or '未记录'}"
+        + (f"（{aweme_name}）" if aweme_name else ""),
+        f"- 真实直播时长：{live_duration_text}",
+        f"- 大屏采集覆盖：{_duration_label(screen_coverage.get('durationSeconds'))} "
+        f"（{coverage.get('screenClockRange') or '--'}）",
+        f"- 录屏覆盖：{_duration_label(recording_coverage.get('durationSeconds'))} "
+        f"（{coverage.get('recordingClockRange') or '--'}）",
+        f"- 话术覆盖：{_duration_label(asr_coverage.get('durationSeconds'))} "
+        f"（{coverage.get('asrClockRange') or '--'}）",
         f"- 场次：{session.get('startTime') or '--:--'} - {session.get('endedAt') or '--'}",
-        f"- 时长：{_duration_label(session.get('durationSeconds'))}",
         f"- 录像状态：{session.get('recordingStatusLabel') or session.get('recordingStatus') or '已归档'}",
         "",
         "## 核心指标",
@@ -1956,6 +2655,9 @@ def review_markdown(session: dict[str, Any]) -> str:
         f"- 净成交：¥{_number(metrics.get('gmv')) or 0:.2f}",
         f"- 净成交订单：{_number(metrics.get('orders')) or 0:.0f}",
         f"- 净成交 ROI：{_number(metrics.get('roi')) or 0:.2f}",
+        f"- GPM（成交金额 ÷ 曝光 × 1000）：{money(metrics.get('gpm'))}",
+        f"- CPM（消耗 ÷ 曝光 × 1000）：{money(metrics.get('cpm'))}",
+        f"- CPA（消耗 ÷ 订单数）：{money(metrics.get('cpa'))}",
         f"- 累计观看：{_number(metrics.get('watchCount')) or 0:.0f}",
         "",
         "## 复盘结论",
@@ -1963,6 +2665,24 @@ def review_markdown(session: dict[str, Any]) -> str:
         str(session.get("summary") or "暂无复盘结论。"),
         "",
     ]
+    if any(
+        _number(funnel.get(key)) is not None
+        for key in ("exposure", "watch", "productClicks", "orders")
+    ):
+        summary_marker = lines.index("## 复盘结论")
+        lines[summary_marker:summary_marker] = [
+            "## 四维四率（直播大屏）",
+            "",
+            f"- 直播间整体曝光次数：{count(funnel.get('exposure'))}",
+            f"- 直播间观看次数：{count(funnel.get('watch'))}",
+            f"- 商品点击次数：{count(funnel.get('productClicks'))}",
+            f"- 成交订单数：{count(funnel.get('orders'))}",
+            f"- 直播间观看率：{percent(funnel_rates.get('watchRate'))}",
+            f"- 商品点击率：{percent(funnel_rates.get('productClickRate'))}",
+            f"- 点击成交率：{percent(funnel_rates.get('clickToPayRate'))}",
+            f"- 曝光转化率：{percent(funnel_rates.get('exposureConversionRate'))}",
+            "",
+        ]
     annotations = [
         item
         for item in session.get("annotations") or []
@@ -2226,15 +2946,36 @@ def review_overview_summary(session: dict[str, Any]) -> str:
     )
     parts = session.get("recordingParts")
     part_count = len(parts) if isinstance(parts, list) else 1
-    duration_hours = (_number(session.get("durationSeconds")) or 0) / 3600
+    coverage = session.get("coverage") if isinstance(session.get("coverage"), dict) else {}
+    live_duration = coverage.get("live", {}).get("durationSeconds")
+    recording_duration = _number(session.get("durationSeconds")) or 0
+    live_text = (
+        f"真实直播 {live_duration / 3600:.1f} 小时"
+        if live_duration is not None
+        else "真实直播时长未获取"
+    )
+    recording_text = f"录屏覆盖 {recording_duration / 3600:.1f} 小时"
     gmv = _number(metrics.get("gmv"))
     orders = _number(metrics.get("orders"))
     roi = _number(metrics.get("roi"))
+    gpm = _number(metrics.get("gpm"))
+    cpm = _number(metrics.get("cpm"))
+    cpa = _number(metrics.get("cpa"))
     data_text = (
-        f"净成交 ¥{gmv:.2f}、净成交订单 {orders:.0f}、净成交 ROI {roi:.2f}。"
+        f"净成交 ¥{gmv:.2f}、净成交订单 {orders:.0f}、净成交 ROI {roi:.2f}"
         if gmv is not None and orders is not None and roi is not None
-        else "交易指标尚未完整返回，暂不计算缺失值。"
+        else "交易指标尚未完整返回，暂不计算缺失值"
     )
+    efficiency_items = []
+    if gpm is not None:
+        efficiency_items.append(f"GPM ¥{gpm:.2f}")
+    if cpm is not None:
+        efficiency_items.append(f"CPM ¥{cpm:.2f}")
+    if cpa is not None:
+        efficiency_items.append(f"CPA ¥{cpa:.2f}")
+    if efficiency_items:
+        data_text += f"；{'、'.join(efficiency_items)}（千川直播大屏累计快照）"
+    data_text += "。"
     good_count = len(transcript.get("good") or [])
     bad_count = len(transcript.get("bad") or [])
     speech_text = (
@@ -2244,7 +2985,7 @@ def review_overview_summary(session: dict[str, Any]) -> str:
         else "本场暂无可用 Whisper 长句，话术明细不补造。"
     )
     return (
-        f"本场共合并 {part_count} 段录像，累计约 {duration_hours:.1f} 小时；"
+        f"本场共合并 {part_count} 段录像；{live_text}，{recording_text}；"
         f"{data_text}{speech_text}"
     )
 

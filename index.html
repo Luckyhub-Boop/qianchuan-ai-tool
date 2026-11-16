@@ -2700,6 +2700,132 @@
       animation: none;
     }
 
+    .review-recording-monitor {
+      margin-top: 16px;
+      padding: 16px 18px;
+      background: linear-gradient(180deg, #ffffff, #f6f8f5);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+    }
+
+    .rec-monitor-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .rec-monitor-head h3 {
+      margin: 2px 0 0;
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .rec-monitor-refresh {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .rec-monitor-grid {
+      display: grid;
+      grid-template-columns: 1.25fr repeat(5, 1fr);
+      gap: 10px;
+    }
+
+    .rec-monitor-status,
+    .rec-monitor-metric {
+      min-height: 64px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+    }
+
+    .rec-monitor-status {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .rec-status-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--muted-2);
+      flex: 0 0 auto;
+      box-shadow: 0 0 0 4px rgba(153, 161, 157, 0.12);
+    }
+
+    .rec-monitor-status.recording .rec-status-dot {
+      background: #22a06b;
+      box-shadow: 0 0 0 4px rgba(34, 160, 107, 0.16);
+      animation: rec-pulse 1.6s ease-in-out infinite;
+    }
+
+    .rec-monitor-status.error .rec-status-dot {
+      background: #e05252;
+      box-shadow: 0 0 0 4px rgba(224, 82, 82, 0.16);
+    }
+
+    .rec-monitor-status strong,
+    .rec-monitor-metric strong {
+      display: block;
+      font-size: 18px;
+      line-height: 1.2;
+    }
+
+    .rec-monitor-status em,
+    .rec-monitor-metric em {
+      display: block;
+      color: var(--muted);
+      font-style: normal;
+      font-size: 11px;
+      margin-top: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .rec-monitor-metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      margin-bottom: 4px;
+    }
+
+    .rec-monitor-foot {
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 12px;
+      align-items: center;
+    }
+
+    .rec-gap-tag {
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #fdecec;
+      color: #b34242;
+      border: 1px solid #f5c8c8;
+      white-space: nowrap;
+    }
+
+    .rec-ok-tag {
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #eaf6ef;
+      color: #1c7c50;
+      border: 1px solid #c9e7d6;
+    }
+
+    @keyframes rec-pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.55; transform: scale(0.9); }
+    }
+
     .review-tabs {
       display: inline-flex;
       gap: 2px;
@@ -2869,6 +2995,124 @@
       color: var(--ink);
       font-size: 16px;
       font-variant-numeric: tabular-nums;
+    }
+
+    .review-daily-metric small {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 7.5px;
+      line-height: 1.35;
+    }
+
+    .review-daily-metric-note {
+      margin: 2px 0 14px;
+      color: var(--muted);
+      font-size: 8.5px;
+      line-height: 1.5;
+    }
+
+    .review-funnel-panel {
+      margin-top: 14px;
+      padding: 16px 18px;
+    }
+
+    .review-funnel-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .review-funnel-item {
+      padding: 11px 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #f7f9f7;
+    }
+
+    .review-funnel-item span {
+      display: block;
+      color: var(--muted);
+      font-size: 9px;
+    }
+
+    .review-funnel-item strong {
+      display: block;
+      margin-top: 5px;
+      color: var(--ink);
+      font-size: 16px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .review-funnel-item small {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 9px;
+      line-height: 1.5;
+    }
+
+    .review-funnel-item.rate strong {
+      color: var(--accent);
+    }
+
+    .review-daily-funnel {
+      margin: 4px 0 16px;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fbfcfb;
+    }
+
+    .review-daily-funnel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .review-coverage {
+      margin-top: 14px;
+      padding: 16px 18px;
+    }
+
+    .review-coverage-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .review-coverage-item {
+      padding: 11px 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #f7f9f7;
+    }
+
+    .review-coverage-item span {
+      display: block;
+      color: var(--muted);
+      font-size: 9px;
+    }
+
+    .review-coverage-item strong {
+      display: block;
+      margin-top: 5px;
+      color: var(--ink);
+      font-size: 15px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .review-coverage-item small {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 9px;
+      line-height: 1.5;
     }
 
     .review-daily-md {
@@ -3800,13 +4044,23 @@
     }
 
     .review-bucket-row {
+      padding: 8px 9px;
+      border-bottom: 1px solid var(--line-soft);
+      font-size: 8.5px;
+    }
+
+    .review-bucket-grid {
       display: grid;
       grid-template-columns: minmax(92px, 1.1fr) repeat(4, minmax(58px, 0.72fr));
       gap: 10px;
       align-items: center;
-      padding: 8px 9px;
-      border-bottom: 1px solid var(--line-soft);
-      font-size: 8.5px;
+    }
+
+    .review-bucket-grid.efficiency {
+      grid-template-columns: minmax(92px, 1.1fr) repeat(3, minmax(58px, 0.72fr));
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px dashed var(--line-soft);
     }
 
     .review-bucket-row span {
@@ -5598,6 +5852,14 @@
         grid-template-columns: minmax(0, 1fr);
       }
 
+      .review-coverage-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .review-funnel-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
       .kpi-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
       }
@@ -5674,8 +5936,13 @@
     }
 
     @media (max-width: 760px) {
-      .review-bucket-row {
+      .review-bucket-grid {
         grid-template-columns: minmax(88px, 1fr) repeat(4, minmax(52px, auto));
+        gap: 6px;
+      }
+
+      .review-bucket-grid.efficiency {
+        grid-template-columns: minmax(88px, 1fr) repeat(3, minmax(52px, auto));
         gap: 6px;
       }
 
@@ -12348,6 +12615,28 @@
           </div>
         </div>
 
+        <section class="panel review-recording-monitor" id="reviewRecordingMonitor" aria-live="polite">
+          <div class="rec-monitor-head">
+            <div>
+              <span class="section-kicker">RECORDING MONITOR</span>
+              <h3>录制监视</h3>
+            </div>
+            <span class="rec-monitor-refresh" id="recMonitorUpdatedAt">读取中…</span>
+          </div>
+          <div class="rec-monitor-grid">
+            <div class="rec-monitor-status" id="recMonitorStatus">
+              <span class="rec-status-dot"></span>
+              <div><strong>读取中…</strong><em>录制状态</em></div>
+            </div>
+            <div class="rec-monitor-metric"><span>连续录制时长</span><strong id="recMonitorWall">—</strong><em id="recMonitorStarted">—</em></div>
+            <div class="rec-monitor-metric"><span>已录音频时长</span><strong id="recMonitorAudio">—</strong><em id="recMonitorSegments">—</em></div>
+            <div class="rec-monitor-metric"><span>最近分段</span><strong id="recMonitorLastSeg">—</strong><em id="recMonitorLastSegAge">—</em></div>
+            <div class="rec-monitor-metric"><span>采集方式</span><strong id="recMonitorMethod">—</strong><em id="recMonitorStream">—</em></div>
+            <div class="rec-monitor-metric"><span>转写进度</span><strong id="recMonitorAsr">—</strong><em id="recMonitorAsrDetail">—</em></div>
+          </div>
+          <div class="rec-monitor-foot" id="recMonitorFoot"></div>
+        </section>
+
         <div class="review-tabs" role="tablist" aria-label="复盘视图">
           <button type="button" class="review-tab active" data-review-tab="daily" role="tab" aria-selected="true">每日复盘文档</button>
           <button type="button" class="review-tab" data-review-tab="playback" role="tab" aria-selected="false">实时直播</button>
@@ -12439,8 +12728,8 @@
                 <div class="annotation-list" id="annotationList"></div>
                 <div class="speech-transcript-block">
                   <div class="subsection-head">
-                    <h3>实时话术转写</h3>
-                    <span id="speechTranscriptMeta">本地 Whisper 等待中</span>
+                    <h3>出单话术</h3>
+                    <span id="speechTranscriptMeta">本地 Whisper · 出单窗口归因中</span>
                   </div>
                   <div class="speech-transcript-list" id="speechTranscriptList"></div>
                 </div>
@@ -12490,7 +12779,7 @@
               <div>
                 <span class="section-kicker">DATA REVIEW · 15 MIN</span>
                 <h3>数据分析复盘</h3>
-                <p class="review-chart-sub">按 15 分钟拆分直播间曝光、观看、商品点击和成交订单；出单话术取全天长句窗口中订单增量最高的 5 段。</p>
+                <p class="review-chart-sub">按 15 分钟拆分直播间曝光、观看、商品点击、订单与 GPM/CPM/CPA；出单话术取全天长句窗口中订单增量最高的 5 段。</p>
               </div>
               <span class="mini-tag" id="reviewDataAnalysisSource">数据源读取中</span>
             </div>
@@ -12505,6 +12794,19 @@
               </div>
             </div>
             <p class="review-analysis-note" id="reviewAnalysisProcess"></p>
+          </section>
+
+          <section class="panel review-funnel-panel">
+            <div class="review-chart-head">
+              <div>
+                <span class="section-kicker">FUNNEL · LIVE SCREEN</span>
+                <h3>四维四率（直播大屏）</h3>
+                <p class="review-chart-sub">直播间整体曝光、观看、商品点击、成交订单来自千川直播大屏直抓；四个转化率按四维相除计算，不与其他数据源混用。</p>
+              </div>
+              <span class="mini-tag" id="reviewFunnelSource">数据源读取中</span>
+            </div>
+            <div class="review-funnel-grid" id="reviewFunnelDims"></div>
+            <div class="review-funnel-grid" id="reviewFunnelRates"></div>
           </section>
 
           <section class="panel review-speaker-compare-panel">
@@ -12529,6 +12831,17 @@
             <div class="speaker-compare-grid" id="reviewSpeakerCompare"></div>
           </section>
 
+          <div class="panel review-coverage" id="reviewCoveragePanel">
+            <div class="review-chart-head">
+              <div>
+                <span class="section-kicker">COVERAGE & ATTRIBUTION</span>
+                <h3>场次覆盖与数据归属</h3>
+                <p class="review-chart-sub">区分真实直播、大屏采集、录屏和话术四段时间；拿不到真实开播/下播时间时，不把采集时长写成直播时长。</p>
+              </div>
+            </div>
+            <div class="review-coverage-grid" id="reviewCoverageGrid"></div>
+          </div>
+
           <div class="panel review-summary">
             <div class="review-summary-head">
               <div>
@@ -12544,7 +12857,7 @@
                 <div>
                   <span class="section-kicker">SCRIPT REVIEW</span>
                   <h4>话术复盘明细</h4>
-                  <p>按完整长句与发生时间逐条排列；出单、掉人来自对应时间窗口关联，不等同因果证明。</p>
+                  <p>只展示订单增量大于 0 的出单长句；低效 / 掉人长句不在此展示，原始转写保留在后台备查。</p>
                 </div>
                 <span id="reviewSpeechReviewCount">—</span>
               </div>
@@ -16748,6 +17061,11 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
       }
       const summary = payload.summary || {};
       const metrics = summary.metrics || {};
+      const coverage = summary.coverage || {};
+      const live = coverage.live || {};
+      const screen = summary.screenCapture || coverage.screenCapture || {};
+      const recording = summary.recordingCoverage || coverage.recording || {};
+      const asr = summary.asrCoverage || coverage.asr || {};
       const metricCards = [
         {
           label: "消耗",
@@ -16766,14 +17084,56 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
           value: Number.isFinite(Number(metrics.roi)) ? formatNumber(metrics.roi, 2) : "—"
         },
         {
+          label: "GPM",
+          value: isRealNumber(metrics.gpm) ? `¥${formatNumber(metrics.gpm, 2)}` : "—",
+          note: "成交金额 ÷ 曝光 × 1000"
+        },
+        {
+          label: "CPM",
+          value: isRealNumber(metrics.cpm) ? `¥${formatNumber(metrics.cpm, 2)}` : "—",
+          note: "消耗 ÷ 曝光 × 1000"
+        },
+        {
+          label: "CPA",
+          value: isRealNumber(metrics.cpa) ? `¥${formatNumber(metrics.cpa, 2)}` : "—",
+          note: "消耗 ÷ 订单数"
+        },
+        {
           label: "累计观看",
           value: Number.isFinite(Number(metrics.viewers)) ? formatNumber(metrics.viewers, 0) : "—"
         },
         {
-          label: "直播时长",
-          value: formatDurationHuman(summary.durationSeconds)
+          label: "真实直播时长",
+          value: live.durationSeconds != null
+            ? formatDurationHuman(live.durationSeconds)
+            : "未获取（不估算）"
+        },
+        {
+          label: "大屏采集覆盖",
+          value: formatDurationHuman(screen.durationSeconds || 0)
+        },
+        {
+          label: "录屏覆盖",
+          value: formatDurationHuman(recording.durationSeconds || 0)
+        },
+        {
+          label: "话术覆盖",
+          value: formatDurationHuman(asr.durationSeconds || 0)
         }
-      ].map(item => `<div class="review-daily-metric"><span>${item.label}</span><strong>${item.value}</strong></div>`).join("");
+      ].map(item => `<div class="review-daily-metric"${item.note ? ` title="${escapeHtml(item.note)}"` : ""}><span>${item.label}</span><strong>${item.value}</strong>${item.note ? `<small>${escapeHtml(item.note)}</small>` : ""}</div>`).join("");
+      const funnel = summary.funnel && typeof summary.funnel === "object"
+        ? summary.funnel
+        : null;
+      const funnelBlock = funnel ? `
+        <div class="review-daily-funnel">
+          <div class="review-daily-funnel-head">
+            <span>四维四率 · 直播大屏</span>
+            <span>${escapeHtml(funnel.sourceLabel || "千川直播大屏 · 直播间整体漏斗")}</span>
+          </div>
+          <div class="review-funnel-grid">${reviewFunnelDimCards(funnel)}</div>
+          <div class="review-funnel-grid">${reviewFunnelRateCards(funnel)}</div>
+        </div>
+      ` : "";
       const markdownHtml = payload.markdown
         ? renderMarkdownLite(payload.markdown)
         : `<div class="material-empty">该日期暂无 Markdown 文档，以下为 JSON 归档摘要。</div>${summary.summary ? `<p>${escapeHtml(summary.summary)}</p>` : ""}`;
@@ -16781,10 +17141,14 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
         <div class="review-daily-meta">
           <strong>${escapeHtml(summary.title || `${payload.date} · 全天直播复盘`)}</strong>
           <span>${escapeHtml(payload.date || "")}</span>
+          <span>${escapeHtml(summary.awemeName || summary.accountId || "账号未记录")}</span>
+          <span>${escapeHtml((summary.room && summary.room.id) ? `直播间 ${summary.room.id}` : "")}</span>
           <span>${summary.startTime ? `开播 ${escapeHtml(summary.startTime)}` : ""}</span>
           <span>${escapeHtml(summary.recordingStatusLabel || "分析已归档")}</span>
         </div>
         <div class="review-daily-metrics">${metricCards}</div>
+        <p class="review-daily-metric-note">GPM = 成交金额 ÷ 曝光 × 1000；CPM = 消耗 ÷ 曝光 × 1000；CPA = 消耗 ÷ 订单数。成交取净成交、订单取净订单、曝光取千川直播大屏累计快照；分母为 0 或缺失时留空。</p>
+        ${funnelBlock}
         <div class="review-daily-md">${markdownHtml}</div>
       `;
     }
@@ -18225,22 +18589,19 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
         return;
       }
       const transcript = session.transcript || {};
-      const phrases = [
-        ...(Array.isArray(transcript.good) ? transcript.good : []),
-        ...(Array.isArray(transcript.bad) ? transcript.bad : [])
-      ].filter((item, index, items) =>
-        item?.text && items.findIndex(candidate => candidate.id === item.id) === index
-      ).sort((left, right) =>
-        (Number(left.startSeconds) || 0) - (Number(right.startSeconds) || 0)
-      );
+      const phrases = (Array.isArray(transcript.phrases) ? transcript.phrases : [])
+        .filter(item =>
+          item?.text && Number(item?.metrics?.ordersDelta) > 0
+        )
+        .sort((left, right) =>
+          (Number(left.startSeconds) || 0) - (Number(right.startSeconds) || 0)
+        );
       const speakerNames = [...new Set(phrases.map(item => String(item.speaker || "").trim()).filter(Boolean))];
-      if (count) count.textContent = `${phrases.length} 段有效长句`;
+      if (count) count.textContent = `${phrases.length} 段出单长句`;
       if (!list) return;
       list.innerHTML = phrases.length
         ? phrases.map((item, index) => {
           const metrics = item.metrics || {};
-          const effect = item.effect === "bad" ? "bad" : "good";
-          const effectLabel = effect === "bad" ? "掉人/低效" : "出单/留人";
           const clock = item.startedAt
             ? new Date(item.startedAt).toLocaleTimeString("zh-CN", { hour12: false })
             : formatClock(Number(item.startSeconds) || 0);
@@ -18248,10 +18609,10 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
           const gmvDelta = Number(metrics.gmvDelta) || 0;
           const onlineDelta = Number(metrics.onlineDelta);
           return `
-            <article class="review-speech-review-item ${effect}">
+            <article class="review-speech-review-item good">
               <header>
                 <span>${index + 1}. ${escapeHtml(clock)}</span>
-                <strong>${effectLabel}</strong>
+                <strong>${escapeHtml(item.effectLabel || "对应窗口出单")}</strong>
               </header>
               <p>${escapeHtml(item.text)}</p>
               <div class="speech-speaker-row">
@@ -18264,18 +18625,71 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
                 >${speakerSelectHtml(item.speaker, speakerNames)}</select>
               </div>
               <footer>
-                <span>订单 ${orderDelta >= 0 ? "+" : ""}${formatNumber(orderDelta, 0)}</span>
-                <span>成交 ¥${formatNumber(gmvDelta, 2)}</span>
-                <span>在线 ${Number.isFinite(onlineDelta) ? `${onlineDelta >= 0 ? "+" : ""}${formatNumber(onlineDelta, 0)}` : "未返回"}</span>
+                <span>窗口订单 +${formatNumber(orderDelta, 0)}</span>
+                <span>窗口成交 ¥${formatNumber(gmvDelta, 2)}</span>
+                <span>在线变化 ${Number.isFinite(onlineDelta) ? `${onlineDelta >= 0 ? "+" : ""}${formatNumber(onlineDelta, 0)}` : "未返回"}</span>
                 <span>来源：本地 Whisper 长句 · 时间窗口关联</span>
               </footer>
             </article>
           `;
         }).join("")
         : `<div class="material-empty">${transcript.available
-          ? "当前没有达到出单、留人或掉人阈值的完整长句"
+          ? "当前没有订单增量大于 0 的出单长句"
           : "本场暂无可用 Whisper 长句，不补造话术分析"}</div>`;
       attachSpeakerCorrection(list);
+    }
+
+    function reviewFunnelDimCards(funnel) {
+      const entries = [
+        ["直播间整体曝光次数", funnel.exposure],
+        ["直播间观看次数", funnel.watch],
+        ["商品点击次数", funnel.productClicks],
+        ["成交订单数", funnel.orders]
+      ];
+      return entries.map(([label, value]) => `
+        <div class="review-funnel-item">
+          <span>${label}</span>
+          <strong>${isRealNumber(value) ? formatNumber(value, 0) : "—"}</strong>
+          <small>千川直播大屏直抓</small>
+        </div>
+      `).join("");
+    }
+
+    function reviewFunnelRateCards(funnel) {
+      const rates = funnel.rates || {};
+      const entries = [
+        ["直播间观看率", rates.watchRate, "观看次数 ÷ 整体曝光次数"],
+        ["商品点击率", rates.productClickRate, "商品点击次数 ÷ 观看次数"],
+        ["点击成交率", rates.clickToPayRate, "成交订单数 ÷ 商品点击次数"],
+        ["曝光转化率", rates.exposureConversionRate, "成交订单数 ÷ 整体曝光次数"]
+      ];
+      return entries.map(([label, value, note]) => `
+        <div class="review-funnel-item rate">
+          <span>${label}</span>
+          <strong>${value != null && value !== "" && Number.isFinite(Number(value)) ? `${Number(value).toFixed(2)}%` : "—"}</strong>
+          <small>${note}</small>
+        </div>
+      `).join("");
+    }
+
+    function renderReviewFunnel(session) {
+      const dims = $("#reviewFunnelDims");
+      const ratesBox = $("#reviewFunnelRates");
+      const source = $("#reviewFunnelSource");
+      if (!dims || !ratesBox) return;
+      const funnel = session && session.funnel && typeof session.funnel === "object"
+        ? session.funnel
+        : {};
+      if (source) {
+        source.textContent = funnel.sourceLabel || "千川直播大屏 · 直播间整体漏斗";
+        source.title = funnel.capturedAt
+          ? `直播大屏采集时间：${funnel.capturedAt}`
+          : "直播间整体曝光、观看、商品点击、成交订单由直播大屏直抓";
+      }
+      dims.innerHTML = reviewFunnelDimCards(funnel)
+        || `<div class="material-empty" style="grid-column:1 / -1;">直播大屏暂未返回四维漏斗数据</div>`;
+      ratesBox.innerHTML = reviewFunnelRateCards(funnel)
+        || `<div class="material-empty" style="grid-column:1 / -1;">四维数据不足时，不反推四率</div>`;
     }
 
     function renderReviewDataAnalysis(session) {
@@ -18293,15 +18707,30 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
       }
       $("#reviewBucketCount").textContent = `${buckets.length} 个时间段`;
       $("#reviewBucketList").innerHTML = buckets.length
-        ? buckets.map(bucket => `
+        ? buckets.map(bucket => {
+          const spendText = isRealNumber(bucket.spend) ? `¥${formatNumber(bucket.spend, 0)}` : "—";
+          const gmvText = isRealNumber(bucket.gmv) ? `¥${formatNumber(bucket.gmv, 0)}` : "—";
+          const gpmText = isRealNumber(bucket.gpm) ? `¥${formatNumber(bucket.gpm, 2)}` : "—";
+          const cpmText = isRealNumber(bucket.cpm) ? `¥${formatNumber(bucket.cpm, 2)}` : "—";
+          const cpaText = isRealNumber(bucket.cpa) ? `¥${formatNumber(bucket.cpa, 2)}` : "—";
+          return `
           <div class="review-bucket-row">
-            <span>${escapeHtml(bucket.label || "—")}</span>
-            <strong>${isRealNumber(bucket.exposure) ? formatNumber(bucket.exposure, 0) : "—"}<small>曝光</small></strong>
-            <strong>${isRealNumber(bucket.watch) ? formatNumber(bucket.watch, 0) : "—"}<small>观看</small></strong>
-            <strong>${isRealNumber(bucket.productClicks) ? formatNumber(bucket.productClicks, 0) : "—"}<small>商品点击</small></strong>
-            <strong>${isRealNumber(bucket.orders) ? formatNumber(bucket.orders, 0) : "—"}<small>订单</small></strong>
+            <div class="review-bucket-grid">
+              <span>${escapeHtml(bucket.label || "—")}</span>
+              <strong>${isRealNumber(bucket.exposure) ? formatNumber(bucket.exposure, 0) : "—"}<small>曝光</small></strong>
+              <strong>${isRealNumber(bucket.watch) ? formatNumber(bucket.watch, 0) : "—"}<small>观看</small></strong>
+              <strong>${isRealNumber(bucket.productClicks) ? formatNumber(bucket.productClicks, 0) : "—"}<small>商品点击</small></strong>
+              <strong>${isRealNumber(bucket.orders) ? formatNumber(bucket.orders, 0) : "—"}<small>订单</small></strong>
+            </div>
+            <div class="review-bucket-grid efficiency">
+              <span>消耗 ${spendText} · 成交 ${gmvText}</span>
+              <strong>${gpmText}<small>GPM</small></strong>
+              <strong>${cpmText}<small>CPM</small></strong>
+              <strong>${cpaText}<small>CPA</small></strong>
+            </div>
           </div>
-        `).join("")
+        `;
+        }).join("")
         : `<div class="material-empty">本场尚不足以生成 15 分钟数据</div>`;
       $("#reviewSpeechTopList").innerHTML = topOrders.length
         ? topOrders.map((item, index) => {
@@ -19203,6 +19632,68 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
       updatePlayerFrame();
     }
 
+    function renderReviewCoverage(session) {
+      const box = $("#reviewCoverageGrid");
+      if (!box) return;
+      if (!session) {
+        box.innerHTML = `<div class="material-empty">当前账号暂无场次覆盖信息</div>`;
+        return;
+      }
+      const coverage = session.coverage || {};
+      const live = coverage.live || {};
+      const screen = coverage.screenCapture || {};
+      const recording = coverage.recording || {};
+      const asr = coverage.asr || {};
+      const room = session.room || {};
+      const accountLine = [
+        `直播账号 ${session.awemeName || session.accountId || "未记录"}`,
+        `直播间 ${room.id || session.roomId || "未记录"}`,
+        room.awemeName ? `（${room.awemeName}）` : ""
+      ].filter(Boolean).join(" ");
+      const items = [
+        {
+          label: "真实直播时长",
+          value: live.durationSeconds != null
+            ? formatDurationHuman(live.durationSeconds)
+            : "未获取",
+          clock: coverage.liveClockRange || "",
+          note: live.note || ""
+        },
+        {
+          label: "大屏采集覆盖",
+          value: formatDurationHuman(screen.durationSeconds || 0),
+          clock: coverage.screenClockRange || "",
+          note: `${screen.sampleCount ?? 0} 个采样点 · 末条累计指标`
+        },
+        {
+          label: "录屏覆盖",
+          value: formatDurationHuman(recording.durationSeconds || 0),
+          clock: coverage.recordingClockRange || "",
+          note: `实际录制累计 · ${recording.segmentCount ?? recording.partCount ?? 0} 个分段`
+        },
+        {
+          label: "话术覆盖",
+          value: formatDurationHuman(asr.durationSeconds || 0),
+          clock: coverage.asrClockRange || "",
+          note: `${asr.phraseCount ?? 0} 句话术`
+        }
+      ];
+      box.innerHTML = `
+        <div class="review-coverage-item" style="grid-column:1 / -1;">
+          <span>数据归属</span>
+          <strong>${escapeHtml(accountLine)}</strong>
+          <small>大屏累计指标按 roomId 归属本直播间，不跨直播间拼接</small>
+        </div>
+        ${items.map(item => `
+          <div class="review-coverage-item">
+            <span>${escapeHtml(item.label)}</span>
+            <strong>${escapeHtml(item.value)}</strong>
+            <small>${escapeHtml(item.clock || "--")}${item.note ? ` · ${escapeHtml(item.note)}` : ""}</small>
+          </div>
+        `).join("")}
+      `;
+    }
+
     function renderPlayback() {
       const sessions = getReviewSessions();
       const session = getSelectedSession();
@@ -19233,6 +19724,8 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
         $("#reviewSpeechTopList").innerHTML = `<div class="material-empty">当前日期暂无话术分析</div>`;
         $("#reviewAnalysisProcess").textContent = "";
         renderReviewSpeechReview(null);
+        renderReviewCoverage(null);
+        renderReviewFunnel(null);
         renderReviewSpeakerCompare(null);
         updateReviewLiveFrame();
         attachReviewStream().catch(() => {});
@@ -19291,7 +19784,9 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
       `).join("");
 
       const transcriptPhrases = Array.isArray(session.transcript?.phrases)
-        ? session.transcript.phrases.slice(-60)
+        ? session.transcript.phrases
+            .filter(item => Number(item?.metrics?.ordersDelta) > 0)
+            .slice(-60)
         : [];
       const transcriptSpeakerNames = [
         ...new Set(
@@ -19302,7 +19797,7 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
       ];
       const transcriptMeta = $("#speechTranscriptMeta");
       if (session.transcript?.available) {
-        transcriptMeta.textContent = `本地 ${session.transcript.engine || "Whisper tiny"} · ${session.transcript.phrases.length} 句 · ${Math.round((session.transcript.audioSegmentSeconds || 300) / 60)} 分钟分段 · ${session.transcript.metricResolution || "指标对齐中"}`;
+        transcriptMeta.textContent = `本地 ${session.transcript.engine || "Whisper tiny"} · ${transcriptPhrases.length} 句出单长句 · ${Math.round((session.transcript.audioSegmentSeconds || 300) / 60)} 分钟分段 · ${session.transcript.metricResolution || "指标对齐中"}`;
       } else {
         transcriptMeta.textContent = session.recordingStatus === "recording"
           ? "本地 Whisper 正在跟随录制分段转写"
@@ -19312,12 +19807,13 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
         ? transcriptPhrases.map(item => {
           const metrics = item.metrics || {};
           const orderDelta = Number(metrics.ordersDelta) || 0;
+          const gmvDelta = Number(metrics.gmvDelta) || 0;
           const onlineDelta = Number(metrics.onlineDelta) || 0;
           const phraseClock = item.startedAt
             ? new Date(item.startedAt).toLocaleTimeString("zh-CN", { hour12: false })
             : formatClock(Number(item.startSeconds) || 0);
           return `
-            <div class="speech-transcript-item ${item.effect || "neutral"}">
+            <div class="speech-transcript-item ${item.effect || "good"}">
               <span>${escapeHtml(phraseClock)}</span>
               <strong>${escapeHtml(item.text || "")}</strong>
               <div class="speech-speaker-row" style="grid-column:2;">
@@ -19329,11 +19825,11 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
                   title="把这句话改到另一位主播名下"
                 >${speakerSelectHtml(item.speaker, transcriptSpeakerNames)}</select>
               </div>
-              <em>${escapeHtml(item.effectLabel || "指标未对齐")} · 订单 ${orderDelta >= 0 ? "+" : ""}${formatNumber(orderDelta, 0)} · 在线 ${onlineDelta >= 0 ? "+" : ""}${formatNumber(onlineDelta, 0)}</em>
+              <em>对应窗口出单 · 订单 +${formatNumber(orderDelta, 0)} · 成交 ¥${formatNumber(gmvDelta, 2)} · 在线 ${onlineDelta >= 0 ? "+" : ""}${formatNumber(onlineDelta, 0)} · 本地 Whisper</em>
             </div>
           `;
         }).join("")
-        : `<div class="material-empty">${session.recordingStatus === "recording" ? "等待 Whisper 处理下一个完整 5 分钟分段" : "本场没有可展示的本地转写"}</div>`;
+        : `<div class="material-empty">${session.recordingStatus === "recording" ? "等待出单窗口，暂无订单增量大于 0 的话术" : "本场没有订单增量大于 0 的出单长句"}</div>`;
       attachSpeakerCorrection($("#speechTranscriptList"));
 
       $("#playerMarkers").innerHTML = session.annotations.map(annotation => `
@@ -19370,7 +19866,9 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
       updateReviewLiveFrame();
       attachReviewStream().catch(() => {});
       renderReviewSpeechReview(session);
+      renderReviewCoverage(session);
       renderReviewDataAnalysis(session);
+      renderReviewFunnel(session);
       renderReviewSpeakerCompare(session);
       renderReviewChart(session);
     }
@@ -19410,6 +19908,65 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
       renderPlayback();
     }
 
+    let RECORDING_MONITOR = null;
+
+    async function refreshRecordingMonitor(silent = true) {
+      if (!SERVER_MODE) return null;
+      try {
+        const response = await fetch("/api/review/monitor", { cache: "no-store" });
+        if (!response.ok) throw new Error(String(response.status));
+        RECORDING_MONITOR = await response.json();
+      } catch (error) {
+        RECORDING_MONITOR = { ok: false, error: String(error?.message || error) };
+      }
+      renderRecordingMonitor();
+      return RECORDING_MONITOR;
+    }
+
+    function renderRecordingMonitor() {
+      const panel = $("#reviewRecordingMonitor");
+      if (!panel) return;
+      const data = RECORDING_MONITOR || {};
+      const recording = Boolean(data.recording);
+      const isError = data.status === "error";
+      const statusEl = $("#recMonitorStatus");
+      if (statusEl) {
+        statusEl.className = `rec-monitor-status${recording ? " recording" : ""}${isError ? " error" : ""}`;
+        const strong = statusEl.querySelector("strong");
+        const em = statusEl.querySelector("em");
+        if (strong) strong.textContent = data.statusLabel || "未知";
+        if (em) em.textContent = data.sessionId ? `场次 ${data.sessionId}` : "录制状态";
+      }
+      const setText = (id, value) => { const el = $(id); if (el) el.textContent = value; };
+      setText("#recMonitorWall", data.wallDurationSeconds ? formatClock(data.wallDurationSeconds) : "—");
+      setText("#recMonitorStarted", data.startedAt ? `开始 ${data.startedAt.slice(11, 19)}` : "—");
+      setText("#recMonitorAudio", data.recordedAudioSeconds ? formatClock(data.recordedAudioSeconds) : "—");
+      const continuity = data.continuity != null ? Math.round((data.continuity || 0) * 100) : 0;
+      setText("#recMonitorSegments", `共 ${data.segmentCount || 0} 段 · 完整度 ${continuity}%`);
+      setText("#recMonitorLastSeg", data.lastSegmentAt ? data.lastSegmentAt.slice(11, 19) : "—");
+      setText("#recMonitorLastSegAge", data.lastSegmentAgeSeconds != null ? `${data.lastSegmentAgeSeconds} 秒前` : "—");
+      setText("#recMonitorMethod", data.methodLabel || "—");
+      setText("#recMonitorStream", data.stream?.captured ? `画面流在线 · ${data.stream.roomId || ""}` : "画面流未注册");
+      const asr = data.asr || {};
+      setText("#recMonitorAsr", asr.status ? (asr.modelReady === false ? "模型加载中" : `已处理 ${asr.processedParts ?? 0}`) : "—");
+      setText("#recMonitorAsrDetail", asr.pendingParts != null ? `待转写 ${asr.pendingParts} 段` : "—");
+      setText("#recMonitorUpdatedAt", data.updatedAt ? `更新于 ${data.updatedAt.slice(11, 19)}` : "—");
+      const gaps = Array.isArray(data.interruptions) ? data.interruptions : [];
+      const foot = $("#recMonitorFoot");
+      if (foot) {
+        const dir = escapeHTML(data.recordingsDirectory || "");
+        if (recording && gaps.length === 0) {
+          foot.innerHTML = `<span class="rec-ok-tag">连续录制中，未检测到中断</span><span>录制目录 ${dir}</span>`;
+        } else if (gaps.length > 0) {
+          foot.innerHTML = gaps.map(g => (
+            `<span class="rec-gap-tag">中断 ${String(g.startedAt || "").slice(11, 19)} → ${String(g.endedAt || "").slice(11, 19)} · ${Math.round(g.gapSeconds || 0)} 秒</span>`
+          )).join("") + `<span>录制目录 ${dir}</span>`;
+        } else {
+          foot.innerHTML = `<span>${escapeHTML(data.error || "等待直播开播后自动开始录制")}</span><span>${dir}</span>`;
+        }
+      }
+    }
+
     function renderReviewPage() {
       ensureReviewState();
       const monitor = LIVE_MONITORS[ACTIVE_ACCOUNT.id] || buildOfflineMonitor({ error: "实时数据加载中" });
@@ -19431,6 +19988,7 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
       renderPlayback();
       renderAnchorPage();
       updateRecordStatus();
+      renderRecordingMonitor();
     }
 
     function renderPageHeader(rows) {
@@ -23132,6 +23690,7 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
         refreshReviewSessions(true);
         refreshReviewDaily(true);
         refreshSpeakerLibrary(true);
+        refreshRecordingMonitor(true);
       }
       if (name === "knowledge") {
         renderKnowledgeChat();
@@ -23962,6 +24521,11 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
       if (state.view !== "review" || document.hidden) return;
       refreshReviewSessions(true);
     }, 30000);
+
+    window.setInterval(() => {
+      if (state.view !== "review" || document.hidden) return;
+      refreshRecordingMonitor(true);
+    }, 5000);
 
     window.setInterval(() => {
       if (state.view !== "diagnosis" || !state.diagCapturing) return;

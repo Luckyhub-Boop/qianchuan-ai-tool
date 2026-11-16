@@ -25,7 +25,7 @@ LOG_PATH = DATA_DIR / "live-recorder.log"
 RECORDINGS_DIR = recording_store.RECORDINGS_DIR
 AUDIO_CAPTURE_PATH = ROOT / "audio_capture.py"
 DEFAULT_SERVER_URL = "http://127.0.0.1:8765"
-POLL_SECONDS = 5
+POLL_SECONDS = 4
 RETENTION_DAYS = recording_store.RETENTION_DAYS
 SEGMENT_SECONDS = 300
 
@@ -186,8 +186,28 @@ class LiveRecorder:
         self.room_id = ""
         self.last_cleanup_date = ""
         self.last_error = ""
+        self.error_since: str | None = None
         self.lost_stream_at: float | None = None
         self.not_live_since: float | None = None
+
+    def _latest_segment_at(self) -> str:
+        latest = ""
+        if not self.directory:
+            return latest
+        try:
+            files = [
+                item
+                for pattern in ("part_*.wav", "part_*.flac", "part_*.ts")
+                for item in (self.directory / "segments").glob(pattern)
+                if item.is_file() and item.stat().st_size > 0
+            ]
+            if files:
+                latest = datetime.fromtimestamp(
+                    max(item.stat().st_mtime for item in files)
+                ).astimezone().isoformat(timespec="seconds")
+        except OSError:
+            pass
+        return latest
 
     def publish_state(self, status: str, extra: dict[str, Any] | None = None) -> None:
         segments = 0
@@ -198,10 +218,15 @@ class LiveRecorder:
                     for item in (self.directory / "segments").glob(pattern)
                     if item.stat().st_size > 0
                 ])
+        if status == "error":
+            self.error_since = self.error_since or now_iso()
+        else:
+            self.error_since = None
         state = {
             "ok": status in {"recording", "waiting_stream", "idle", "finalizing"},
             "status": status,
             "updatedAt": now_iso(),
+            "errorSince": self.error_since,
             "pid": os.getpid(),
             "ffmpegAvailable": self.capture_available,
             "captureMode": "audio_only_pyav",
@@ -214,9 +239,11 @@ class LiveRecorder:
                 else ""
             ),
             "segmentCount": segments,
+            "lastSegmentAt": self._latest_segment_at(),
             "segmentSeconds": SEGMENT_SECONDS,
             "retentionDays": RETENTION_DAYS,
             "videoPolicy": "analysis_first_then_delete",
+            "recordingsDirectory": str(RECORDINGS_DIR),
             "error": self.last_error,
             **(extra or {}),
         }
@@ -226,10 +253,17 @@ class LiveRecorder:
         today = datetime.now().astimezone().date().isoformat()
         if not force and today == self.last_cleanup_date:
             return
-        removed = recording_store.cleanup_recordings(
-            RETENTION_DAYS,
-            recordings_dir=RECORDINGS_DIR,
-        )
+        # 清理过期录像只是收尾动作，删不掉（文件仍被占用/权限不足）时
+        # 记一条警告就继续录制，绝不能因为删文件失败把录制器打挂。
+        try:
+            removed = recording_store.cleanup_recordings(
+                RETENTION_DAYS,
+                recordings_dir=RECORDINGS_DIR,
+            )
+        except Exception as exc:
+            log(f"清理过期录像失败，已跳过并继续录制：{exc}")
+            self.last_cleanup_date = today
+            return
         self.last_cleanup_date = today
         if removed:
             log(f"录像保留策略已删除 {len(removed)} 个过期场次: {', '.join(removed)}")
@@ -258,7 +292,17 @@ class LiveRecorder:
         )
         segment_start = self.segment_start_number()
         capture_log = self.directory / "audio-capture.log"
-        self.log_handle = capture_log.open("ab", buffering=0)
+        if self.log_handle is not None:
+            try:
+                self.log_handle.close()
+            except OSError:
+                pass
+            self.log_handle = None
+        try:
+            self.log_handle = capture_log.open("ab", buffering=0)
+        except OSError:
+            self.log_handle = None
+            raise
         creation_flags = 0x08000000 if os.name == "nt" else 0
         self.process = subprocess.Popen(
             [
