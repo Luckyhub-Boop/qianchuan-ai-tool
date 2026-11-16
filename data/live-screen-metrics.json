@@ -1,7 +1,7 @@
 {
   "status": "ok",
   "live": true,
-  "syncedAt": "2026-11-16T09:41:31.405Z",
+  "syncedAt": "2026-11-16T09:45:54.252Z",
   "source": "puppeteer-core",
   "sourceLabel": "千川直播大屏 · 无头 Chrome 抓取",
   "pageUrl": "https://qianchuan.jinritemai.com/board-next?live_room_id=7708623258317114166&aavid=1744479430946824&fromModule=uni_promotion_v2",
@@ -16,21 +16,21 @@
     "roomStatus": "LIVING"
   },
   "metrics": {
-    "spend": 6269.49,
+    "spend": 6296.27,
     "gmv": 3528,
     "orders": 23,
-    "orderCost": 272.59,
+    "orderCost": 273.75,
     "roi": 0.56,
-    "watchCount": 1519,
-    "productClicks": 398,
-    "gpm": 1927,
-    "exposure": 38374,
+    "watchCount": 1521,
+    "productClicks": 400,
+    "gpm": 1922.14,
+    "exposure": 38681,
     "online": 2,
     "peakOnline": 8
   },
   "matches": {
     "spend": {
-      "evidence": "整体消耗(元) 6,269.49",
+      "evidence": "整体消耗(元) 6,296.27",
       "confidence": 94
     },
     "gmv": {
@@ -42,7 +42,7 @@
       "confidence": 94
     },
     "orderCost": {
-      "evidence": "整体成交订单成本(元) 272.59",
+      "evidence": "整体成交订单成本(元) 273.75",
       "confidence": 94
     },
     "roi": {
@@ -50,19 +50,19 @@
       "confidence": 94
     },
     "watchCount": {
-      "evidence": "直播间整体观看人数 1,519",
+      "evidence": "直播间整体观看人数 1,521",
       "confidence": 94
     },
     "productClicks": {
-      "evidence": "商品点击次数 398",
+      "evidence": "商品点击次数 400",
       "confidence": 94
     },
     "gpm": {
-      "evidence": "GPM(元) 1,927.00",
+      "evidence": "GPM(元) 1,922.14",
       "confidence": 94
     },
     "exposure": {
-      "evidence": "直播间整体曝光次数 38,374",
+      "evidence": "直播间整体曝光次数 38,681",
       "confidence": 94
     },
     "online": {
@@ -77,18 +77,18 @@
   },
   "missingMetrics": [],
   "tradeMetrics": {
-    "spend": 6269.49,
+    "spend": 6296.27,
     "gmv": 3528,
     "orders": 23,
-    "orderCost": 272.59,
+    "orderCost": 273.75,
     "roi": 0.56
   },
   "missingTradeMetrics": [],
   "behaviorMetrics": {
-    "watchCount": 1519,
-    "productClicks": 398,
+    "watchCount": 1521,
+    "productClicks": 400,
     "peakOnline": 8,
-    "gpm": 1927,
+    "gpm": 1922.14,
     "online": 2
   },
   "missingBehaviorMetrics": [],
@@ -98,88 +98,88 @@
       "label": "短视频及图文引流",
       "trafficCount": 377,
       "gmv": 2299.6,
-      "trafficShare": 19.0789,
+      "trafficShare": 19.0597,
       "gmvShare": 60.3316,
       "gpm": 6099.73,
       "unit": "percent",
-      "value": 19.0789
+      "value": 19.0597
     },
     {
       "key": "ohter",
       "label": "其他",
       "trafficCount": 974,
       "gmv": 840,
-      "trafficShare": 49.2915,
+      "trafficShare": 49.2417,
       "gmvShare": 22.038,
       "gpm": 862.42,
       "unit": "percent",
-      "value": 49.2915
+      "value": 49.2417
     },
     {
       "key": "live_recommend",
       "label": "直播推荐",
-      "trafficCount": 342,
+      "trafficCount": 343,
       "gmv": 336,
-      "trafficShare": 17.3077,
+      "trafficShare": 17.3407,
       "gmvShare": 8.8152,
-      "gpm": 982.46,
+      "gpm": 979.59,
       "unit": "percent",
-      "value": 17.3077
+      "value": 17.3407
     },
     {
       "key": "touxi_saas",
       "label": "头条西瓜",
-      "trafficCount": 138,
+      "trafficCount": 139,
       "gmv": 168,
-      "trafficShare": 6.9838,
+      "trafficShare": 7.0273,
       "gmvShare": 4.4076,
-      "gpm": 1217.39,
+      "gpm": 1208.63,
       "unit": "percent",
-      "value": 6.9838
+      "value": 7.0273
     },
     {
       "key": "general_search",
       "label": "搜索",
       "trafficCount": 75,
       "gmv": 168,
-      "trafficShare": 3.7955,
+      "trafficShare": 3.7917,
       "gmvShare": 4.4076,
       "gpm": 2240,
       "unit": "percent",
-      "value": 3.7955
+      "value": 3.7917
     },
     {
       "key": "homepage_follow",
       "label": "关注",
       "trafficCount": 35,
       "gmv": 0,
-      "trafficShare": 1.7713,
+      "trafficShare": 1.7695,
       "gmvShare": 0,
       "gpm": 0,
       "unit": "percent",
-      "value": 1.7713
+      "value": 1.7695
     },
     {
       "key": "douyin_shopping_center",
       "label": "抖音商城推荐",
       "trafficCount": 31,
       "gmv": 0,
-      "trafficShare": 1.5688,
+      "trafficShare": 1.5672,
       "gmvShare": 0,
       "gpm": 0,
       "unit": "percent",
-      "value": 1.5688
+      "value": 1.5672
     },
     {
       "key": "other_homepage",
       "label": "个人主页&店铺&橱窗",
       "trafficCount": 3,
       "gmv": 0,
-      "trafficShare": 0.1518,
+      "trafficShare": 0.1517,
       "gmvShare": 0,
       "gpm": 0,
       "unit": "percent",
-      "value": 0.1518
+      "value": 0.1517
     },
     {
       "key": "activity",
@@ -198,7 +198,7 @@
     "source": "qianchuan_board_network",
     "sourceLabel": "千川/巨量百应直播大屏 · 渠道明细",
     "dimension": "combined_first_compass_entrance_code",
-    "totalTraffic": 1976,
+    "totalTraffic": 1978,
     "totalGmv": 3811.6,
     "items": [
       {
@@ -206,7 +206,7 @@
         "label": "短视频及图文引流",
         "trafficCount": 377,
         "gmv": 2299.6,
-        "trafficShare": 19.0789,
+        "trafficShare": 19.0597,
         "gmvShare": 60.3316,
         "gpm": 6099.73,
         "unit": "percent"
@@ -216,7 +216,7 @@
         "label": "其他",
         "trafficCount": 974,
         "gmv": 840,
-        "trafficShare": 49.2915,
+        "trafficShare": 49.2417,
         "gmvShare": 22.038,
         "gpm": 862.42,
         "unit": "percent"
@@ -224,21 +224,21 @@
       {
         "key": "live_recommend",
         "label": "直播推荐",
-        "trafficCount": 342,
+        "trafficCount": 343,
         "gmv": 336,
-        "trafficShare": 17.3077,
+        "trafficShare": 17.3407,
         "gmvShare": 8.8152,
-        "gpm": 982.46,
+        "gpm": 979.59,
         "unit": "percent"
       },
       {
         "key": "touxi_saas",
         "label": "头条西瓜",
-        "trafficCount": 138,
+        "trafficCount": 139,
         "gmv": 168,
-        "trafficShare": 6.9838,
+        "trafficShare": 7.0273,
         "gmvShare": 4.4076,
-        "gpm": 1217.39,
+        "gpm": 1208.63,
         "unit": "percent"
       },
       {
@@ -246,7 +246,7 @@
         "label": "搜索",
         "trafficCount": 75,
         "gmv": 168,
-        "trafficShare": 3.7955,
+        "trafficShare": 3.7917,
         "gmvShare": 4.4076,
         "gpm": 2240,
         "unit": "percent"
@@ -256,7 +256,7 @@
         "label": "关注",
         "trafficCount": 35,
         "gmv": 0,
-        "trafficShare": 1.7713,
+        "trafficShare": 1.7695,
         "gmvShare": 0,
         "gpm": 0,
         "unit": "percent"
@@ -266,7 +266,7 @@
         "label": "抖音商城推荐",
         "trafficCount": 31,
         "gmv": 0,
-        "trafficShare": 1.5688,
+        "trafficShare": 1.5672,
         "gmvShare": 0,
         "gpm": 0,
         "unit": "percent"
@@ -276,7 +276,7 @@
         "label": "个人主页&店铺&橱窗",
         "trafficCount": 3,
         "gmv": 0,
-        "trafficShare": 0.1518,
+        "trafficShare": 0.1517,
         "gmvShare": 0,
         "gpm": 0,
         "unit": "percent"
@@ -292,22 +292,22 @@
         "unit": "percent"
       }
     ],
-    "capturedAt": "2026-11-16T09:41:08.800Z"
+    "capturedAt": "2026-11-16T09:45:10.333Z"
   },
   "funnel": {
     "source": "qianchuan_board_funnel_module",
     "sourceLabel": "千川直播大屏 · 直播间核心漏斗",
-    "show": 38374,
-    "watch": 1978,
-    "click": 398,
+    "show": 38681,
+    "watch": 1983,
+    "click": 400,
     "orders": 23,
     "rates": {
-      "showToWatch": 5.15,
-      "watchToClick": 20.12,
-      "clickToPay": 5.78,
+      "showToWatch": 5.13,
+      "watchToClick": 20.17,
+      "clickToPay": 5.75,
       "watchToPay": 1.16
     },
-    "capturedAt": "2026-11-16T09:41:17.400Z"
+    "capturedAt": "2026-11-16T09:45:19.274Z"
   },
   "trend": {
     "source": "qianchuan_board_total_trend",
@@ -677,34 +677,49 @@
       {
         "t": 1794821700000,
         "time": "2026-11-16 17:35:00",
-        "spend": 43.32,
+        "spend": 43.37,
         "gmv": 0
       },
       {
         "t": 1794822000000,
         "time": "2026-11-16 17:40:00",
-        "spend": 0.61,
+        "spend": 29.47,
+        "gmv": 0
+      },
+      {
+        "t": 1794822300000,
+        "time": "2026-11-16 17:45:00",
+        "spend": 0,
         "gmv": 0
       }
     ],
-    "capturedAt": "2026-11-16T09:41:13.570Z"
+    "capturedAt": "2026-11-16T09:45:15.052Z"
   },
   "detectionStatus": "live",
   "officialLive": {
     "status": "zero_pending",
-    "metrics": {},
-    "fieldSources": {},
+    "metrics": {
+      "spend": 0,
+      "watchCount": 0,
+      "watchOneMinute": 0,
+      "productClicks": 0,
+      "comments": 0,
+      "follows": 0,
+      "deliveryPlans": 2
+    },
+    "fieldSources": {
+      "spend": "stat_cost",
+      "watchCount": "total_live_watch_cnt",
+      "watchOneMinute": "live_watch_one_minute_count",
+      "productClicks": "live_click_product_count_alias",
+      "comments": "total_live_comment_cnt",
+      "follows": "total_live_follow_cnt",
+      "deliveryPlans": "room_delivery"
+    },
     "missingMetrics": [
-      "spend",
       "gmv",
       "orders",
       "roi",
-      "watchCount",
-      "watchOneMinute",
-      "productClicks",
-      "comments",
-      "follows",
-      "deliveryPlans",
       "online",
       "peakOnline",
       "gpm",
@@ -749,6 +764,7 @@
       "error": ""
     }
   ],
+  "metricUnchangedSeconds": 22,
   "peakOnlineSource": "observed_since_capture",
   "peakObservedAt": "2026-11-16T09:29:42.650Z",
   "browser": {
@@ -756,7 +772,7 @@
     "profile": "D:\\AI投放产品\\chrome-profile",
     "headless": true
   },
-  "heartbeatAt": "2026-11-16T09:41:37.797Z",
+  "heartbeatAt": "2026-11-16T09:45:58.190Z",
   "pid": 33308,
   "accountId": "fashion",
   "intervalSeconds": 10,

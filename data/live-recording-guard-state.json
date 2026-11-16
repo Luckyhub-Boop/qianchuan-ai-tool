@@ -1,7 +1,7 @@
 {
   "ok": true,
   "status": "active",
-  "updatedAt": "2026-11-16T17:41:35+08:00",
+  "updatedAt": "2026-11-16T17:45:51+08:00",
   "pid": 18704,
   "lastActions": [],
   "activeMethod": "primary",
@@ -11,8 +11,8 @@
   "primary": {
     "running": true,
     "status": "recording",
-    "updatedAge": 3.0,
-    "lastSegmentAge": 3.0,
+    "updatedAge": 2.3,
+    "lastSegmentAge": 2.3,
     "error": false,
     "stale": false,
     "stalled": false,

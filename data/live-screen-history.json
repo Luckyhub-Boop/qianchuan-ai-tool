@@ -1294552,12 +1294552,552 @@
             },
             "capturedAt": "2026-11-16T09:40:17.164Z"
           }
+        },
+        {
+          "t": 1794822080909,
+          "syncedAt": "2026-11-16T17:41:22+08:00",
+          "sourceAt": "2026-11-16T09:41:20.909Z",
+          "spend": 6267.75,
+          "gmv": 3528.0,
+          "orders": 23.0,
+          "roi": 0.56,
+          "watch": 1519.0,
+          "exposure": 38374.0,
+          "watchOneMinute": null,
+          "productClicks": 398.0,
+          "peakOnline": 8.0,
+          "gpm": 1927.0,
+          "online": 2.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 19.0789,
+              "unit": "percent",
+              "trafficCount": 377,
+              "trafficShare": 19.0789,
+              "gmv": 2299.6,
+              "gmvShare": 60.3316,
+              "gpm": 6099.73
+            },
+            {
+              "key": "ohter",
+              "label": "其他",
+              "value": 49.2915,
+              "unit": "percent",
+              "trafficCount": 974,
+              "trafficShare": 49.2915,
+              "gmv": 840,
+              "gmvShare": 22.038,
+              "gpm": 862.42
+            },
+            {
+              "key": "live_recommend",
+              "label": "直播推荐",
+              "value": 17.3077,
+              "unit": "percent",
+              "trafficCount": 342,
+              "trafficShare": 17.3077,
+              "gmv": 336,
+              "gmvShare": 8.8152,
+              "gpm": 982.46
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 6.9838,
+              "unit": "percent",
+              "trafficCount": 138,
+              "trafficShare": 6.9838,
+              "gmv": 168,
+              "gmvShare": 4.4076,
+              "gpm": 1217.39
+            },
+            {
+              "key": "general_search",
+              "label": "搜索",
+              "value": 3.7955,
+              "unit": "percent",
+              "trafficCount": 75,
+              "trafficShare": 3.7955,
+              "gmv": 168,
+              "gmvShare": 4.4076,
+              "gpm": 2240
+            },
+            {
+              "key": "homepage_follow",
+              "label": "关注",
+              "value": 1.7713,
+              "unit": "percent",
+              "trafficCount": 35,
+              "trafficShare": 1.7713,
+              "gmv": 0,
+              "gmvShare": 0,
+              "gpm": 0
+            },
+            {
+              "key": "douyin_shopping_center",
+              "label": "抖音商城推荐",
+              "value": 1.5688,
+              "unit": "percent",
+              "trafficCount": 31,
+              "trafficShare": 1.5688,
+              "gmv": 0,
+              "gmvShare": 0,
+              "gpm": 0
+            },
+            {
+              "key": "other_homepage",
+              "label": "个人主页&店铺&橱窗",
+              "value": 0.1518,
+              "unit": "percent",
+              "trafficCount": 3,
+              "trafficShare": 0.1518,
+              "gmv": 0,
+              "gmvShare": 0,
+              "gpm": 0
+            },
+            {
+              "key": "activity",
+              "label": "活动页",
+              "value": 0.0506,
+              "unit": "percent",
+              "trafficCount": 1,
+              "trafficShare": 0.0506,
+              "gmv": 0,
+              "gmvShare": 0,
+              "gpm": 0
+            }
+          ],
+          "funnel": {
+            "source": "qianchuan_board_funnel_module",
+            "sourceLabel": "千川直播大屏 · 直播间核心漏斗",
+            "show": 38374,
+            "watch": 1978,
+            "click": 398,
+            "orders": 23,
+            "rates": {
+              "showToWatch": 5.15,
+              "watchToClick": 20.12,
+              "clickToPay": 5.78,
+              "watchToPay": 1.16
+            },
+            "capturedAt": "2026-11-16T09:41:17.400Z"
+          }
+        },
+        {
+          "t": 1794822124231,
+          "syncedAt": "2026-11-16T17:42:06+08:00",
+          "sourceAt": "2026-11-16T09:42:04.231Z",
+          "spend": 6275.84,
+          "gmv": 3528.0,
+          "orders": 23.0,
+          "roi": 0.56,
+          "watch": 1519.0,
+          "exposure": 38374.0,
+          "watchOneMinute": null,
+          "productClicks": 398.0,
+          "peakOnline": 8.0,
+          "gpm": 1927.0,
+          "online": 2.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 19.0789,
+              "unit": "percent",
+              "trafficCount": 377,
+              "trafficShare": 19.0789,
+              "gmv": 2299.6,
+              "gmvShare": 60.3316,
+              "gpm": 6099.73
+            },
+            {
+              "key": "ohter",
+              "label": "其他",
+              "value": 49.2915,
+              "unit": "percent",
+              "trafficCount": 974,
+              "trafficShare": 49.2915,
+              "gmv": 840,
+              "gmvShare": 22.038,
+              "gpm": 862.42
+            },
+            {
+              "key": "live_recommend",
+              "label": "直播推荐",
+              "value": 17.3077,
+              "unit": "percent",
+              "trafficCount": 342,
+              "trafficShare": 17.3077,
+              "gmv": 336,
+              "gmvShare": 8.8152,
+              "gpm": 982.46
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 6.9838,
+              "unit": "percent",
+              "trafficCount": 138,
+              "trafficShare": 6.9838,
+              "gmv": 168,
+              "gmvShare": 4.4076,
+              "gpm": 1217.39
+            },
+            {
+              "key": "general_search",
+              "label": "搜索",
+              "value": 3.7955,
+              "unit": "percent",
+              "trafficCount": 75,
+              "trafficShare": 3.7955,
+              "gmv": 168,
+              "gmvShare": 4.4076,
+              "gpm": 2240
+            },
+            {
+              "key": "homepage_follow",
+              "label": "关注",
+              "value": 1.7713,
+              "unit": "percent",
+              "trafficCount": 35,
+              "trafficShare": 1.7713,
+              "gmv": 0,
+              "gmvShare": 0,
+              "gpm": 0
+            },
+            {
+              "key": "douyin_shopping_center",
+              "label": "抖音商城推荐",
+              "value": 1.5688,
+              "unit": "percent",
+              "trafficCount": 31,
+              "trafficShare": 1.5688,
+              "gmv": 0,
+              "gmvShare": 0,
+              "gpm": 0
+            },
+            {
+              "key": "other_homepage",
+              "label": "个人主页&店铺&橱窗",
+              "value": 0.1518,
+              "unit": "percent",
+              "trafficCount": 3,
+              "trafficShare": 0.1518,
+              "gmv": 0,
+              "gmvShare": 0,
+              "gpm": 0
+            },
+            {
+              "key": "activity",
+              "label": "活动页",
+              "value": 0.0506,
+              "unit": "percent",
+              "trafficCount": 1,
+              "trafficShare": 0.0506,
+              "gmv": 0,
+              "gmvShare": 0,
+              "gpm": 0
+            }
+          ],
+          "funnel": {
+            "source": "qianchuan_board_funnel_module",
+            "sourceLabel": "千川直播大屏 · 直播间核心漏斗",
+            "show": 38374,
+            "watch": 1978,
+            "click": 398,
+            "orders": 23,
+            "rates": {
+              "showToWatch": 5.15,
+              "watchToClick": 20.12,
+              "clickToPay": 5.78,
+              "watchToPay": 1.16
+            },
+            "capturedAt": "2026-11-16T09:41:17.400Z"
+          }
+        },
+        {
+          "t": 1794822172398,
+          "syncedAt": "2026-11-16T17:43:01+08:00",
+          "sourceAt": "2026-11-16T09:42:52.398Z",
+          "spend": 6277.12,
+          "gmv": 3528.0,
+          "orders": 23.0,
+          "roi": 0.56,
+          "watch": 1519.0,
+          "exposure": 38458.0,
+          "watchOneMinute": null,
+          "productClicks": 400.0,
+          "peakOnline": 8.0,
+          "gpm": 1927.0,
+          "online": 3.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 19.0597,
+              "unit": "percent",
+              "trafficCount": 377,
+              "trafficShare": 19.0597,
+              "gmv": 2299.6,
+              "gmvShare": 60.3316,
+              "gpm": 6099.73
+            },
+            {
+              "key": "ohter",
+              "label": "其他",
+              "value": 49.2417,
+              "unit": "percent",
+              "trafficCount": 974,
+              "trafficShare": 49.2417,
+              "gmv": 840,
+              "gmvShare": 22.038,
+              "gpm": 862.42
+            },
+            {
+              "key": "live_recommend",
+              "label": "直播推荐",
+              "value": 17.3407,
+              "unit": "percent",
+              "trafficCount": 343,
+              "trafficShare": 17.3407,
+              "gmv": 336,
+              "gmvShare": 8.8152,
+              "gpm": 979.59
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 7.0273,
+              "unit": "percent",
+              "trafficCount": 139,
+              "trafficShare": 7.0273,
+              "gmv": 168,
+              "gmvShare": 4.4076,
+              "gpm": 1208.63
+            },
+            {
+              "key": "general_search",
+              "label": "搜索",
+              "value": 3.7917,
+              "unit": "percent",
+              "trafficCount": 75,
+              "trafficShare": 3.7917,
+              "gmv": 168,
+              "gmvShare": 4.4076,
+              "gpm": 2240
+            },
+            {
+              "key": "homepage_follow",
+              "label": "关注",
+              "value": 1.7695,
+              "unit": "percent",
+              "trafficCount": 35,
+              "trafficShare": 1.7695,
+              "gmv": 0,
+              "gmvShare": 0,
+              "gpm": 0
+            },
+            {
+              "key": "douyin_shopping_center",
+              "label": "抖音商城推荐",
+              "value": 1.5672,
+              "unit": "percent",
+              "trafficCount": 31,
+              "trafficShare": 1.5672,
+              "gmv": 0,
+              "gmvShare": 0,
+              "gpm": 0
+            },
+            {
+              "key": "other_homepage",
+              "label": "个人主页&店铺&橱窗",
+              "value": 0.1517,
+              "unit": "percent",
+              "trafficCount": 3,
+              "trafficShare": 0.1517,
+              "gmv": 0,
+              "gmvShare": 0,
+              "gpm": 0
+            },
+            {
+              "key": "activity",
+              "label": "活动页",
+              "value": 0.0506,
+              "unit": "percent",
+              "trafficCount": 1,
+              "trafficShare": 0.0506,
+              "gmv": 0,
+              "gmvShare": 0,
+              "gpm": 0
+            }
+          ],
+          "funnel": {
+            "source": "qianchuan_board_funnel_module",
+            "sourceLabel": "千川直播大屏 · 直播间核心漏斗",
+            "show": 38458,
+            "watch": 1978,
+            "click": 400,
+            "orders": 23,
+            "rates": {
+              "showToWatch": 5.14,
+              "watchToClick": 20.22,
+              "clickToPay": 5.75,
+              "watchToPay": 1.16
+            },
+            "capturedAt": "2026-11-16T09:42:17.680Z"
+          }
+        },
+        {
+          "t": 1794822211880,
+          "syncedAt": "2026-11-16T17:43:42+08:00",
+          "sourceAt": "2026-11-16T09:43:31.880Z",
+          "spend": 6282.21,
+          "gmv": 3528.0,
+          "orders": 23.0,
+          "roi": 0.56,
+          "watch": 1519.0,
+          "exposure": 38552.0,
+          "watchOneMinute": null,
+          "productClicks": 400.0,
+          "peakOnline": 8.0,
+          "gpm": 1927.0,
+          "online": 4.0,
+          "comments": null,
+          "follows": null,
+          "entryRate": null,
+          "flowItems": [
+            {
+              "key": "video_to_live",
+              "label": "短视频及图文引流",
+              "value": 19.0597,
+              "unit": "percent",
+              "trafficCount": 377,
+              "trafficShare": 19.0597,
+              "gmv": 2299.6,
+              "gmvShare": 60.3316,
+              "gpm": 6099.73
+            },
+            {
+              "key": "ohter",
+              "label": "其他",
+              "value": 49.2417,
+              "unit": "percent",
+              "trafficCount": 974,
+              "trafficShare": 49.2417,
+              "gmv": 840,
+              "gmvShare": 22.038,
+              "gpm": 862.42
+            },
+            {
+              "key": "live_recommend",
+              "label": "直播推荐",
+              "value": 17.3407,
+              "unit": "percent",
+              "trafficCount": 343,
+              "trafficShare": 17.3407,
+              "gmv": 336,
+              "gmvShare": 8.8152,
+              "gpm": 979.59
+            },
+            {
+              "key": "touxi_saas",
+              "label": "头条西瓜",
+              "value": 7.0273,
+              "unit": "percent",
+              "trafficCount": 139,
+              "trafficShare": 7.0273,
+              "gmv": 168,
+              "gmvShare": 4.4076,
+              "gpm": 1208.63
+            },
+            {
+              "key": "general_search",
+              "label": "搜索",
+              "value": 3.7917,
+              "unit": "percent",
+              "trafficCount": 75,
+              "trafficShare": 3.7917,
+              "gmv": 168,
+              "gmvShare": 4.4076,
+              "gpm": 2240
+            },
+            {
+              "key": "homepage_follow",
+              "label": "关注",
+              "value": 1.7695,
+              "unit": "percent",
+              "trafficCount": 35,
+              "trafficShare": 1.7695,
+              "gmv": 0,
+              "gmvShare": 0,
+              "gpm": 0
+            },
+            {
+              "key": "douyin_shopping_center",
+              "label": "抖音商城推荐",
+              "value": 1.5672,
+              "unit": "percent",
+              "trafficCount": 31,
+              "trafficShare": 1.5672,
+              "gmv": 0,
+              "gmvShare": 0,
+              "gpm": 0
+            },
+            {
+              "key": "other_homepage",
+              "label": "个人主页&店铺&橱窗",
+              "value": 0.1517,
+              "unit": "percent",
+              "trafficCount": 3,
+              "trafficShare": 0.1517,
+              "gmv": 0,
+              "gmvShare": 0,
+              "gpm": 0
+            },
+            {
+              "key": "activity",
+              "label": "活动页",
+              "value": 0.0506,
+              "unit": "percent",
+              "trafficCount": 1,
+              "trafficShare": 0.0506,
+              "gmv": 0,
+              "gmvShare": 0,
+              "gpm": 0
+            }
+          ],
+          "funnel": {
+            "source": "qianchuan_board_funnel_module",
+            "sourceLabel": "千川直播大屏 · 直播间核心漏斗",
+            "show": 38552,
+            "watch": 1978,
+            "click": 400,
+            "orders": 23,
+            "rates": {
+              "showToWatch": 5.13,
+              "watchToClick": 20.22,
+              "clickToPay": 5.75,
+              "watchToPay": 1.16
+            },
+            "capturedAt": "2026-11-16T09:43:18.045Z"
+          }
         }
       ]
     }
   },
   "version": 1,
-  "updatedAt": "2026-11-16T17:40:38+08:00",
+  "updatedAt": "2026-11-16T17:43:50+08:00",
   "recoveryWarning": "历史文件不是有效对象",
   "recoveredFromBackupAt": "2026-11-02T18:36:46+08:00",
   "rooms": {
@@ -1294647,22 +1295187,22 @@
       "roomTitle": "赵镭精讲小数基本功",
       "roomStatus": "LIVING",
       "screenCaptureStartedAt": "2026-11-16T14:30:38+08:00",
-      "screenCaptureEndedAt": "2026-11-16T17:40:30+08:00",
-      "screenCaptureDurationSeconds": 11392,
-      "screenSampleCount": 281,
+      "screenCaptureEndedAt": "2026-11-16T17:43:31+08:00",
+      "screenCaptureDurationSeconds": 11573,
+      "screenSampleCount": 285,
       "screenLastCumulative": {
-        "spend": 6261.15,
+        "spend": 6282.21,
         "gmv": 3528.0,
         "orders": 23.0,
         "roi": 0.56,
         "watch": 1519.0,
-        "exposure": 38296.0,
-        "productClicks": 398.0,
+        "exposure": 38552.0,
+        "productClicks": 400.0,
         "peakOnline": 8.0,
-        "gpm": 1927.97,
+        "gpm": 1927.0,
         "online": 4.0
       },
-      "updatedAt": "2026-11-16T17:40:38+08:00",
+      "updatedAt": "2026-11-16T17:43:50+08:00",
       "liveStartedAt": "2026-11-16T12:35:43+08:00"
     }
   }
