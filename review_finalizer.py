@@ -39,12 +39,6 @@ def transcription_is_complete(directory: Path, manifest: dict[str, Any]) -> bool
         for item in transcript.get("processedParts") or []
         if str(item).strip()
     }
-    if isinstance(transcript.get("segments"), list):
-        processed.update(
-            str(item.get("segmentId"))
-            for item in transcript["segments"]
-            if isinstance(item, dict) and item.get("segmentId")
-        )
     return segments.issubset(processed)
 
 

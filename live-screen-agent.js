@@ -88,6 +88,33 @@ const FLOW_LABELS = {
   "头条西瓜": "touxi_saas",
   "其他": "ecom_other"
 };
+const FUNNEL_RATE_LABELS = {
+  showToWatch: [
+    "曝光观看率(次数)",
+    "曝光观看率（次数）",
+    "曝光-观看转化率",
+    "曝光→观看率",
+    "曝光至观看率"
+  ],
+  watchToClick: [
+    "观看商品点击率",
+    "观看-商品点击转化率",
+    "观看→点击率",
+    "观看至点击率"
+  ],
+  clickToPay: [
+    "商品点击成交率",
+    "商品点击-成交转化率",
+    "点击成交率",
+    "点击→成交率"
+  ],
+  watchToPay: [
+    "观看成交率",
+    "观看-成交转化率",
+    "观看→成交率",
+    "观看至成交率"
+  ]
+};
 
 const DEFAULT_CONFIG = {
   enabled: true,
@@ -676,6 +703,65 @@ function parseMetricNumber(rawValue) {
     else if (symbol === "%") value /= 100;
   }
   return Number(value.toFixed(6));
+}
+
+function parsePercentLabelNumber(rawValue) {
+  const text = String(rawValue || "").replace(/\s+/g, " ");
+  const match = text.match(/(-?\d+(?:\.\d+)?)\s*%/);
+  if (!match) return null;
+  const value = Number(match[1]);
+  return Number.isFinite(value) ? Number(value.toFixed(4)) : null;
+}
+
+function funnelRateFromText(text, label) {
+  const source = String(text || "");
+  const lowerSource = source.toLowerCase();
+  const lowerLabel = String(label || "").toLowerCase();
+  const labelAt = lowerSource.indexOf(lowerLabel);
+  if (labelAt < 0) return null;
+  const after = source.slice(labelAt + label.length);
+  const before = source.slice(0, labelAt);
+  return parsePercentLabelNumber(after) ?? parsePercentLabelNumber(before.slice(-40));
+}
+
+function extractFunnelRates(snapshot) {
+  const sources = [
+    ...(snapshot?.lines || []),
+    ...(snapshot?.fragments || []).map(fragment => fragment.text || "")
+  ];
+  const rates = {};
+  for (const [key, labels] of Object.entries(FUNNEL_RATE_LABELS)) {
+    for (const label of labels) {
+      const value = sources
+        .map(text => funnelRateFromText(text, label))
+        .find(candidate => candidate != null);
+      if (value != null) {
+        rates[key] = value;
+        break;
+      }
+    }
+  }
+  return rates;
+}
+
+function mergeFunnelRates(funnel, labelRates) {
+  const hasFunnel = funnel && typeof funnel === "object";
+  const hasLabelRates = labelRates && Object.keys(labelRates).length > 0;
+  if (!hasFunnel && !hasLabelRates) return null;
+  const base = hasFunnel
+    ? { ...funnel }
+    : {
+        source: "qianchuan_board_funnel_label",
+        sourceLabel: "千川直播大屏 · 直播间核心漏斗标签",
+        capturedAt: nowIso()
+      };
+  base.rates = { ...(base.rates || {}) };
+  for (const [key, value] of Object.entries(labelRates || {})) {
+    if (base.rates[key] == null && Number.isFinite(Number(value))) {
+      base.rates[key] = Number(value);
+    }
+  }
+  return base;
 }
 
 function metricCandidates(snapshot, definition, metricKey = "") {
@@ -1447,6 +1533,7 @@ async function scrapeEbPDetail(page, config) {
   };
   const extracted = extractMetrics(aggregate, config.metrics);
   const flows = extractFlows(aggregate);
+  const funnelRates = extractFunnelRates(aggregate);
   const missingTradeMetrics = TRADE_METRIC_KEYS.filter(key => extracted.metrics[key] == null);
   const missingBehaviorMetrics = BEHAVIOR_METRIC_KEYS.filter(key => extracted.metrics[key] == null);
   const roomId = roomIdFromUrl(aggregate.url);
@@ -1480,6 +1567,7 @@ async function scrapeEbPDetail(page, config) {
     ),
     missingBehaviorMetrics,
     flows: flows.items,
+    funnelRates,
     tabs: tabs.map(tab => tab.name),
     error: status === "login_required"
       ? "登录已过期，正在使用持久化登录态自动恢复；持续失败再运行 login-live-screen.bat"
@@ -1504,6 +1592,7 @@ async function scrape(page, config) {
   const snapshot = await inspectPage(page, config);
   const extracted = extractMetrics(snapshot, config.metrics);
   const flows = extractFlows(snapshot);
+  const funnelRates = extractFunnelRates(snapshot);
   const missingTradeMetrics = TRADE_METRIC_KEYS.filter(key => extracted.metrics[key] == null);
   const missingBehaviorMetrics = BEHAVIOR_METRIC_KEYS.filter(key => extracted.metrics[key] == null);
   const roomId = roomIdFromUrl(snapshot.url);
@@ -1537,6 +1626,7 @@ async function scrape(page, config) {
     ),
     missingBehaviorMetrics,
     flows: flows.items,
+    funnelRates,
     error: status === "login_required"
       ? "登录已过期，正在使用持久化登录态自动恢复；持续失败再运行 login-live-screen.bat"
       : status === "permission_denied"
@@ -2030,7 +2120,10 @@ async function runAgent(config) {
           value: item.trafficShare
         }));
       }
-      if (boardNetwork?.funnel) result.funnel = boardNetwork.funnel;
+      result.funnel = mergeFunnelRates(
+        boardNetwork?.funnel,
+        result.funnelRates
+      );
       if (boardNetwork?.trend?.points?.length) result.trend = boardNetwork.trend;
       if (
         result.status === "login_required" &&
@@ -2053,7 +2146,10 @@ async function runAgent(config) {
                 value: item.trafficShare
               }));
             }
-            if (recoveredBoardNetwork?.funnel) result.funnel = recoveredBoardNetwork.funnel;
+            result.funnel = mergeFunnelRates(
+              recoveredBoardNetwork?.funnel,
+              result.funnelRates
+            );
             if (recoveredBoardNetwork?.trend?.points?.length) {
               result.trend = recoveredBoardNetwork.trend;
             }
@@ -2319,6 +2415,7 @@ module.exports = {
   buildLoginPageUrl,
   cleanupBrowserProfileState,
   extractMetrics,
+  extractFunnelRates,
   extractFlows,
   extractFlowBreakdown,
   findStreamUrl,
@@ -2330,6 +2427,7 @@ module.exports = {
   isLiveScreenPage,
   liveScreenMetricSignalCount,
   loginRequired,
+  mergeFunnelRates,
   mergePreparedConfig,
   mergeConfig,
   parseMetricNumber,

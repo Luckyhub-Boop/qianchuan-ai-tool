@@ -109,6 +109,242 @@ class FrontendContractTests(unittest.TestCase):
         self.assertNotIn("未剔除退款", html)
         self.assertNotIn('id="dataLiveTrendChart"', html)
         self.assertNotIn('id="dataLiveBoard"', html)
+        self.assertIn("本场完整时长", html)
+        self.assertIn("当日同直播间累计", html)
+        self.assertIn('id="recMonitorSession"', html)
+        self.assertIn('id="recMonitorToday"', html)
+        self.assertIn("sessionDurationSeconds", html)
+        self.assertIn("todayRoomDurationSeconds", html)
+
+
+class RecordingMonitorTests(unittest.TestCase):
+    def test_monitor_shows_full_live_session_and_deduplicated_daily_room_total(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            data_dir = root / "data"
+            recordings_root = root / "recordings"
+            data_dir.mkdir()
+            recordings_root.mkdir()
+            store = server.DashboardStore(root / "snapshot.json")
+            fixed_now = datetime.fromisoformat("2026-11-17T16:00:00+08:00")
+            room_id = "room-1"
+            server.atomic_write_json(
+                store.live_screen_path,
+                {
+                    "status": "ok",
+                    "live": True,
+                    "heartbeatAt": fixed_now.isoformat(),
+                    "room": {
+                        "id": room_id,
+                        "startTime": "2026-11-17 12:01:19",
+                        "endTime": "",
+                        "roomStatus": "LIVING",
+                    },
+                    "metrics": {},
+                },
+            )
+
+            def add_session(
+                name: str,
+                started_at: str,
+                ended_at: str,
+                *,
+                status: str = "completed",
+                session_room_id: str = room_id,
+                session_date: str = "2026-11-17",
+            ) -> None:
+                directory = recordings_root / name
+                (directory / "segments").mkdir(parents=True)
+                (directory / "segments" / "part_000001.wav").write_bytes(
+                    b"RIFF" + b"\0" * 64
+                )
+                server.recording_store.write_manifest(
+                    directory,
+                    {
+                        "id": name,
+                        "roomId": session_room_id,
+                        "date": session_date,
+                        "startedAt": started_at,
+                        "endedAt": ended_at,
+                        "updatedAt": ended_at or started_at,
+                        "status": status,
+                        "segmentCount": 1,
+                    },
+                )
+
+            add_session(
+                "2026-11-17_room-1_090000",
+                "2026-11-17T09:00:00+08:00",
+                "2026-11-17T09:30:00+08:00",
+            )
+            add_session(
+                "2026-11-17_room-1_092000",
+                "2026-11-17T09:20:00+08:00",
+                "2026-11-17T09:40:00+08:00",
+            )
+            add_session(
+                "2026-11-17_room-1_154618",
+                "2026-11-17T15:46:18+08:00",
+                "",
+                status="recording",
+            )
+            add_session(
+                "2026-11-17_room-2_100000",
+                "2026-11-17T10:00:00+08:00",
+                "2026-11-17T11:00:00+08:00",
+                session_room_id="room-2",
+            )
+            add_session(
+                "2026-11-16_room-1_090000",
+                "2026-11-16T09:00:00+08:00",
+                "2026-11-16T10:00:00+08:00",
+                session_date="2026-11-16",
+            )
+
+            class StreamRegistry:
+                @staticmethod
+                def status() -> dict:
+                    return {
+                        "online": True,
+                        "active": True,
+                        "captured": True,
+                        "roomId": room_id,
+                    }
+
+            with patch.object(server, "DATA_DIR", data_dir), \
+                 patch.object(server, "RECORDINGS_DIR", recordings_root), \
+                 patch.object(
+                     server,
+                     "REVIEW_ARCHIVE_DIR",
+                     root / "review-archive",
+                 ), \
+                 patch.object(
+                     store,
+                     "recording_status",
+                     return_value={
+                         "status": "recording",
+                         "roomId": room_id,
+                         "sessionId": "2026-11-17_room-1_154618",
+                         "lastSegmentAt": fixed_now.isoformat(),
+                     },
+                 ), \
+                 patch.object(store, "asr_status", return_value={}):
+                payload = server.build_recording_monitor(
+                    store,
+                    StreamRegistry(),
+                    now=fixed_now,
+                )
+
+            self.assertEqual(
+                payload["sessionStartedAt"],
+                "2026-11-17T12:01:19+08:00",
+            )
+            self.assertEqual(payload["sessionDurationSeconds"], 14321.0)
+            self.assertTrue(payload["sessionInProgress"])
+            self.assertEqual(payload["todayRoomDurationSeconds"], 16721.0)
+            self.assertEqual(payload["todayRoomWindowCount"], 2)
+            self.assertEqual(payload["todayRoomManifestCount"], 3)
+            self.assertLess(payload["wallDurationSeconds"], 1000)
+
+    def test_monitor_keeps_final_live_duration_after_screen_goes_offline(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            data_dir = root / "data"
+            recordings_root = root / "recordings"
+            data_dir.mkdir()
+            recordings_root.mkdir()
+            store = server.DashboardStore(root / "snapshot.json")
+            fixed_now = datetime.fromisoformat("2026-11-17T16:00:00+08:00")
+            room_id = "room-1"
+            server.atomic_write_json(
+                store.live_screen_path,
+                {
+                    "status": "not_live",
+                    "live": False,
+                    "heartbeatAt": fixed_now.isoformat(),
+                    "room": {},
+                    "metrics": {},
+                },
+            )
+            server.atomic_write_json(
+                store.live_history_path,
+                {
+                    "version": 1,
+                    "rooms": {
+                        f"2026-11-17::{room_id}": {
+                            "date": "2026-11-17",
+                            "roomId": room_id,
+                            "liveStartedAt": "2026-11-17T12:01:19+08:00",
+                            "liveEndedAt": "2026-11-17T15:35:00+08:00",
+                        }
+                    },
+                },
+            )
+            session_name = "2026-11-17_room-1_154618"
+            session_dir = recordings_root / session_name
+            (session_dir / "segments").mkdir(parents=True)
+            (session_dir / "segments" / "part_000001.wav").write_bytes(
+                b"RIFF" + b"\0" * 64
+            )
+            server.recording_store.write_manifest(
+                session_dir,
+                {
+                    "id": session_name,
+                    "roomId": room_id,
+                    "date": "2026-11-17",
+                    "startedAt": "2026-11-17T12:02:28+08:00",
+                    "endedAt": "2026-11-17T15:34:55+08:00",
+                    "updatedAt": "2026-11-17T15:35:00+08:00",
+                    "status": "completed",
+                    "segmentCount": 1,
+                },
+            )
+
+            class StreamRegistry:
+                @staticmethod
+                def status() -> dict:
+                    return {
+                        "online": False,
+                        "active": False,
+                        "captured": False,
+                        "roomId": "",
+                    }
+
+            with patch.object(server, "DATA_DIR", data_dir), \
+                 patch.object(server, "RECORDINGS_DIR", recordings_root), \
+                 patch.object(
+                     server,
+                     "REVIEW_ARCHIVE_DIR",
+                     root / "review-archive",
+                 ), \
+                 patch.object(
+                     store,
+                     "recording_status",
+                     return_value={"status": "idle"},
+                 ), \
+                 patch.object(store, "asr_status", return_value={}):
+                payload = server.build_recording_monitor(
+                    store,
+                    StreamRegistry(),
+                    now=fixed_now,
+                )
+
+            self.assertEqual(payload["sessionId"], session_name)
+            self.assertEqual(
+                payload["sessionStartedAt"],
+                "2026-11-17T12:01:19+08:00",
+            )
+            self.assertEqual(
+                payload["sessionEndedAt"],
+                "2026-11-17T15:35:00+08:00",
+            )
+            self.assertEqual(payload["sessionDurationSeconds"], 12821.0)
+            self.assertFalse(payload["sessionInProgress"])
+            self.assertEqual(payload["todayRoomDurationSeconds"], 12821.0)
 
 
 class OAuthTests(unittest.TestCase):
@@ -1683,6 +1919,7 @@ class StoreTests(unittest.TestCase):
                 "watchOneMinute": 420,
                 "comments": 17,
                 "orders": 3,
+                "entryRate": 5.69,
             },
             {},
             official_live={
@@ -1699,6 +1936,7 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(direct["values"]["stay"], 480)
         self.assertEqual(direct["values"]["comments"], 30)
         self.assertEqual(direct["values"]["orders"], 4)
+        self.assertEqual(direct["entryRate"], 5.69)
         self.assertEqual(
             direct["sources"]["stay"],
             "official:qianchuan_today_live",
@@ -1707,11 +1945,19 @@ class StoreTests(unittest.TestCase):
             {
                 "metrics": {"watchCount": 999, "orders": 3},
                 "syncedAt": "2026-11-05T05:00:00.000Z",
+                "funnel": {
+                    "show": 48015,
+                    "watch": 2706,
+                    "click": 593,
+                    "orders": 30,
+                    "rates": {"showToWatch": 5.69},
+                },
             },
             direct,
         )
         self.assertEqual(sample["watchOneMinute"], 480)
         self.assertEqual(sample["comments"], 30)
+        self.assertEqual(sample["entryRate"], 5.69)
 
         zero_pending = server.DashboardStore._five_dimension_payload(
             {

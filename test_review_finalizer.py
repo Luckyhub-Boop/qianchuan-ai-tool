@@ -136,6 +136,25 @@ class ReviewFinalizerTests(unittest.TestCase):
                 (root / "archive" / "sessions" / directory.name / "review.md").is_file()
             )
 
+    def test_transcript_lines_do_not_replace_persisted_processed_parts(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            directory, _manifest = self.make_session(root)
+            transcript_path = directory / "asr" / "transcript.json"
+            transcript = json.loads(transcript_path.read_text(encoding="utf-8"))
+            transcript["processedParts"] = []
+            recording_store.atomic_write_json(transcript_path, transcript)
+
+            finalized = review_finalizer.finalize_completed_sessions(
+                recordings_dir=root / "recordings",
+                archive_dir=root / "archive",
+                history=self.history(),
+                audience_history={},
+            )
+
+            self.assertEqual(finalized, [])
+            self.assertTrue(directory.is_dir())
+
 
 if __name__ == "__main__":
     unittest.main()

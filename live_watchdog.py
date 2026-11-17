@@ -13,6 +13,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import machine_identity
+
 
 ROOT = Path(__file__).resolve().parent
 EXTERNAL_ROOT = Path(os.getenv("QIANCHUAN_EXTERNAL_ROOT", r"D:\AI投放产品"))
@@ -608,6 +610,23 @@ def main() -> None:
         last_restart_at[component] = time.monotonic()
         note_restart(component)
 
+    role, primary_owner = machine_identity.resolve_role(DATA_DIR)
+    read_only_mode = role == machine_identity.ROLE_READONLY
+    if read_only_mode:
+        watchdog_log(
+            "本机不是采集主控（主控="
+            + str(
+                primary_owner.get("hostname")
+                or primary_owner.get("machineId")
+                or "未知"
+            )
+            + "），进入只读模式：只启动后端服务，不启动录制/采集/转写"
+        )
+    else:
+        watchdog_log(
+            f"本机为采集主控（{machine_identity.hostname()}），启动完整采集链路"
+        )
+
     if server_healthy():
         watchdog_log("检测到既有服务，继续复用")
     elif server_port_listening():
@@ -619,7 +638,7 @@ def main() -> None:
     external_recorder_pid: int | None = None
     external_asr_pid: int | None = None
     external_guard_pid: int | None = None
-    if agent_supported:
+    if agent_supported and not read_only_mode:
         agent_process, external_agent_pid = ensure_agent_started(node_path)
         buyin_agent_process, external_buyin_agent_pid = ensure_buyin_agent_started(
             node_path
@@ -645,7 +664,7 @@ def main() -> None:
                     else:
                         server_process = start_server()
 
-                if not agent_supported:
+                if not agent_supported or read_only_mode:
                     time.sleep(5)
                     continue
 

@@ -18,7 +18,20 @@ ROOT = Path(__file__).resolve().parent
 EXTERNAL_ROOT = Path(os.getenv("QIANCHUAN_EXTERNAL_ROOT", r"D:\AI投放产品"))
 DATA_DIR = ROOT / "data"
 RECORDINGS_DIR = recording_store.RECORDINGS_DIR
-MODEL_DIR = EXTERNAL_ROOT / "models" / "whisper-large-v3"
+DEFAULT_MODEL_DIR = EXTERNAL_ROOT / "models" / "whisper-large-v3"
+MODEL_DIR = Path(os.getenv("QIANCHUAN_ASR_MODEL_DIR", str(DEFAULT_MODEL_DIR)))
+MODEL_NAME = (
+    os.getenv("QIANCHUAN_ASR_MODEL_NAME", "").strip()
+    or MODEL_DIR.name.removeprefix("whisper-")
+)
+MODEL_SOURCE = f"faster-whisper-{MODEL_NAME}"
+DIARIZATION_ENABLED = os.getenv(
+    "QIANCHUAN_ASR_DIARIZATION", "1"
+).strip().lower() not in {"0", "false", "no", "off"}
+try:
+    BEAM_SIZE = max(1, int(os.getenv("QIANCHUAN_ASR_BEAM_SIZE", "5")))
+except ValueError:
+    BEAM_SIZE = 5
 STATE_PATH = DATA_DIR / "live-asr-state.json"
 LOCK_PATH = DATA_DIR / "live-asr.lock"
 LOG_PATH = DATA_DIR / "live-asr.log"
@@ -26,6 +39,7 @@ LIVE_SCREEN_STATE_PATH = DATA_DIR / "live-screen-metrics.json"
 ARCHIVE_SESSIONS_DIR = DATA_DIR / "review-archive" / "sessions"
 POLL_SECONDS = 3
 TRANSCRIPTION_GRANULARITY_SECONDS = 300
+PART_FAILURE_LIMIT = 3
 try:
     from opencc import OpenCC
 
@@ -127,6 +141,34 @@ def audio_duration(path: Path) -> float:
     except Exception:
         pass
     return 30.0
+
+
+def session_segments(directory: Path, manifest: dict[str, Any]) -> list[Path]:
+    segments = [
+        item
+        for item in sorted((directory / "segments").glob("part_*"))
+        if item.is_file()
+        and item.stat().st_size > 0
+        and item.suffix.lower() in {".ts", ".wav", ".flac"}
+    ]
+    if str(manifest.get("status") or "") == "recording" and segments:
+        # The final file is still being written by the recorder.
+        segments = segments[:-1]
+    return segments
+
+
+def transcript_part_set(transcript: Any, key: str) -> set[str]:
+    if not isinstance(transcript, dict):
+        return set()
+    values = transcript.get(key)
+    if not isinstance(values, list):
+        return set()
+    return {str(item).strip() for item in values if str(item).strip()}
+
+
+def processed_part_ids(transcript: Any) -> set[str]:
+    """Return terminal parts from the persisted field, never reconstruct from lines."""
+    return transcript_part_set(transcript, "processedParts")
 
 
 def decode_audio_16k(path: Path) -> Any:
@@ -316,9 +358,11 @@ class SpeechWorker:
                 "errorSince": self.error_since,
                 "pid": os.getpid(),
                 "engine": "faster-whisper",
-                "model": "large-v3",
+                "model": MODEL_NAME,
                 "modelPath": str(MODEL_DIR),
                 "modelReady": self.model is not None,
+                "speakerDiarization": DIARIZATION_ENABLED,
+                "beamSize": BEAM_SIZE,
                 "audioSource": "直播流 TS 分段 · ffmpeg 16k mono · 降噪(高通+低通+噪声门)",
                 "transcriptionGranularitySeconds": 300,
                 "currentSession": self.current_session,
@@ -351,7 +395,7 @@ class SpeechWorker:
                 local_files_only=True,
                 cpu_threads=max(1, min(4, os.cpu_count() or 1)),
             )
-            log("faster-whisper large-v3 本地模型加载完成")
+            log(f"faster-whisper {MODEL_NAME} 本地模型加载完成")
         except Exception as exc:
             self.model_error = f"Whisper 模型加载失败：{exc}"
             log(self.model_error)
@@ -402,9 +446,20 @@ class SpeechWorker:
 
     def session_directories(self) -> list[tuple[Path, dict[str, Any]]]:
         records = recording_store.list_manifests(RECORDINGS_DIR)
+
+        def pending_count(record: tuple[Path, dict[str, Any]]) -> int:
+            directory, manifest = record
+            transcript = read_json(directory / "asr" / "transcript.json", {})
+            processed = processed_part_ids(transcript)
+            return sum(
+                1
+                for segment in session_segments(directory, manifest)
+                if segment.stem not in processed
+            )
+
         records.sort(
             key=lambda item: (
-                str(item[1].get("status") or "") == "recording",
+                pending_count(item),
                 item[0].stat().st_mtime,
             ),
             reverse=True,
@@ -469,8 +524,8 @@ class SpeechWorker:
             waveform,
             language="zh",
             task="transcribe",
-            beam_size=5,
-            best_of=5,
+            beam_size=BEAM_SIZE,
+            best_of=BEAM_SIZE,
             temperature=0.0,
             vad_filter=True,
             condition_on_previous_text=False,
@@ -504,7 +559,7 @@ class SpeechWorker:
             )
         speaker_labels: list[str | None] = [None] * len(whisper_segments)
         try:
-            if session_dir is not None:
+            if session_dir is not None and DIARIZATION_ENABLED:
                 import speaker_diarization
 
                 if speaker_diarization.available():
@@ -526,17 +581,10 @@ class SpeechWorker:
             )
         return results
 
-    def process_session(self, directory: Path, manifest: dict[str, Any]) -> bool:
-        segments = [
-            item
-            for item in sorted((directory / "segments").glob("part_*"))
-            if item.is_file() and item.stat().st_size > 0
-            and item.suffix.lower() in {".ts", ".wav", ".flac"}
-        ]
-        if str(manifest.get("status") or "") == "recording" and segments:
-            segments = segments[:-1]
+    def process_session(self, directory: Path, manifest: dict[str, Any]) -> int:
+        segments = session_segments(directory, manifest)
         if not segments:
-            return False
+            return 0
         asr_dir = directory / "asr"
         audio_dir = asr_dir / "audio"
         asr_dir.mkdir(parents=True, exist_ok=True)
@@ -548,7 +596,7 @@ class SpeechWorker:
                 "sessionId": directory.name,
                 "roomId": manifest.get("roomId"),
                 "accountId": manifest.get("accountId"),
-                "model": "faster-whisper-large-v3",
+                "model": MODEL_SOURCE,
                 "language": "zh",
                 "segmentSeconds": TRANSCRIPTION_GRANULARITY_SECONDS,
                 "segments": [],
@@ -556,6 +604,7 @@ class SpeechWorker:
         )
         if isinstance(transcript, dict):
             transcript["segmentSeconds"] = TRANSCRIPTION_GRANULARITY_SECONDS
+            transcript["activeModel"] = MODEL_SOURCE
         transcript_segments = (
             transcript.get("segments")
             if isinstance(transcript, dict)
@@ -575,10 +624,24 @@ class SpeechWorker:
             transcript["updatedAt"] = now_iso()
             atomic_write_json(transcript_path, transcript)
             archive_session_assets(directory, manifest, transcript)
-        processed_ids = {
-            str(item.get("segmentId"))
-            for item in transcript_segments
-            if isinstance(item, dict)
+        processed_ids = processed_part_ids(transcript)
+        empty_ids = transcript_part_set(transcript, "emptyParts")
+        skipped_ids = transcript_part_set(transcript, "skippedParts")
+        raw_attempts = transcript.get("partAttempts")
+        part_attempts = {
+            str(part): max(0, int(count or 0))
+            for part, count in (
+                raw_attempts.items() if isinstance(raw_attempts, dict) else []
+            )
+        }
+        raw_part_models = transcript.get("partModels")
+        part_models = {
+            str(part): str(model)
+            for part, model in (
+                raw_part_models.items()
+                if isinstance(raw_part_models, dict)
+                else []
+            )
         }
         try:
             session_start = datetime.fromisoformat(
@@ -587,28 +650,67 @@ class SpeechWorker:
         except (TypeError, ValueError):
             session_start = datetime.now().astimezone().timestamp()
         cursor_seconds = 0.0
+        processed_now = 0
         for segment in segments:
-            if segment.suffix.lower() in {".wav", ".flac"}:
-                audio = segment
-            else:
-                audio = audio_dir / f"{segment.stem}.flac"
-                self.extract_audio(segment, audio)
-            duration = audio_duration(audio)
+            duration = audio_duration(segment)
             start_seconds = cursor_seconds
             end_seconds = start_seconds + duration
             cursor_seconds = end_seconds
             if segment.stem in processed_ids:
                 continue
+            if segment.suffix.lower() in {".wav", ".flac"}:
+                audio = segment
+            else:
+                audio = audio_dir / f"{segment.stem}.flac"
             self.current_session = directory.name
             self.current_part = segment.stem
             self.publish_state("processing")
             log(
                 f"转写 {directory.name}/{segment.stem} "
-                f"audio={duration:.1f}s model=large-v3"
+                f"audio={duration:.1f}s model={MODEL_NAME}"
             )
+            try:
+                self.extract_audio(segment, audio)
+                generated = self.transcribe(audio, session_dir=directory)
+            except Exception as exc:
+                attempt = part_attempts.get(segment.stem, 0) + 1
+                part_attempts[segment.stem] = attempt
+                self.last_error = (
+                    f"{directory.name}/{segment.stem} 第 {attempt} 次转写失败：{exc}"
+                )
+                transcript["partAttempts"] = part_attempts
+                part_models[segment.stem] = MODEL_SOURCE
+                transcript["partModels"] = part_models
+                transcript["updatedAt"] = now_iso()
+                transcript["lastPartError"] = {
+                    "segmentId": segment.stem,
+                    "attempts": attempt,
+                    "error": str(exc),
+                    "at": transcript["updatedAt"],
+                }
+                if attempt >= PART_FAILURE_LIMIT:
+                    processed_ids.add(segment.stem)
+                    skipped_ids.add(segment.stem)
+                    transcript["processedParts"] = sorted(processed_ids)
+                    transcript["skippedParts"] = sorted(skipped_ids)
+                    self.processed_count += 1
+                    self.pending_count = max(0, self.pending_count - 1)
+                    processed_now += 1
+                    log(
+                        f"跳过 {directory.name}/{segment.stem}：连续 {attempt} 次"
+                        f"无产出，继续后续分段；原因：{exc}"
+                    )
+                else:
+                    log(
+                        f"转写失败 {directory.name}/{segment.stem}："
+                        f"第 {attempt}/{PART_FAILURE_LIMIT} 次，稍后重试；原因：{exc}"
+                    )
+                atomic_write_json(transcript_path, transcript)
+                archive_session_assets(directory, manifest, transcript)
+                continue
             last_speaker = ""
             last_speaker_at = ""
-            for item in self.transcribe(audio, session_dir=directory):
+            for item in generated:
                 absolute_start = int((session_start + start_seconds + item["start"]) * 1000)
                 absolute_end = int((session_start + start_seconds + item["end"]) * 1000)
                 transcript_segments.append(
@@ -623,7 +725,7 @@ class SpeechWorker:
                         "avgLogProb": item["avgLogProb"],
                         "noSpeechProb": item["noSpeechProb"],
                         "speaker": item.get("speaker"),
-                        "source": "faster-whisper-large-v3",
+                        "source": MODEL_SOURCE,
                     }
                 )
                 if item.get("speaker"):
@@ -634,15 +736,26 @@ class SpeechWorker:
                 self.current_speaker_at = last_speaker_at
             transcript["segments"] = transcript_segments
             transcript["updatedAt"] = now_iso()
-            transcript["processedParts"] = sorted(
-                processed_ids | {segment.stem}
-            )
             processed_ids.add(segment.stem)
+            skipped_ids.discard(segment.stem)
+            if generated:
+                empty_ids.discard(segment.stem)
+            else:
+                empty_ids.add(segment.stem)
+                log(f"无语音 {directory.name}/{segment.stem}：已记为已处理，不重转")
+            part_attempts.pop(segment.stem, None)
+            transcript["processedParts"] = sorted(processed_ids)
+            transcript["emptyParts"] = sorted(empty_ids)
+            transcript["skippedParts"] = sorted(skipped_ids)
+            transcript["partAttempts"] = part_attempts
+            part_models[segment.stem] = MODEL_SOURCE
+            transcript["partModels"] = part_models
             atomic_write_json(transcript_path, transcript)
             archive_session_assets(directory, manifest, transcript)
             self.processed_count += 1
-            return True
-        return False
+            self.pending_count = max(0, self.pending_count - 1)
+            processed_now += 1
+        return processed_now
 
     def run(self) -> None:
         archived = backfill_session_archives()
@@ -654,31 +767,29 @@ class SpeechWorker:
                 self.sample_live_metrics()
                 pending = 0
                 worked = False
-                for directory, manifest in self.session_directories():
+                sessions = self.session_directories()
+                for directory, manifest in sessions:
                     if not recording_store.manifest_path(directory).is_file():
                         continue
-                    segments = [
-                        item
-                        for item in (directory / "segments").glob("part_*")
-                        if item.is_file() and item.stat().st_size > 0
-                        and item.suffix.lower() in {".ts", ".wav", ".flac"}
-                    ]
-                    if str(manifest.get("status") or "") == "recording" and segments:
-                        segments = segments[:-1]
                     transcript = read_json(directory / "asr" / "transcript.json", {})
-                    processed = {
-                        str(item.get("segmentId"))
-                        for item in transcript.get("segments", [])
-                        if isinstance(item, dict)
-                    } if isinstance(transcript, dict) else set()
+                    processed = processed_part_ids(transcript)
                     pending += len(
-                        [item for item in segments if item.stem not in processed]
+                        [
+                            item
+                            for item in session_segments(directory, manifest)
+                            if item.stem not in processed
+                        ]
                     )
                 self.pending_count = pending
-                for directory, manifest in self.session_directories():
-                    if self.process_session(directory, manifest):
+                for directory, manifest in sessions:
+                    try:
+                        processed_now = self.process_session(directory, manifest)
+                    except Exception as exc:
+                        self.last_error = f"{directory.name} 处理失败：{exc}"
+                        log(f"{directory.name} 处理失败，继续其他场次：{exc}")
+                        continue
+                    if processed_now:
                         worked = True
-                        break
                 if not worked:
                     self.current_session = ""
                     self.current_part = ""
@@ -707,7 +818,10 @@ def main() -> int:
         return 0
     worker = SpeechWorker()
     log(
-        f"ASR 服务启动 model={MODEL_DIR} ffmpeg={worker.ffmpeg or 'not-found'}"
+        f"ASR 服务启动 model={MODEL_DIR} "
+        f"diarization={'on' if DIARIZATION_ENABLED else 'off'} "
+        f"beam={BEAM_SIZE} "
+        f"ffmpeg={worker.ffmpeg or 'not-found'}"
     )
     try:
         worker.run()

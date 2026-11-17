@@ -15,6 +15,7 @@ const {
   buildLoginPageUrl,
   clearRefreshRequest,
   cleanupBrowserProfileState,
+  extractFunnelRates,
   extractFlows,
   extractFlowBreakdown,
   extractMetrics,
@@ -24,6 +25,7 @@ const {
   isLoginCompletePage,
   isLiveScreenPage,
   loginRequired,
+  mergeFunnelRates,
   mergePreparedConfig,
   normalizeRoomDiscoveryPayload,
   parseMetricNumber,
@@ -434,6 +436,37 @@ assert.deepEqual(boardResult.metrics, {
   gpm: 991.15,
   online: 6
 });
+
+const labelFunnelRates = extractFunnelRates({
+  lines: [
+    "曝光观看率(次数) 5.69 %",
+    "观看商品点击率 21.68%",
+    "点击成交率 8.33 %",
+    "观看成交率 1.81%"
+  ],
+  fragments: []
+});
+assert.deepEqual(labelFunnelRates, {
+  showToWatch: 5.69,
+  watchToClick: 21.68,
+  clickToPay: 8.33,
+  watchToPay: 1.81
+});
+const mergedFunnel = mergeFunnelRates(
+  {
+    source: "qianchuan_board_funnel_module",
+    show: 1000,
+    watch: 300,
+    click: 60,
+    orders: 6,
+    rates: { showToWatch: 5.7 }
+  },
+  labelFunnelRates
+);
+assert.equal(mergedFunnel.rates.showToWatch, 5.7);
+assert.equal(mergedFunnel.rates.watchToClick, 21.68);
+assert.equal(mergedFunnel.rates.clickToPay, 8.33);
+assert.equal(mergedFunnel.rates.watchToPay, 1.81);
 
 const tradeResult = extractMetrics(
   {

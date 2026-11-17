@@ -2729,7 +2729,7 @@
 
     .rec-monitor-grid {
       display: grid;
-      grid-template-columns: 1.25fr repeat(5, 1fr);
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 10px;
     }
 
@@ -12628,6 +12628,8 @@
               <span class="rec-status-dot"></span>
               <div><strong>读取中…</strong><em>录制状态</em></div>
             </div>
+            <div class="rec-monitor-metric"><span>本场完整时长</span><strong id="recMonitorSession">—</strong><em id="recMonitorSessionDetail">—</em></div>
+            <div class="rec-monitor-metric"><span>当日同直播间累计</span><strong id="recMonitorToday">—</strong><em id="recMonitorTodayDetail">—</em></div>
             <div class="rec-monitor-metric"><span>连续录制时长</span><strong id="recMonitorWall">—</strong><em id="recMonitorStarted">—</em></div>
             <div class="rec-monitor-metric"><span>已录音频时长</span><strong id="recMonitorAudio">—</strong><em id="recMonitorSegments">—</em></div>
             <div class="rec-monitor-metric"><span>最近分段</span><strong id="recMonitorLastSeg">—</strong><em id="recMonitorLastSegAge">—</em></div>
@@ -17085,13 +17087,13 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
         },
         {
           label: "GPM",
-          value: isRealNumber(metrics.gpm) ? `¥${formatNumber(metrics.gpm, 2)}` : "—",
-          note: "成交金额 ÷ 曝光 × 1000"
+          value: isRealNumber(metrics.gpm) ? `¥${formatNumber(metrics.gpm, 2)}` : "未获取",
+          note: "千川直播大屏直抓；抓取失败不回推"
         },
         {
           label: "CPM",
           value: isRealNumber(metrics.cpm) ? `¥${formatNumber(metrics.cpm, 2)}` : "—",
-          note: "消耗 ÷ 曝光 × 1000"
+          note: "自定义推导：消耗 ÷ 曝光 × 1000"
         },
         {
           label: "CPA",
@@ -17147,7 +17149,7 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
           <span>${escapeHtml(summary.recordingStatusLabel || "分析已归档")}</span>
         </div>
         <div class="review-daily-metrics">${metricCards}</div>
-        <p class="review-daily-metric-note">GPM = 成交金额 ÷ 曝光 × 1000；CPM = 消耗 ÷ 曝光 × 1000；CPA = 消耗 ÷ 订单数。成交取净成交、订单取净订单、曝光取千川直播大屏累计快照；分母为 0 或缺失时留空。</p>
+        <p class="review-daily-metric-note">GPM 取千川直播大屏直抓值，抓取失败显示“未获取”且不反推；CPM 为自定义推导（消耗 ÷ 曝光 × 1000）；CPA = 消耗 ÷ 订单数。四维四率同样只取直播大屏漏斗直抓值，缺失不回算。</p>
         ${funnelBlock}
         <div class="review-daily-md">${markdownHtml}</div>
       `;
@@ -18658,15 +18660,15 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
     function reviewFunnelRateCards(funnel) {
       const rates = funnel.rates || {};
       const entries = [
-        ["直播间观看率", rates.watchRate, "观看次数 ÷ 整体曝光次数"],
-        ["商品点击率", rates.productClickRate, "商品点击次数 ÷ 观看次数"],
-        ["点击成交率", rates.clickToPayRate, "成交订单数 ÷ 商品点击次数"],
-        ["曝光转化率", rates.exposureConversionRate, "成交订单数 ÷ 整体曝光次数"]
+        ["直播间观看率", rates.watchRate, "千川直播大屏原生百分比"],
+        ["商品点击率", rates.productClickRate, "千川直播大屏原生百分比"],
+        ["点击成交率", rates.clickToPayRate, "千川直播大屏原生百分比"],
+        ["曝光转化率", rates.exposureConversionRate, "千川直播大屏原生百分比"]
       ];
       return entries.map(([label, value, note]) => `
         <div class="review-funnel-item rate">
           <span>${label}</span>
-          <strong>${value != null && value !== "" && Number.isFinite(Number(value)) ? `${Number(value).toFixed(2)}%` : "—"}</strong>
+          <strong>${value != null && value !== "" && Number.isFinite(Number(value)) ? `${Number(value).toFixed(2)}%` : "未获取"}</strong>
           <small>${note}</small>
         </div>
       `).join("");
@@ -19938,6 +19940,20 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
         if (em) em.textContent = data.sessionId ? `场次 ${data.sessionId}` : "录制状态";
       }
       const setText = (id, value) => { const el = $(id); if (el) el.textContent = value; };
+      const sessionStartClock = data.sessionStartedAt ? data.sessionStartedAt.slice(11, 19) : "";
+      const sessionEndClock = data.sessionEndedAt ? data.sessionEndedAt.slice(11, 19) : "";
+      const sessionDetail = sessionStartClock
+        ? data.sessionInProgress
+          ? `开播 ${sessionStartClock} · 实时累计`
+          : `开播 ${sessionStartClock}${sessionEndClock ? ` · 结束 ${sessionEndClock}` : ""}`
+        : data.sessionDurationSource || "等待开播时间";
+      setText("#recMonitorSession", data.sessionDurationSeconds != null ? formatClock(data.sessionDurationSeconds) : "—");
+      setText("#recMonitorSessionDetail", sessionDetail);
+      const todayDetail = data.todayRoomDurationSeconds
+        ? `${data.todayRoomWindowCount || 0} 段有效时段 · ${data.todayRoomManifestCount || 0} 个录像清单去重`
+        : "等待同直播间录像";
+      setText("#recMonitorToday", data.todayRoomDurationSeconds ? formatClock(data.todayRoomDurationSeconds) : "—");
+      setText("#recMonitorTodayDetail", todayDetail);
       setText("#recMonitorWall", data.wallDurationSeconds ? formatClock(data.wallDurationSeconds) : "—");
       setText("#recMonitorStarted", data.startedAt ? `开始 ${data.startedAt.slice(11, 19)}` : "—");
       setText("#recMonitorAudio", data.recordedAudioSeconds ? formatClock(data.recordedAudioSeconds) : "—");
@@ -19955,14 +19971,15 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
       const foot = $("#recMonitorFoot");
       if (foot) {
         const dir = escapeHTML(data.recordingsDirectory || "");
+        const durationNote = `<span>本场按${escapeHTML(data.sessionDurationSource || "直播开播时间")}累计；当日按同直播间去重合并</span>`;
         if (recording && gaps.length === 0) {
-          foot.innerHTML = `<span class="rec-ok-tag">连续录制中，未检测到中断</span><span>录制目录 ${dir}</span>`;
+          foot.innerHTML = `<span class="rec-ok-tag">连续录制中，未检测到中断</span>${durationNote}<span>录制目录 ${dir}</span>`;
         } else if (gaps.length > 0) {
           foot.innerHTML = gaps.map(g => (
             `<span class="rec-gap-tag">中断 ${String(g.startedAt || "").slice(11, 19)} → ${String(g.endedAt || "").slice(11, 19)} · ${Math.round(g.gapSeconds || 0)} 秒</span>`
-          )).join("") + `<span>录制目录 ${dir}</span>`;
+          )).join("") + durationNote + `<span>录制目录 ${dir}</span>`;
         } else {
-          foot.innerHTML = `<span>${escapeHTML(data.error || "等待直播开播后自动开始录制")}</span><span>${dir}</span>`;
+          foot.innerHTML = `<span>${escapeHTML(data.error || "等待直播开播后自动开始录制")}</span>${durationNote}<span>${dir}</span>`;
         }
       }
     }
@@ -21273,6 +21290,8 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
     function computeLiveFunnel(payload) {
       const metrics = payload?.metrics || {};
       const fiveValues = payload?.fiveDimension?.values || {};
+      const boardRates = payload?.funnel?.rates || {};
+      const directRates = payload?.fiveDimension?.rates || {};
       const numeric = value => value === null || value === undefined || value === "" || !Number.isFinite(Number(value))
         ? null
         : Number(value);
@@ -21281,11 +21300,6 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
       const comments = numeric(fiveValues.comments ?? metrics.comments);
       const orders = numeric(fiveValues.orders ?? metrics.orders);
       const exposure = numeric(fiveValues.exposure ?? metrics.exposure);
-      const percent = (numerator, denominator) => (
-        Number.isFinite(numerator) && Number.isFinite(denominator) && denominator > 0
-          ? numerator / denominator * 100
-          : null
-      );
       return {
         hasData: Number.isFinite(watch) || Number.isFinite(stay) || Number.isFinite(comments) || Number.isFinite(orders),
         source: payload?.fiveDimension?.source || "screen",
@@ -21303,10 +21317,10 @@ return { value: "未获取", note: "未匹配当前官方视频库或该类型�
           { key: "pay", label: "成交", value: orders, note: "累计净成交订单" }
         ],
         rates: [
-          { key: "enter", label: "曝光 → 进入", value: percent(watch, exposure), benchmark: null, note: exposure ? "累计观看 ÷ 曝光人数" : "缺少曝光人数，暂不可算" },
-          { key: "stay", label: "进入 → 停留", value: percent(stay, watch), benchmark: LIVE_RATE_BENCHMARK.stay, note: "1 分钟观看 ÷ 累计观看" },
-          { key: "interact", label: "停留 → 互动", value: percent(comments, stay), benchmark: LIVE_RATE_BENCHMARK.interact, note: "评论次数 ÷ 1 分钟观看" },
-          { key: "pay", label: "观看 → 成交", value: percent(orders, watch), benchmark: LIVE_RATE_BENCHMARK.pay, note: "净成交订单 ÷ 累计观看" }
+          { key: "enter", label: "曝光 → 进入", value: numeric(boardRates.showToWatch ?? directRates.enter), benchmark: null, note: "千川直播大屏直抓" },
+          { key: "stay", label: "进入 → 停留", value: numeric(directRates.stay), benchmark: LIVE_RATE_BENCHMARK.stay, note: "直播大屏未提供直抓百分比" },
+          { key: "interact", label: "停留 → 互动", value: numeric(directRates.interact), benchmark: LIVE_RATE_BENCHMARK.interact, note: "直播大屏未提供直抓百分比" },
+          { key: "pay", label: "观看 → 成交", value: numeric(boardRates.watchToPay ?? directRates.pay), benchmark: LIVE_RATE_BENCHMARK.pay, note: "千川直播大屏直抓" }
         ]
       };
     }

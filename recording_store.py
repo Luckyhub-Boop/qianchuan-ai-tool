@@ -325,8 +325,9 @@ def _efficiency_metrics(
     gmv: float | None,
     orders: float | None,
     exposure: float | None,
+    gpm: float | None = None,
 ) -> dict[str, float | None]:
-    """千川直播大屏效率指标：GPM/CPM/CPA，分母为 0 或缺失时留空。"""
+    """千川直播大屏效率指标：GPM 直取，CPM/CPA 按既有公式计算。"""
 
     def ratio(
         numerator: float | None,
@@ -338,7 +339,7 @@ def _efficiency_metrics(
         return round(numerator / denominator * scale, 4)
 
     return {
-        "gpm": ratio(gmv, exposure, 1000),
+        "gpm": round(gpm, 4) if gpm is not None else None,
         "cpm": ratio(spend, exposure, 1000),
         "cpa": ratio(spend, orders),
     }
@@ -461,10 +462,8 @@ def _cumulative_fields(sample: dict[str, Any]) -> dict[str, Any]:
 def _funnel_from_sample(sample: dict[str, Any] | None) -> dict[str, Any]:
     """汇总直播大屏四维四率：曝光、观看、商品点击、成交订单及四个转化率。
 
-    优先使用直播大屏漏斗模块（funnel.show/watch/click/orders）的直抓值，
-    缺失时回退到 5 分钟采样点的 exposure/watch/productClicks/orders 字段。
-    四率严格按用户口径用四维相除计算；仅对直播大屏本身提供同口径的
-    showToWatch / watchToClick / clickToPay 做百分比回退。
+    四维优先使用直播大屏漏斗模块直抓值，缺失时回退到采样点同名累计字段。
+    四率只读取直播大屏漏斗返回的百分比；缺失时留空，不用四维计数反推。
     """
     if not isinstance(sample, dict):
         sample = {}
@@ -478,49 +477,42 @@ def _funnel_from_sample(sample: dict[str, Any] | None) -> dict[str, Any]:
                 return value
         return None
 
-    exposure = pick("exposure")
+    exposure = _number(board.get("show"))
     if exposure is None:
-        exposure = _number(board.get("show"))
-    watch = pick("watch", "watchCount")
+        exposure = pick("exposure")
+    watch = _number(board.get("watch"))
     if watch is None:
-        watch = _number(board.get("watch"))
-    product_clicks = pick("productClicks")
+        watch = pick("watch", "watchCount")
+    product_clicks = _number(board.get("click"))
     if product_clicks is None:
-        product_clicks = _number(board.get("click"))
-    orders = pick("orders")
+        product_clicks = pick("productClicks")
+    orders = _number(board.get("orders"))
     if orders is None:
-        orders = _number(board.get("orders"))
-
-    def rate(numerator: float | None, denominator: float | None) -> float | None:
-        if numerator is None or denominator is None:
-            return None
-        if denominator == 0:
-            return None
-        return round(numerator / denominator * 100, 4)
+        orders = pick("orders")
 
     board_rates = board.get("rates")
     board_rates = board_rates if isinstance(board_rates, dict) else {}
 
-    def rate_with_fallback(
-        computed: float | None,
-        *board_keys: str,
-    ) -> float | None:
-        if computed is not None:
-            return computed
+    def direct_rate(*board_keys: str) -> float | None:
         for key in board_keys:
             value = _number(board_rates.get(key))
             if value is not None:
                 return round(value, 4)
         return None
 
-    watch_rate = rate_with_fallback(rate(watch, exposure), "showToWatch")
-    product_click_rate = rate_with_fallback(
-        rate(product_clicks, watch), "watchToClick"
+    watch_rate = direct_rate("showToWatch", "watchRate")
+    product_click_rate = direct_rate(
+        "watchToClick",
+        "productClickRate",
     )
-    click_to_pay_rate = rate_with_fallback(
-        rate(orders, product_clicks), "clickToPay"
+    click_to_pay_rate = direct_rate(
+        "clickToPay",
+        "clickToPayRate",
     )
-    exposure_conversion_rate = rate(orders, exposure)
+    exposure_conversion_rate = direct_rate(
+        "watchToPay",
+        "exposureConversionRate",
+    )
 
     return {
         "source": str(board.get("source") or "qianchuan_live_screen"),
@@ -865,6 +857,20 @@ def build_15_minute_buckets(
         ratio = max(0.0, min(1.0, (timestamp_ms - left_time) / (right_time - left_time)))
         return left_value + (right_value - left_value) * ratio
 
+    def nearest_direct_metric(timestamp_ms: float, key: str) -> float | None:
+        candidates = [
+            item
+            for item in valid
+            if _number(item.get(key)) is not None
+        ]
+        if not candidates:
+            return None
+        nearest = min(
+            candidates,
+            key=lambda item: abs((_number(item.get("t")) or 0) - timestamp_ms),
+        )
+        return _number(nearest.get(key))
+
     first_time = _number(valid[0].get("t")) or (start_ms or 0)
     last_time = _number(valid[-1].get("t")) or first_time
     first_dt = datetime.fromtimestamp(first_time / 1000).astimezone()
@@ -904,6 +910,7 @@ def build_15_minute_buckets(
                 values["gmv"],
                 values["orders"],
                 values["exposure"],
+                gpm=nearest_direct_metric(end_value, "gpm"),
             )
             buckets.append(
                 {
@@ -1744,7 +1751,13 @@ def build_review_session(
     advantage_count = sum(item["type"] == "advantage" for item in annotations)
     roi = gmv / spend if spend and gmv is not None else None
     cvr = orders / watch * 100 if watch and orders is not None else None
-    efficiency = _efficiency_metrics(spend, gmv, orders, exposure)
+    efficiency = _efficiency_metrics(
+        spend,
+        gmv,
+        orders,
+        exposure,
+        gpm=_number(final.get("gpm")),
+    )
     coverage = _build_coverage(
         live_started_at,
         live_ended_at,
@@ -2446,6 +2459,7 @@ def aggregate_daily_session(items: list[dict[str, Any]]) -> dict[str, Any]:
     day_orders = _number(screen_last_cumulative.get("orders"))
     day_watch = _number(screen_last_cumulative.get("watch"))
     day_exposure = _number(screen_last_cumulative.get("exposure"))
+    day_gpm = _number(screen_last_cumulative.get("gpm"))
     if day_spend is None:
         day_spend = _number(latest.get("metrics", {}).get("spend"))
     if day_gmv is None:
@@ -2464,13 +2478,21 @@ def aggregate_daily_session(items: list[dict[str, Any]]) -> dict[str, Any]:
                 combined_series[-1] if combined_series else None
             ).get("exposure")
         )
+    if day_gpm is None:
+        day_gpm = _number(latest.get("metrics", {}).get("gpm"))
     day_roi = day_gmv / day_spend if day_spend and day_gmv is not None else None
     day_cvr = (
         day_orders / day_watch * 100
         if day_watch and day_orders is not None
         else None
     )
-    day_efficiency = _efficiency_metrics(day_spend, day_gmv, day_orders, day_exposure)
+    day_efficiency = _efficiency_metrics(
+        day_spend,
+        day_gmv,
+        day_orders,
+        day_exposure,
+        gpm=day_gpm,
+    )
     first_spend = (
         _number(combined_series[0].get("spend"))
         if combined_series
@@ -2622,15 +2644,15 @@ def review_markdown(session: dict[str, Any]) -> str:
 
     def percent(value: Any) -> str:
         number = _number(value)
-        return "—" if number is None else f"{number:.2f}%"
+        return "未获取" if number is None else f"{number:.2f}%"
 
     def count(value: Any) -> str:
         number = _number(value)
-        return "—" if number is None else f"{number:.0f}"
+        return "未获取" if number is None else f"{number:.0f}"
 
     def money(value: Any) -> str:
         number = _number(value)
-        return "—" if number is None else f"¥{number:.2f}"
+        return "未获取" if number is None else f"¥{number:.2f}"
 
     lines = [
         f"# {session.get('title') or '直播复盘'}",
@@ -2655,8 +2677,8 @@ def review_markdown(session: dict[str, Any]) -> str:
         f"- 净成交：¥{_number(metrics.get('gmv')) or 0:.2f}",
         f"- 净成交订单：{_number(metrics.get('orders')) or 0:.0f}",
         f"- 净成交 ROI：{_number(metrics.get('roi')) or 0:.2f}",
-        f"- GPM（成交金额 ÷ 曝光 × 1000）：{money(metrics.get('gpm'))}",
-        f"- CPM（消耗 ÷ 曝光 × 1000）：{money(metrics.get('cpm'))}",
+        f"- GPM（千川直播大屏直抓）：{money(metrics.get('gpm'))}",
+        f"- CPM（自定义推导：消耗 ÷ 曝光 × 1000）：{money(metrics.get('cpm'))}",
         f"- CPA（消耗 ÷ 订单数）：{money(metrics.get('cpa'))}",
         f"- 累计观看：{_number(metrics.get('watchCount')) or 0:.0f}",
         "",
@@ -2683,35 +2705,46 @@ def review_markdown(session: dict[str, Any]) -> str:
             f"- 曝光转化率：{percent(funnel_rates.get('exposureConversionRate'))}",
             "",
         ]
-    annotations = [
-        item
-        for item in session.get("annotations") or []
-        if isinstance(item, dict)
-    ]
-    if annotations:
-        lines.extend(["## 问题与优势窗口", ""])
-        for item in annotations:
-            offset = max(0, int(_number(item.get("time")) or 0))
-            clock = f"{offset // 3600:02d}:{offset % 3600 // 60:02d}:{offset % 60:02d}"
-            kind = "问题" if item.get("type") == "problem" else "优势"
-            lines.append(
-                f"- {clock} · {kind} · {item.get('title') or ''}："
-                f"{item.get('desc') or ''}"
-            )
-        lines.append("")
     phrases = [
         item
         for item in transcript.get("phrases") or []
         if isinstance(item, dict)
     ]
-    if phrases:
-        lines.extend(["## 话术明细", ""])
-        for item in phrases[:100]:
-            clock = phrase_clock(item)
-            effect = str(item.get("effectLabel") or "未归因")
-            lines.append(f"- {clock} · {effect}：{item.get('text') or ''}")
-        if len(phrases) > 100:
-            lines.append(f"- 其余 {len(phrases) - 100} 条话术请查看同目录 review.json。")
+
+    def phrase_metric(item: dict[str, Any], key: str) -> float | None:
+        metrics = item.get("metrics")
+        if not isinstance(metrics, dict):
+            return None
+        return _number(metrics.get(key))
+
+    order_phrases = [
+        item
+        for item in phrases
+        if (phrase_metric(item, "ordersDelta") or 0) > 0
+    ]
+    if order_phrases:
+        lines.extend(["## 出单优质话术", ""])
+        lines.append(
+            "只保留对应窗口内有成交的话术；无成交、掉人或流量无转化的话术不在此展示。"
+        )
+        lines.append("")
+        for index, item in enumerate(order_phrases):
+            orders_delta = phrase_metric(item, "ordersDelta") or 0
+            gmv_delta = phrase_metric(item, "gmvDelta") or 0
+            if index:
+                lines.extend(["", "---", ""])
+            lines.extend(
+                [
+                    f"**「{item.get('text') or '（无话术文本）'}」**",
+                    "",
+                    f"- 时间：{phrase_clock(item)}",
+                    f"- 转化：订单 +{orders_delta:.0f} · 成交金额 +¥{gmv_delta:.2f}",
+                ]
+            )
+        lines.append("")
+    elif phrases:
+        lines.extend(["## 出单优质话术", ""])
+        lines.append("本场无对应窗口出单的话术；无成交的话术不补造。")
         lines.append("")
     sources = [
         str(item)

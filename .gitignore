@@ -1,28 +1,89 @@
-# 浏览器登录态和临时文件，太大了不上传
+# ============================================================
+# 版本库忽略规则
+# 原则：只跟踪「代码」，不跟踪「运行数据」
+# 写在这里的文件，Git 不再管；本地文件一个都不删
+# ============================================================
+
+# ---------- 1. 敏感凭证（绝不上传） ----------
+qianchuan.config.json
+data/qianchuan-token.json
+data/qianchuan-mcp.json
+.env
+.env.local
+.codex/config.toml
+
+# ---------- 2. 浏览器登录态（体积大，换机器要重登） ----------
+chrome-profile/
+buyin-chrome-profile/
 .edge-profile*/
 .tmp-edge-*/
 .tmp-doc-edge/
-chrome-profile/
-buyin-chrome-profile/
+
+# ---------- 3. 运行时状态（每秒都在变） ----------
+data/live-screen.json
+data/live-screen-metrics.json
+data/live-screen-metrics-*
+data/live-screen-session.json
+data/live-screen-session-*
+data/live-screen-history*
+data/live-screen-pause
+data/live-recorder-state.json
+data/live-asr-state.json
+data/live-recording-active.json
+data/live-recording-guard-state.json
+data/live-backup-recorder-state.json
+data/live-backup-recorder.log.active
+data/live-watchdog.pid
+data/live-watchdog.pid.stale-*
+data/live-watchdog-*
+data/qianchuan-snapshot.json
+data/qianchuan-snapshot-*
+data/qianchuan-snapshot.*.json
 data/buyin-live.json
 data/buyin-live-session.json
 data/buyin-live-metrics.json
+data/buyin-live-audience-history.json
 data/buyin-live-refresh.request.json
 data/deepseek.json
-recordings/
-models/
 
-# 内置运行时
-runtime/
+# ---------- 4. 机器身份登记（每台机器不同，不可共享） ----------
+data/primary-machine.json
 
-# 日志和锁文件
+# ---------- 5. 坚果云冲突副本（一律不入库） ----------
+*冲突*
+*Conflict*
+
+# ---------- 6. 业务数据（坚果云备份即可，不进版本库） ----------
+data/review-archive/
+data/review-archive-trash-*/
+data/voiceprints/
+data/learning-documents/*.docx
+data/learning-documents/*.xlsx
+
+# ---------- 7. 截图与临时输出 ----------
+data/*.png
+data/*.err
+data/*.out
+data/*.stale-*
+data/*.bak-*
+data/*.before-*
+
+# ---------- 8. 日志与锁 ----------
 *.log
 *.lock
+*.active
 
-# Python缓存
+# ---------- 9. 运行时、模型、录屏 ----------
+runtime/
+models/
+recordings/
+node_modules/
+.npm-cache/
+
+# ---------- 10. Python 缓存 ----------
 __pycache__/
 *.pyc
 
-# 临时文件
+# ---------- 11. 临时文件 ----------
 *.tmp
-.tmp-*.py
+.tmp-*

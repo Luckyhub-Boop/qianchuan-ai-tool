@@ -8290,6 +8290,7 @@ class DashboardStore:
                         recording_store._number(metrics.get("gmv")),
                         recording_store._number(metrics.get("orders")),
                         recording_store._number(exposure),
+                        gpm=recording_store._number(metrics.get("gpm")),
                     )
                     summary = {
                         "title": data.get("title") or f"{selected_day} · 全天直播复盘",
@@ -8690,12 +8691,16 @@ class DashboardStore:
                 value = to_number(values.get(funnel_key))
                 if value is not None:
                     sample[sample_key] = round(value, 6)
-            exposure = to_number(values.get("exposure"))
-            watch = to_number(values.get("watch"))
-            if exposure and watch is not None:
-                sample["entryRate"] = round(watch / exposure * 100, 4)
+            direct_entry_rate = to_number(five_dimension.get("entryRate"))
+            if direct_entry_rate is not None:
+                sample["entryRate"] = round(direct_entry_rate, 4)
         board_funnel = state.get("funnel")
         if isinstance(board_funnel, dict):
+            board_rates = (
+                board_funnel.get("rates")
+                if isinstance(board_funnel.get("rates"), dict)
+                else {}
+            )
             sample["funnel"] = {
                 "source": board_funnel.get("source"),
                 "sourceLabel": board_funnel.get("sourceLabel"),
@@ -8706,6 +8711,7 @@ class DashboardStore:
                 "rates": copy.deepcopy(board_funnel.get("rates") or {}),
                 "capturedAt": board_funnel.get("capturedAt"),
             }
+            sample["entryRate"] = to_number(board_rates.get("showToWatch"))
         else:
             sample["funnel"] = None
         return sample
@@ -9388,7 +9394,7 @@ class DashboardStore:
         missing = [key for key in aliases if key not in values]
         status = "ok" if not missing else "partial" if values else "error"
         exposure = to_number(values.get("exposure"))
-        watch = to_number(values.get("watch"))
+        direct_entry_rate = to_number(screen_metrics.get("entryRate"))
         payload = {
             "status": status,
             "source": "mcp_official_screen_fallback",
@@ -9400,8 +9406,8 @@ class DashboardStore:
             "values": values,
             "sources": sources,
             "entryRate": (
-                round(watch / exposure * 100, 4)
-                if exposure and watch is not None
+                round(direct_entry_rate, 4)
+                if direct_entry_rate is not None
                 else None
             ),
             "missing": missing,
@@ -10684,6 +10690,16 @@ class DashboardStore:
             for key, value in copy.deepcopy(behavior_metrics).items()
             if value is not None
         }
+        behavior_funnel = behavior.get("funnel")
+        behavior_funnel_rates = (
+            behavior_funnel.get("rates")
+            if isinstance(behavior_funnel, dict)
+            and isinstance(behavior_funnel.get("rates"), dict)
+            else {}
+        )
+        direct_entry_rate = to_number(behavior_funnel_rates.get("showToWatch"))
+        if direct_entry_rate is not None:
+            metrics["entryRate"] = direct_entry_rate
         try:
             five_dimension = self.live_five_dimension(
                 account.get("id"),
@@ -11533,6 +11549,7 @@ class StreamTranscoder:
 def build_recording_monitor(
     store: Any,
     stream_registry: Any,
+    now: datetime | None = None,
 ) -> dict[str, Any]:
     """Snapshot for the review-page recording monitor."""
 
@@ -11544,7 +11561,49 @@ def build_recording_monitor(
         except (TypeError, ValueError):
             return None
 
-    now = datetime.now().astimezone()
+    def merge_intervals(
+        intervals: list[tuple[datetime, datetime]],
+    ) -> list[tuple[datetime, datetime]]:
+        valid = sorted(
+            (start, end)
+            for start, end in intervals
+            if start is not None and end is not None and end > start
+        )
+        if not valid:
+            return []
+        merged = [valid[0]]
+        for start, end in valid[1:]:
+            previous_start, previous_end = merged[-1]
+            if start <= previous_end:
+                merged[-1] = (previous_start, max(previous_end, end))
+            else:
+                merged.append((start, end))
+        return merged
+
+    def interval_seconds(intervals: list[tuple[datetime, datetime]]) -> float:
+        return sum(max(0.0, (end - start).total_seconds()) for start, end in intervals)
+
+    def manifest_has_media(directory: Path, manifest: dict[str, Any]) -> bool:
+        try:
+            segment_count = int(manifest.get("segmentCount") or 0)
+        except (TypeError, ValueError):
+            segment_count = 0
+        if segment_count > 0:
+            return True
+        for pattern in ("part_*.wav", "part_*.flac", "part_*.ts"):
+            try:
+                if any(
+                    item.is_file() and item.stat().st_size > 0
+                    for item in (directory / "segments").glob(pattern)
+                ):
+                    return True
+            except OSError:
+                continue
+        return False
+
+    now = now or datetime.now().astimezone()
+    if now.tzinfo is None:
+        now = now.astimezone()
     recorder = store.recording_status() if hasattr(store, "recording_status") else {}
     asr = store.asr_status() if hasattr(store, "asr_status") else {}
     guard = load_json(DATA_DIR / "live-recording-guard-state.json", {})
@@ -11554,15 +11613,20 @@ def build_recording_monitor(
     if not isinstance(backup, dict):
         backup = {}
     stream = stream_registry.status() if stream_registry else {}
+    live_screen = store.live_screen_status() if hasattr(store, "live_screen_status") else {}
+    if not isinstance(live_screen, dict):
+        live_screen = {}
+    live_room = live_screen.get("room") if isinstance(live_screen.get("room"), dict) else {}
 
     session_id = str(recorder.get("sessionId") or "")
     recorder_status = str(recorder.get("status") or "missing")
-    room_id = str(recorder.get("roomId") or "")
+    room_id = str(recorder.get("roomId") or live_room.get("id") or "")
     started_at = ""
     ended_at = ""
     session_dir: Path | None = None
     manifest: dict[str, Any] = {}
-    for directory, item in recording_store.list_manifests(RECORDINGS_DIR):
+    manifests = recording_store.list_manifests(RECORDINGS_DIR)
+    for directory, item in manifests:
         if session_id and str(item.get("id") or "") == session_id:
             session_dir = directory
             manifest = item
@@ -11570,6 +11634,25 @@ def build_recording_monitor(
             ended_at = str(item.get("endedAt") or "")
             room_id = room_id or str(item.get("roomId") or "")
             break
+    if session_dir is None and manifests:
+        today_key = now.astimezone().date().isoformat()
+        recent_manifests = [
+            (directory, item)
+            for directory, item in manifests
+            if (
+                str(item.get("date") or "") == today_key
+                or str(item.get("startedAt") or "").startswith(today_key)
+            )
+        ]
+        if recent_manifests:
+            session_dir, manifest = max(
+                recent_manifests,
+                key=lambda record: str(record[1].get("startedAt") or ""),
+            )
+            session_id = str(manifest.get("id") or session_dir.name)
+            started_at = str(manifest.get("startedAt") or "")
+            ended_at = str(manifest.get("endedAt") or "")
+            room_id = room_id or str(manifest.get("roomId") or "")
 
     segments: list[dict[str, Any]] = []
     interruptions: list[dict[str, Any]] = []
@@ -11622,6 +11705,136 @@ def build_recording_monitor(
             0.0,
             ((end_dt if end_dt is not None else now) - start_dt).total_seconds(),
         )
+
+    live_started_at = _coerce_live_time(
+        live_room.get("startTime") or manifest.get("liveStartedAt")
+    )
+    live_ended_at = _coerce_live_time(
+        live_room.get("endTime") or manifest.get("liveEndedAt")
+    )
+    live_room_id = str(live_room.get("id") or "")
+    live_current = bool(live_screen.get("live")) and (
+        not room_id or live_room_id == room_id
+    )
+    if not live_started_at and room_id and hasattr(store, "_load_live_history"):
+        try:
+            history = store._load_live_history()
+            room_meta = recording_store._history_room_meta(
+                history if isinstance(history, dict) else {},
+                room_id,
+                now.astimezone().date().isoformat(),
+            )
+            live_started_at = _coerce_live_time(room_meta.get("liveStartedAt"))
+            live_ended_at = live_ended_at or _coerce_live_time(
+                room_meta.get("liveEndedAt")
+            )
+        except Exception:
+            pass
+    live_start_dt = parse_iso(live_started_at)
+    live_end_dt = parse_iso(live_ended_at)
+    session_started_dt = live_start_dt or start_dt
+    session_ended_dt: datetime | None = None
+    if session_started_dt is not None:
+        if live_end_dt is not None and live_end_dt >= session_started_dt:
+            session_ended_dt = live_end_dt
+        elif live_current or recorder_status in {
+            "recording",
+            "waiting_stream",
+            "finalizing",
+        }:
+            session_ended_dt = now
+        elif end_dt is not None and end_dt >= session_started_dt:
+            session_ended_dt = end_dt
+        else:
+            session_ended_dt = now
+    session_duration_seconds = (
+        max(0.0, (session_ended_dt - session_started_dt).total_seconds())
+        if session_started_dt is not None and session_ended_dt is not None
+        else None
+    )
+    session_duration_source = (
+        "千川直播大屏开播时间"
+        if live_start_dt is not None
+        else "录像清单起点"
+        if start_dt is not None
+        else ""
+    )
+
+    monitor_day = now.astimezone().date()
+    day_start = datetime.combine(
+        monitor_day,
+        datetime.min.time(),
+        tzinfo=now.tzinfo,
+    )
+    day_end = day_start + timedelta(days=1)
+    today_room_intervals: list[tuple[datetime, datetime]] = []
+    today_room_manifest_count = 0
+
+    archive_manifests: list[tuple[Path, dict[str, Any]]] = []
+    archive_sessions_dir = REVIEW_ARCHIVE_DIR / "sessions"
+    if archive_sessions_dir.is_dir():
+        for manifest_file in archive_sessions_dir.glob("*/manifest.json"):
+            item = load_json(manifest_file, {})
+            if isinstance(item, dict) and item:
+                archive_manifests.append((manifest_file.parent, item))
+
+    for directory, item in [*manifests, *archive_manifests]:
+        if str(item.get("roomId") or "") != room_id:
+            continue
+        item_started_at = str(item.get("startedAt") or "")
+        item_started_dt = parse_iso(item_started_at)
+        if item_started_dt is None:
+            continue
+        item_date = str(item.get("date") or "")
+        if not item_date:
+            item_date = item_started_dt.astimezone().date().isoformat()
+        if item_date != monitor_day.isoformat():
+            continue
+        item_id = str(item.get("id") or directory.name)
+        item_status = str(item.get("status") or "")
+        item_active = item_id == session_id or item_status in {
+            "starting",
+            "recording",
+            "waiting_stream",
+            "finalizing",
+        }
+        if not item_active and not manifest_has_media(directory, item):
+            continue
+        item_ended_dt = parse_iso(item.get("endedAt"))
+        if item_ended_dt is None and item_active:
+            item_ended_dt = now
+        if item_ended_dt is None:
+            try:
+                media_files = [
+                    candidate
+                    for pattern in ("part_*.wav", "part_*.flac", "part_*.ts")
+                    for candidate in (directory / "segments").glob(pattern)
+                    if candidate.is_file() and candidate.stat().st_size > 0
+                ]
+                if media_files:
+                    item_ended_dt = datetime.fromtimestamp(
+                        max(candidate.stat().st_mtime for candidate in media_files)
+                    ).astimezone()
+            except OSError:
+                item_ended_dt = None
+        if item_ended_dt is None:
+            item_ended_dt = parse_iso(item.get("updatedAt"))
+        if item_ended_dt is None:
+            continue
+        interval_start = max(item_started_dt, day_start)
+        interval_end = min(item_ended_dt, day_end)
+        if interval_end <= interval_start:
+            continue
+        today_room_intervals.append((interval_start, interval_end))
+        today_room_manifest_count += 1
+
+    if session_started_dt is not None and session_ended_dt is not None:
+        interval_start = max(session_started_dt, day_start)
+        interval_end = min(session_ended_dt, day_end)
+        if interval_end > interval_start:
+            today_room_intervals.append((interval_start, interval_end))
+    today_room_intervals = merge_intervals(today_room_intervals)
+    today_room_seconds = interval_seconds(today_room_intervals)
 
     last_segment_at = str(recorder.get("lastSegmentAt") or "")
     last_segment_age = field_age_seconds(
@@ -11687,6 +11900,40 @@ def build_recording_monitor(
             "captured": bool(stream.get("captured")),
             "roomId": str(stream.get("roomId") or ""),
         },
+        "sessionStartedAt": (
+            session_started_dt.astimezone().isoformat(timespec="seconds")
+            if session_started_dt is not None
+            else ""
+        ),
+        "sessionEndedAt": (
+            session_ended_dt.astimezone().isoformat(timespec="seconds")
+            if session_ended_dt is not None
+            else ""
+        ),
+        "sessionDurationSeconds": (
+            round(session_duration_seconds, 1)
+            if session_duration_seconds is not None
+            else None
+        ),
+        "sessionInProgress": bool(
+            session_started_dt is not None
+            and live_end_dt is None
+            and (live_current or recorder_status in {"recording", "waiting_stream", "finalizing"})
+        ),
+        "sessionDurationSource": session_duration_source,
+        "todayRoomDurationSeconds": round(today_room_seconds, 1),
+        "todayRoomStartedAt": (
+            today_room_intervals[0][0].astimezone().isoformat(timespec="seconds")
+            if today_room_intervals
+            else ""
+        ),
+        "todayRoomEndedAt": (
+            today_room_intervals[-1][1].astimezone().isoformat(timespec="seconds")
+            if today_room_intervals
+            else ""
+        ),
+        "todayRoomWindowCount": len(today_room_intervals),
+        "todayRoomManifestCount": today_room_manifest_count,
         "guard": {
             "status": guard.get("status"),
             "activeMethod": active_method,
