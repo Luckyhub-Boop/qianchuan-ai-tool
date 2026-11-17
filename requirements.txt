@@ -1,0 +1,44 @@
+# ============================================================
+# 直播投放工具 - Python 依赖清单
+#
+# 环境：Python 3.12（Windows）
+# 安装：pip install -r requirements.txt
+#      项目自带运行时用法：
+#      D:\AI投放产品\runtime\python\python.exe -m pip install -r requirements.txt
+#
+# 版本策略：全部锁定 ==，保证任何机器装出来的环境与主控机完全一致。
+# 本文件由主控机实际运行环境导出（pip freeze）核对生成，非推测。
+# ============================================================
+
+# ---------- 一、核心功能依赖（代码直接 import） ----------
+av==19.0.2                          # PyAV：抓直播流里的音频
+numpy==2.5.4                        # 数值计算，音频/声纹处理的基础
+sherpa_onnx==2.0.1                  # 声纹分离（区分谁在说话）
+faster-whisper==1.2.1               # 语音转文字（large-v3 模型）
+opencc-python-reimplemented==0.1.7  # 繁简转换，转写结果规整
+
+# ---------- 二、关键运行依赖（核心功能的底层引擎，版本必须匹配） ----------
+ctranslate2==4.8.5                  # faster-whisper 的推理后端
+onnxruntime==1.31.1                 # sherpa_onnx 的推理后端
+sherpa-onnx-core==2.0.1             # sherpa_onnx 底层库
+huggingface_hub==2.4.0              # 模型下载（首次运行自动拉取）
+tokenizers==0.23.3                  # whisper 的分词器
+
+# ---------- 三、其余传递依赖（由上面自动带入，锁定版本以保证环境一致） ----------
+anyio==4.16.0
+click==8.5.0
+colorama==0.4.6
+filelock==4.2.9
+flatbuffers==25.12.19
+fsspec==2026.9.0
+h11==0.16.0
+hf-xet==1.8.0
+httpcore2==2.16.0
+httpx2==2.16.0
+idna==3.20
+packaging==26.3
+protobuf==7.36.2
+PyYAML==6.0.3
+tqdm==4.70.1
+truststore==0.10.5
+typing_extensions==4.16.0
