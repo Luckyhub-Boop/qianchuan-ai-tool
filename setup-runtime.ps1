@@ -27,11 +27,18 @@ param(
     [switch]$Force
 )
 
-$ErrorActionPreference = 'Stop'
+# 这里必须是 Continue，不能用 Stop。
+# 原因：PowerShell 会把原生命令（curl.exe / python.exe）写入 stderr 的内容
+# 当成"错误记录"，在 Stop 模式下直接终止整个脚本。而 curl 的下载进度、
+# pip 的常规提示、python 的 import 失败提示全都写 stderr。
+# 真正的失败由下面各处的 throw 主动抛出，throw 不受这个设置影响。
+$ErrorActionPreference = 'Continue'
 
 # ---------- 常量（都实测过可下载） ----------
 $PyVersion   = '3.12.10'
 $PyUrl       = "https://www.python.org/ftp/python/$PyVersion/python-$PyVersion-amd64.exe"
+$PyEmbedUrl  = "https://www.python.org/ftp/python/$PyVersion/python-$PyVersion-embed-amd64.zip"
+$GetPipUrl   = 'https://bootstrap.pypa.io/get-pip.py'
 $NodeVersion = 'v24.21.0'
 $NodeUrl     = "https://nodejs.org/dist/$NodeVersion/node-$NodeVersion-win-x64.zip"
 $PipIndex    = 'https://pypi.tuna.tsinghua.edu.cn/simple'
@@ -49,9 +56,9 @@ function Write-Err2($t)  { Write-Host "  失败  $t" -ForegroundColor Red }
 
 function Get-FileWithCurl {
     param([string]$Url, [string]$OutFile, [string]$Label)
-    Write-Step "下载 $Label"
+    Write-Step "下载 $Label（正在下载，完成后会显示大小）"
     Write-Step "  地址：$Url"
-    & curl.exe -L --fail --retry 3 --retry-delay 2 --connect-timeout 20 -o $OutFile $Url
+    & curl.exe -sS -L --fail --retry 3 --retry-delay 2 --connect-timeout 20 -o $OutFile $Url
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $OutFile)) {
         throw "下载失败：$Label。请检查网络后重跑本脚本。"
     }
@@ -92,29 +99,38 @@ if ((Test-Path -LiteralPath $pyExe) -and -not $Force) {
     Write-Ok "已存在，跳过（$ver）"
     $summary['Python'] = "已存在 $ver"
 } else {
-    if ((Test-Path -LiteralPath $PyDir) -and (Test-Path -LiteralPath $PyDir) -and -not (Test-Path -LiteralPath $pyExe)) {
-        throw "目录 $PyDir 存在但没有 python.exe。为避免覆盖你自己的东西，请手动清空该目录后重跑。"
+    if ((Test-Path -LiteralPath $PyDir) -and -not (Test-Path -LiteralPath $pyExe)) {
+        throw "目录 $PyDir 已存在但没有 python.exe。为避免覆盖你自己的东西，请先清空该目录后重跑本脚本。"
     }
     $installer = Join-Path $DownloadDir "python-$PyVersion-amd64.exe"
-    Get-FileWithCurl -Url $PyUrl -OutFile $installer -Label "Python $PyVersion 安装包"
-    Write-Step "静默安装到 $PyDir（约 1-2 分钟）"
-    $installArgs = @(
-        '/quiet',
-        'InstallAllUsers=0',
-        "TargetDir=$PyDir",
-        'PrependPath=0',
-        'Include_test=0',
-        'Include_launcher=0',
-        'InstallLauncherAllUsers=0',
-        'AssociateFiles=0',
-        'Shortcuts=0',
-        'Include_pip=1'
-    )
-    $p = Start-Process -FilePath $installer -ArgumentList $installArgs -Wait -PassThru
-    if ($p.ExitCode -ne 0) { throw "Python 安装程序返回错误码 $($p.ExitCode)" }
-    if (-not (Test-Path -LiteralPath $pyExe)) { throw "安装后找不到 $pyExe" }
+    # 优先用 portable（便携版）：解压即用，不写注册表、不改系统、不与电脑上已有的
+    # Python 冲突。官方 installer 会在注册表登记，同一版本只能装一处，对方电脑若已装
+    # 过 Python 3.12 就会装到别处去——这正是这台机器演练时踩到的坑。
+    $embedZip = Join-Path $DownloadDir "python-$PyVersion-embed-amd64.zip"
+    Get-FileWithCurl -Url $PyEmbedUrl -OutFile $embedZip -Label "Python $PyVersion 便携版"
+    Write-Step "解压到 $PyDir"
+    if (-not (Test-Path -LiteralPath $PyDir)) { New-Item -ItemType Directory -Path $PyDir -Force | Out-Null }
+    Expand-Archive -LiteralPath $embedZip -DestinationPath $PyDir -Force
+
+    # 便携版默认不加载 site-packages，必须改 _pth 才能 pip 装包
+    $pthFile = Get-ChildItem -LiteralPath $PyDir -Filter 'python*._pth' | Select-Object -First 1
+    if (-not $pthFile) { throw "便携版里找不到 _pth 文件" }
+    $zipName = (Get-ChildItem -LiteralPath $PyDir -Filter 'python*.zip' | Select-Object -First 1).Name
+    [IO.File]::WriteAllText($pthFile.FullName, "$zipName`r`n.`r`nLib\site-packages`r`nimport site`r`n", (New-Object Text.UTF8Encoding($false)))
+    Write-Step "已启用 site-packages"
+
+    if (-not (Test-Path -LiteralPath $pyExe)) { throw "解压后找不到 $pyExe" }
     $ver = & $pyExe --version 2>&1
     Write-Ok "Python 就绪（$ver）"
+
+    # 便携版不含 pip，用官方引导脚本装上
+    $getPip = Join-Path $DownloadDir 'get-pip.py'
+    Get-FileWithCurl -Url $GetPipUrl -OutFile $getPip -Label "pip 引导脚本"
+    Write-Step "安装 pip"
+    & $pyExe $getPip --no-warn-script-location 2>&1 | Out-Null
+    $pipVer = & $pyExe -m pip --version 2>&1
+    if ($LASTEXITCODE -ne 0) { throw "pip 安装失败：$pipVer" }
+    Write-Ok "pip 就绪（$pipVer）"
     $summary['Python'] = "已安装 $ver"
 }
 
@@ -122,7 +138,7 @@ if ((Test-Path -LiteralPath $pyExe) -and -not $Force) {
 Write-Title "第 2 步 / 4 · Python 依赖（requirements.txt）"
 
 if (-not (Test-Path -LiteralPath $ReqFile)) { throw "找不到 requirements.txt：$ReqFile" }
-$probe = & $pyExe -c "import av, numpy, sherpa_onnx; print('ok')" 2>&1
+$probe = & $pyExe -c "import av, numpy, sherpa_onnx; print('ok')" 2>$null
 if ($LASTEXITCODE -eq 0 -and -not $Force) {
     Write-Ok "核心包已就绪，跳过 pip 安装"
     $summary['Python依赖'] = "已就绪"
