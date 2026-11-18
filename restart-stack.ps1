@@ -78,6 +78,36 @@ if ($recorderStatus -eq 'recording') {
     exit 4
 }
 
+# ---- 0b. run lock: never let two restarts overlap --------------------------
+$lockPath = Join-Path $root 'data\restart-stack.lock'
+$runLock = $null
+try {
+    $runLock = [IO.File]::Open($lockPath, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+} catch {
+    $stale = $false
+    try {
+        $stale = ((Get-Date) - (Get-Item -LiteralPath $lockPath).LastWriteTime).TotalHours -gt 2
+    } catch {
+        $stale = $false
+    }
+    if ($stale) {
+        Remove-Item -LiteralPath $lockPath -Force -ErrorAction SilentlyContinue
+        $runLock = [IO.File]::Open($lockPath, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+        Write-Log "WARN stale restart lock removed"
+    } else {
+        Write-Log "ABORT reason=another_restart_in_progress"
+        exit 5
+    }
+}
+
+function Release-RestartLock {
+    if ($null -ne $runLock) {
+        try { $runLock.Dispose() } catch { }
+        $script:runLock = $null
+    }
+    try { Remove-Item -LiteralPath $lockPath -Force -ErrorAction SilentlyContinue } catch { }
+}
+
 # ---- 1. stop supervisors first so nothing is respawned ----------------------
 Write-Log "STEP 1 supervisors"
 [void](Stop-ProjectProcess -Label 'autostart-loop' -Pattern 'start-autostart-loop\.ps1')
@@ -96,6 +126,7 @@ Write-Log "STEP 2 children"
 
 if ($DryRun) {
     Write-Log "DRY RUN finished; nothing was stopped"
+    Release-RestartLock
     exit 0
 }
 
@@ -132,6 +163,7 @@ while ((Get-Date) -lt $deadline) {
 }
 if (-not $ok) {
     Write-Log "FAIL health not ok within $HealthTimeoutSeconds s; check data\live-watchdog.log"
+    Release-RestartLock
     exit 2
 }
 
@@ -151,4 +183,5 @@ foreach ($p in $procs) {
     Write-Log ("RUN pid={0} name={1} start={2}" -f $p.ProcessId, $p.Name, $p.CreationDate)
 }
 Write-Log "DONE"
+Release-RestartLock
 exit 0

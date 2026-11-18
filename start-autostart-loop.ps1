@@ -29,6 +29,22 @@ function Write-LoopLog {
     }
 }
 
+# Single-instance guard: startup shortcut + a manual double click used to leave
+# two loops running, and the second one silently spawned a second watchdog
+# (two recorders fighting over the same directory). Named mutex makes any
+# duplicate launch exit immediately.
+$mutex = $null
+$acquired = $false
+try {
+    $mutex = New-Object System.Threading.Mutex($true, 'Local\QianchuanAutostartLoop', [ref]$acquired)
+} catch {
+    $acquired = $true
+}
+if (-not $acquired) {
+    Write-LoopLog "Autostart loop already running in this session; duplicate exits."
+    exit 0
+}
+
 while ($true) {
     Write-LoopLog "Autostart loop launching background watchdog."
     try {
