@@ -208,9 +208,23 @@ function readJson(filePath, fallback) {
 
 function writeJsonAtomic(filePath, value) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  const payload = `${JSON.stringify(value, null, 2)}\n`;
   const temporary = `${filePath}.${process.pid}.${Date.now()}.tmp`;
-  fs.writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`, "utf8");
-  fs.renameSync(temporary, filePath);
+  try {
+    fs.writeFileSync(temporary, payload, "utf8");
+    fs.renameSync(temporary, filePath);
+    return;
+  } catch (error) {
+    // 目标文件可能被同步盘（坚果云等）短暂锁住，改名会报 EPERM。
+    // 这里不能把错误抛出去，否则一次写状态失败就会打断整个采集循环、
+    // 并在目录里不断堆积 .tmp 残片。降级为直接覆盖写入，并清理临时文件。
+    try {
+      fs.unlinkSync(temporary);
+    } catch (_) {
+      /* 临时文件可能本来就没建成 */
+    }
+    fs.writeFileSync(filePath, payload, "utf8");
+  }
 }
 
 function mergeConfig(base, override) {

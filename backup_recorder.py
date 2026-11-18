@@ -293,8 +293,6 @@ class BackupRecorder:
                 "1",
                 "-reconnect_delay_max",
                 "10",
-                "-rw_timeout",
-                "15000000",
                 "-i",
                 proxy_url,
                 "-vn",
