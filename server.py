@@ -28,12 +28,13 @@ from pathlib import Path
 from typing import Any
 
 import deepseek_client
+import paths
 import recording_store
 import voiceprint
 
 
 ROOT = Path(__file__).resolve().parent
-EXTERNAL_ROOT = Path(os.getenv("QIANCHUAN_EXTERNAL_ROOT", r"D:\AI投放产品"))
+EXTERNAL_ROOT = paths.EXTERNAL_ROOT
 DATA_DIR = ROOT / "data"
 SNAPSHOT_PATH = DATA_DIR / "qianchuan-snapshot.json"
 CONFIG_PATH = ROOT / "qianchuan.config.json"
@@ -11395,19 +11396,11 @@ class LiveStreamRegistry:
             }
 
 
-DEFAULT_FFMPEG_PATHS = [
-    os.getenv("QIANCHUAN_FFMPEG", "").strip(),
-    r"C:\Program Files (x86)\MarukoToolbox\tools\ffmpeg.exe",
-    r"C:\Program Files (x86)\damai\resources\app\node_modules\ffmpeg-static-electron\bin\win\x64\ffmpeg.exe",
-    r"C:\ffmpeg\bin\ffmpeg.exe",
-]
+DEFAULT_FFMPEG_PATHS = [path for path, _label in paths.ffmpeg_candidates()]
 
 
 def resolve_ffmpeg() -> str:
-    for candidate in DEFAULT_FFMPEG_PATHS:
-        if candidate and Path(candidate).is_file():
-            return candidate
-    return shutil.which("ffmpeg") or ""
+    return paths.resolve_ffmpeg()[0]
 
 
 class StreamTranscoder:
@@ -13215,6 +13208,7 @@ def main() -> None:
     )
     server.daemon_threads = True
     print(f"千川 AI 投放诊断已启动: http://127.0.0.1:{port}")
+    print(f"路径解析 {paths.describe()} | 录屏={RECORDINGS_DIR}")
     print(
         f"启动实时同步已触发；实时同步间隔 {max(10, interval)} 秒，"
         f"完整同步间隔 {max(60, full_interval)} 秒。"

@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
-# 下载 sherpa-onnx 说话人分离模型到 D:\AI投放产品\models\speaker-diarization。
+# 下载 sherpa-onnx 说话人分离模型到 <外部根>\models\speaker-diarization（外部根由 paths.py 解析）。
 from __future__ import annotations
 
 import os
 from pathlib import Path
 
+import paths
+
 ROOT = Path(__file__).resolve().parent
-EXTERNAL_ROOT = Path(os.getenv("QIANCHUAN_EXTERNAL_ROOT", r"D:\AI投放产品"))
+EXTERNAL_ROOT = paths.EXTERNAL_ROOT
 DEST = EXTERNAL_ROOT / "models" / "speaker-diarization"
 
 def main() -> None:

@@ -4,9 +4,11 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const ROOT = __dirname;
-const EXTERNAL_ROOT = process.env.QIANCHUAN_EXTERNAL_ROOT || "D:\\AI投放产品";
-const DATA_DIR = path.join(ROOT, "data");
+const paths = require("./paths");
+
+const ROOT = paths.ROOT;
+const EXTERNAL_ROOT = paths.EXTERNAL_ROOT;
+const DATA_DIR = paths.DATA_DIR;
 const CONFIG_PATH = path.join(DATA_DIR, "live-screen.json");
 const STATE_PATH = path.join(DATA_DIR, "live-screen-metrics.json");
 const REFRESH_REQUEST_PATH = path.join(DATA_DIR, "live-screen-refresh.request.json");

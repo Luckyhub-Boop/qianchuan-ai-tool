@@ -13,6 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import paths
 import recording_store
 
 
@@ -115,14 +116,8 @@ def release_lock() -> None:
 
 
 def resolve_ffmpeg() -> str:
-    candidates = [
-        os.getenv("QIANCHUAN_FFMPEG", "").strip(),
-        r"C:\Program Files (x86)\MarukoToolbox\tools\ffmpeg.exe",
-        r"C:\Program Files (x86)\damai\resources\app\node_modules\ffmpeg-static-electron\bin\win\x64\ffmpeg.exe",
-        r"C:\ffmpeg\bin\ffmpeg.exe",
-        shutil.which("ffmpeg") or "",
-    ]
-    return next((item for item in candidates if item and Path(item).is_file()), "")
+    """统一走 paths 的候选顺序（外部根 tools/ffmpeg 优先，遗留第三方路径排最后）。"""
+    return paths.resolve_ffmpeg()[0]
 
 
 def audio_capture_available() -> bool:
@@ -256,9 +251,11 @@ class LiveRecorder:
         # 清理过期录像只是收尾动作，删不掉（文件仍被占用/权限不足）时
         # 记一条警告就继续录制，绝不能因为删文件失败把录制器打挂。
         try:
+            skipped: list[str] = []
             removed = recording_store.cleanup_recordings(
                 RETENTION_DAYS,
                 recordings_dir=RECORDINGS_DIR,
+                skipped=skipped,
             )
         except Exception as exc:
             log(f"清理过期录像失败，已跳过并继续录制：{exc}")
@@ -266,7 +263,12 @@ class LiveRecorder:
             return
         self.last_cleanup_date = today
         if removed:
-            log(f"录像保留策略已删除 {len(removed)} 个过期场次: {', '.join(removed)}")
+            log(f"录像保留策略已删除 {len(removed)} 个已归档完成的过期场次: {', '.join(removed)}")
+        if skipped:
+            log(
+                f"录像保留策略跳过 {len(skipped)} 个未归档完成的场次（保留原始媒体，等转写与复盘归档）："
+                + ", ".join(skipped)
+            )
 
     def segment_start_number(self) -> int:
         if not self.directory:
@@ -623,10 +625,16 @@ def main() -> int:
         log("检测到录制器已在运行，本次启动退出")
         return 0
     recorder = LiveRecorder()
+    log("路径解析 " + paths.describe())
+    ffmpeg_path, ffmpeg_source = paths.resolve_ffmpeg()
+    log(f"ffmpeg={ffmpeg_path or 'not-found'}（来源：{ffmpeg_source or '未找到'}）")
+    source = recording_store.recordings_dir_source(RECORDINGS_DIR)
     log(
         f"录制器启动 capture={'pyav-audio' if recorder.capture_available else 'not-found'} "
-        f"dir={RECORDINGS_DIR} retention={RETENTION_DAYS}d"
+        f"dir={RECORDINGS_DIR}（来源：{source}） retention={RETENTION_DAYS}d"
     )
+    if recording_store.RECORDINGS_DIR_PROBLEM:
+        log(f"录屏目录告警：{recording_store.RECORDINGS_DIR_PROBLEM}")
     try:
         recorder.run()
     except KeyboardInterrupt:

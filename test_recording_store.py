@@ -10,27 +10,93 @@ import recording_store
 
 
 class RecordingStoreTests(unittest.TestCase):
-    def test_cleanup_keeps_latest_ten_calendar_days(self) -> None:
+    def _build_session(
+        self,
+        recordings_root: Path,
+        archive_root: Path,
+        day: str,
+        suffix: str,
+        *,
+        archived: bool,
+        transcribed: bool = True,
+    ) -> Path:
+        directory = recordings_root / f"{day}_7704532779547085622_{suffix}"
+        (directory / "segments").mkdir(parents=True)
+        (directory / "segments" / "part_000001.flac").write_bytes(b"audio")
+        (directory / "asr").mkdir()
+        manifest = {
+            "id": directory.name,
+            "accountId": "fashion",
+            "date": day,
+            "status": "completed",
+        }
+        processed = ["part_000001"] if transcribed else []
+        (directory / "asr" / "transcript.json").write_text(
+            json.dumps({"processedParts": processed}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        (directory / "manifest.json").write_text(
+            json.dumps(manifest, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        if archived:
+            target = archive_root / "sessions" / directory.name
+            (target / "asr").mkdir(parents=True)
+            for name in ("review.md", "review.json", "manifest.json"):
+                (target / name).write_text("{}", encoding="utf-8")
+            (target / "asr" / "transcript.json").write_text("{}", encoding="utf-8")
+            for ext in ("json", "md"):
+                (archive_root / f"fashion_{day}.{ext}").write_text("{}", encoding="utf-8")
+        return directory
+
+    def test_cleanup_keeps_latest_ten_calendar_days_when_archived(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
-            root = Path(temp_dir)
+            root = Path(temp_dir) / "recordings"
+            archive = Path(temp_dir) / "archive"
+            root.mkdir()
             now = datetime(2026, 11, 6, 12, 0, 0).astimezone()
             for days_ago in range(15):
-                session_date = (now - timedelta(days=days_ago)).date()
-                directory = root / f"{session_date.isoformat()}_room_{days_ago}"
-                directory.mkdir()
-                (directory / "manifest.json").write_text("{}", encoding="utf-8")
+                session_date = (now - timedelta(days=days_ago)).date().isoformat()
+                self._build_session(root, archive, session_date, str(days_ago), archived=True)
 
+            skipped: list[str] = []
             removed = recording_store.cleanup_recordings(
                 retention_days=10,
                 now=now,
                 recordings_dir=root,
+                skipped=skipped,
+                archive_dir=archive,
             )
 
             self.assertEqual(len(removed), 5)
+            self.assertEqual(skipped, [])
             remaining = [path.name[:10] for path in root.iterdir() if path.is_dir()]
             self.assertNotIn("2026-10-27", remaining)
             self.assertIn("2026-10-28", remaining)
             self.assertIn("2026-11-06", remaining)
+
+    def test_cleanup_never_deletes_unarchived_or_untranscribed_sessions(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir) / "recordings"
+            archive = Path(temp_dir) / "archive"
+            root.mkdir()
+            now = datetime(2026, 11, 6, 12, 0, 0).astimezone()
+            old = "2026-10-01"
+            self._build_session(root, archive, old, "noarchive", archived=False)
+            self._build_session(root, archive, old, "notranscript", archived=True, transcribed=False)
+
+            skipped: list[str] = []
+            removed = recording_store.cleanup_recordings(
+                retention_days=10,
+                now=now,
+                recordings_dir=root,
+                skipped=skipped,
+                archive_dir=archive,
+            )
+
+            self.assertEqual(removed, [])
+            self.assertEqual(len(skipped), 2)
+            self.assertEqual(len([path for path in root.iterdir() if path.is_dir()]), 2)
 
     def test_review_session_uses_recording_and_real_screen_history(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

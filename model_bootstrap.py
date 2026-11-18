@@ -4,9 +4,11 @@ import os
 from pathlib import Path
 from typing import Any, Callable
 
+import paths
+
 
 def external_root() -> Path:
-    return Path(os.getenv("QIANCHUAN_EXTERNAL_ROOT", r"D:\AI投放产品"))
+    return paths.EXTERNAL_ROOT
 
 
 def _emit(log: Callable[[str], None] | None, message: str) -> None:

@@ -9,13 +9,38 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import paths
 import recording_store
 import review_finalizer
 from live_recorder import resolve_ffmpeg
 
 
+def _patch_pyav_open_for_faster_whisper() -> None:
+    """PyAV 19 的 av.open 已不接受 metadata_errors 参数，
+    faster-whisper 1.2.x 仍会传入，导致解码音频时抛 TypeError。
+    这里做一层兼容包装：丢掉该关键字后透传，其余行为不变。
+    """
+    try:
+        import av as _av
+    except Exception:
+        return
+    if getattr(_av.open, "_qianchuan_compat", False):
+        return
+    _origin = _av.open
+
+    def _compat_open(*args, **kwargs):
+        kwargs.pop("metadata_errors", None)
+        return _origin(*args, **kwargs)
+
+    setattr(_compat_open, "_qianchuan_compat", True)
+    _av.open = _compat_open
+
+
+_patch_pyav_open_for_faster_whisper()
+
+
 ROOT = Path(__file__).resolve().parent
-EXTERNAL_ROOT = Path(os.getenv("QIANCHUAN_EXTERNAL_ROOT", r"D:\AI投放产品"))
+EXTERNAL_ROOT = paths.EXTERNAL_ROOT
 DATA_DIR = ROOT / "data"
 RECORDINGS_DIR = recording_store.RECORDINGS_DIR
 DEFAULT_MODEL_DIR = EXTERNAL_ROOT / "models" / "whisper-large-v3"
@@ -29,9 +54,9 @@ DIARIZATION_ENABLED = os.getenv(
     "QIANCHUAN_ASR_DIARIZATION", "1"
 ).strip().lower() not in {"0", "false", "no", "off"}
 try:
-    BEAM_SIZE = max(1, int(os.getenv("QIANCHUAN_ASR_BEAM_SIZE", "5")))
+    BEAM_SIZE = max(1, int(os.getenv("QIANCHUAN_ASR_BEAM_SIZE", "1")))
 except ValueError:
-    BEAM_SIZE = 5
+    BEAM_SIZE = 1
 STATE_PATH = DATA_DIR / "live-asr-state.json"
 LOCK_PATH = DATA_DIR / "live-asr.lock"
 LOG_PATH = DATA_DIR / "live-asr.log"
@@ -393,7 +418,7 @@ class SpeechWorker:
                 device="cpu",
                 compute_type="int8",
                 local_files_only=True,
-                cpu_threads=max(1, min(4, os.cpu_count() or 1)),
+                cpu_threads=max(1, min(10, os.cpu_count() or 1)),
             )
             log(f"faster-whisper {MODEL_NAME} 本地模型加载完成")
         except Exception as exc:
@@ -817,6 +842,7 @@ def main() -> int:
         log("检测到 ASR 服务已在运行，本次启动退出")
         return 0
     worker = SpeechWorker()
+    log("路径解析 " + paths.describe())
     log(
         f"ASR 服务启动 model={MODEL_DIR} "
         f"diarization={'on' if DIARIZATION_ENABLED else 'off'} "

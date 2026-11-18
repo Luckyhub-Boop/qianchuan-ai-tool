@@ -1,0 +1,4 @@
+{
+  "allowedHostnames": ["WINDOWS-MT4H69T"],
+  "note": "允许在主控文件缺失时自我认领的机器名；换机或新增主控只改这里，不改代码"
+}

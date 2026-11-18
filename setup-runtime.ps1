@@ -13,8 +13,9 @@
 #   命令行：powershell -ExecutionPolicy Bypass -File setup-runtime.ps1
 #
 # 参数：
-#   -TargetRoot <路径>  运行环境装哪，默认优先 D:\AI投放产品，无 D 盘则用
-#                       %LOCALAPPDATA%\QianchuanTool
+#   -TargetRoot <路径>  运行环境装哪。默认取"脚本上退两级"的外部根
+#                       （即程序自己推算的位置）；该位置写不进去才用
+#                       %LOCALAPPDATA%\QianchuanTool。不再假设机器有 D 盘。
 #   -SkipModels         不下载模型（只装环境，模型留给程序首次启动自动下）
 #   -Force              已存在的组件也重装
 #
@@ -70,10 +71,26 @@ function Get-FileWithCurl {
 Write-Title "直播投放工具 · 运行环境安装"
 
 if (-not $TargetRoot) {
-    $hasD = Test-Path -LiteralPath 'D:\'
-    if ($hasD) { $TargetRoot = 'D:\AI投放产品' }
-    else { $TargetRoot = Join-Path $env:LOCALAPPDATA 'QianchuanTool' }
+    # 默认位置不再假设"有 D 盘"：优先用脚本所在的同一套目录结构推算
+    # （本脚本位于 <外部根>\我的坚果云\AI投放工具，上退两级就是外部根），
+    # 与程序自己 paths.py 的解析规则保持一致；该位置写不进去时才退到用户目录。
+    $DerivedRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+    $userRoot = [Environment]::GetEnvironmentVariable('QIANCHUAN_EXTERNAL_ROOT', 'User')
+    if ($userRoot -and (Test-Path -LiteralPath $userRoot)) {
+        $TargetRoot = $userRoot
+    } else {
+        $probe = Join-Path $DerivedRoot (".setup-write-probe-" + $PID)
+        try {
+            New-Item -ItemType File -Path $probe -Force | Out-Null
+            Remove-Item -LiteralPath $probe -Force
+            $TargetRoot = $DerivedRoot
+        } catch {
+            Write-Warn2 "$DerivedRoot 写不进去，改用用户目录"
+            $TargetRoot = Join-Path $env:LOCALAPPDATA 'QianchuanTool'
+        }
+    }
 }
+$DerivedRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 
 $RuntimeDir   = Join-Path $TargetRoot 'runtime'
 $PyDir        = Join-Path $RuntimeDir 'python'
@@ -221,12 +238,14 @@ if ($SkipModels) {
 }
 
 # ---------- 环境变量 ----------
-if ($TargetRoot -ne 'D:\AI投放产品') {
+if ($TargetRoot -ne $DerivedRoot) {
     Write-Title "额外设置"
-    Write-Step "本机没有 D:\AI投放产品，需要让程序知道环境装在哪"
+    Write-Step "安装位置与程序推算出的根不一致，需要让程序知道环境装在哪"
     [Environment]::SetEnvironmentVariable('QIANCHUAN_EXTERNAL_ROOT', $TargetRoot, 'User')
     Write-Ok "已设置用户环境变量 QIANCHUAN_EXTERNAL_ROOT=$TargetRoot（重开窗口后生效）"
     $summary['环境变量'] = "QIANCHUAN_EXTERNAL_ROOT=$TargetRoot"
+} else {
+    $summary['环境变量'] = "不需要（安装位置=程序推算的根 $DerivedRoot）"
 }
 
 # ---------- 汇总 ----------

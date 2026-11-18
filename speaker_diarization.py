@@ -6,11 +6,12 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import paths
 import sherpa_onnx
 
 
 ROOT = Path(__file__).resolve().parent
-EXTERNAL_ROOT = Path(os.getenv("QIANCHUAN_EXTERNAL_ROOT", r"D:\AI投放产品"))
+EXTERNAL_ROOT = paths.EXTERNAL_ROOT
 MODEL_DIR = EXTERNAL_ROOT / "models" / "speaker-diarization"
 SEGMENTATION_MODEL = MODEL_DIR / "model.onnx"
 EMBEDDING_MODEL = MODEL_DIR / "3dspeaker_speech_eres2net_base_sv_zh-cn_3dspeaker_16k.onnx"

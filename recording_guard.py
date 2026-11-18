@@ -345,6 +345,18 @@ class RecordingGuard:
             BACKUP_STALE_SECONDS,
             BACKUP_STALL_SECONDS,
         )
+        # 备用录制没在运行、且主录制健康 → 这是“待命”，不是故障。
+        # 备用录制器 finalize 后只写过 finalizing 就退出，状态会永久停在那一帧，
+        # 若沿用“未运行即不健康”，健康面板会一直挂着一条假告警。
+        # 只有主录制不健康（或当前就在用备用）时，备用未运行才算真异常。
+        if not backup["running"] and primary["healthy"]:
+            backup["standby"] = True
+            backup["healthy"] = True
+            backup["status"] = "standby"
+            backup["stale"] = False
+            backup["note"] = "主录制健康，备用未启用"
+        else:
+            backup["standby"] = False
         writable = recording_store.dir_is_writable(RECORDINGS_DIR)
         active = self.read_active()
         method = str(active.get("method") or ("primary" if primary["running"] else ""))

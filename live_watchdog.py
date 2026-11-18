@@ -14,10 +14,11 @@ from pathlib import Path
 from typing import Any
 
 import machine_identity
+import paths
 
 
 ROOT = Path(__file__).resolve().parent
-EXTERNAL_ROOT = Path(os.getenv("QIANCHUAN_EXTERNAL_ROOT", r"D:\AI投放产品"))
+EXTERNAL_ROOT = paths.EXTERNAL_ROOT
 DATA_DIR = ROOT / "data"
 AGENT_PATH = ROOT / "live-screen-agent.js"
 SCREEN_STATE_PATH = DATA_DIR / "live-screen-metrics.json"
@@ -286,6 +287,17 @@ def stop_process(process: subprocess.Popen[Any] | None) -> None:
             pass
 
 
+def child_environment() -> dict[str, str]:
+    """子进程统一继承的环境。
+
+    显式把解析出来的外部根写进环境，而不是靠“父进程刚好设过、子进程刚好继承”。
+    这样即使以后有人改成独立进程、换启动方式，子进程也不会退回各自的默认值。
+    """
+    env = dict(os.environ)
+    env["QIANCHUAN_EXTERNAL_ROOT"] = str(EXTERNAL_ROOT)
+    return env
+
+
 def start_server() -> subprocess.Popen[Any]:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     log_handle = open_append_log(SERVER_LOG_PATH)
@@ -293,11 +305,12 @@ def start_server() -> subprocess.Popen[Any]:
     process = subprocess.Popen(
         [resolve_python(), str(ROOT / "server.py")],
         cwd=str(ROOT),
+        env=child_environment(),
         stdout=log_handle,
         stderr=subprocess.STDOUT,
         creationflags=creation_flags,
     )
-    watchdog_log(f"服务进程已拉起 PID={process.pid}")
+    watchdog_log(f"服务进程已拉起 PID={process.pid} 外部根={EXTERNAL_ROOT}")
     return process
 
 
@@ -308,11 +321,12 @@ def start_recorder() -> subprocess.Popen[Any]:
     process = subprocess.Popen(
         [resolve_python(), str(RECORDER_PATH)],
         cwd=str(ROOT),
+        env=child_environment(),
         stdout=log_handle,
         stderr=subprocess.STDOUT,
         creationflags=creation_flags,
     )
-    watchdog_log(f"直播录像器已拉起 PID={process.pid}")
+    watchdog_log(f"直播录像器已拉起 PID={process.pid} 外部根={EXTERNAL_ROOT}")
     return process
 
 
@@ -323,11 +337,12 @@ def start_asr() -> subprocess.Popen[Any]:
     process = subprocess.Popen(
         [resolve_python(), str(ASR_PATH)],
         cwd=str(ROOT),
+        env=child_environment(),
         stdout=log_handle,
         stderr=subprocess.STDOUT,
         creationflags=creation_flags,
     )
-    watchdog_log(f"本地 Whisper ASR 已拉起 PID={process.pid}")
+    watchdog_log(f"本地 Whisper ASR 已拉起 PID={process.pid} 外部根={EXTERNAL_ROOT}")
     return process
 
 
@@ -338,11 +353,12 @@ def start_guard() -> subprocess.Popen[Any]:
     process = subprocess.Popen(
         [resolve_python(), str(GUARD_PATH)],
         cwd=str(ROOT),
+        env=child_environment(),
         stdout=log_handle,
         stderr=subprocess.STDOUT,
         creationflags=creation_flags,
     )
-    watchdog_log(f"录制守护已拉起 PID={process.pid}")
+    watchdog_log(f"录制守护已拉起 PID={process.pid} 外部根={EXTERNAL_ROOT}")
     return process
 
 
@@ -358,11 +374,12 @@ def start_agent(
     process = subprocess.Popen(
         [node_path, str(agent_path)],
         cwd=str(ROOT),
+        env=child_environment(),
         stdout=log_handle,
         stderr=subprocess.STDOUT,
         creationflags=creation_flags,
     )
-    watchdog_log(f"{label}已拉起 PID={process.pid}")
+    watchdog_log(f"{label}已拉起 PID={process.pid} 外部根={EXTERNAL_ROOT}")
     return process
 
 
@@ -504,6 +521,10 @@ def screen_pause_active(
 
 def main() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
+    watchdog_log("外部根解析：" + paths.describe())
+    watchdog_log(
+        "子进程将继承 QIANCHUAN_EXTERNAL_ROOT=" + str(EXTERNAL_ROOT)
+    )
     keep_awake_active = keep_awake_enabled() and set_thread_execution_state(
         ES_CONTINUOUS | ES_SYSTEM_REQUIRED
     )
@@ -611,8 +632,12 @@ def main() -> None:
         note_restart(component)
 
     role, primary_owner = machine_identity.resolve_role(DATA_DIR)
-    read_only_mode = role == machine_identity.ROLE_READONLY
-    if read_only_mode:
+    # 只有明确的 primary 才启动采集链路：unclaimed（无主控文件且本机不在认领清单）
+    # 与 readonly 一样按受限处理，避免第二台机器悄悄变成主控。
+    read_only_mode = role != machine_identity.ROLE_PRIMARY
+    watchdog_log("机器身份：" + machine_identity.describe(role, primary_owner))
+    watchdog_log("认领资格：" + machine_identity.claim_hint(DATA_DIR))
+    if read_only_mode and role == machine_identity.ROLE_READONLY:
         watchdog_log(
             "本机不是采集主控（主控="
             + str(
@@ -621,6 +646,11 @@ def main() -> None:
                 or "未知"
             )
             + "），进入只读模式：只启动后端服务，不启动录制/采集/转写"
+        )
+    elif read_only_mode:
+        watchdog_log(
+            "本机未认领主控（无 primary-machine.json 且不在可认领清单），"
+            "按只读处理：只启动后端服务，不启动录制/采集/转写"
         )
     else:
         watchdog_log(

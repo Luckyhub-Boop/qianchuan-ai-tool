@@ -11,9 +11,11 @@ const {
   stopProfileBrowsers
 } = require("./live-screen-agent");
 
-const ROOT = __dirname;
-const EXTERNAL_ROOT = process.env.QIANCHUAN_EXTERNAL_ROOT || "D:\\AI投放产品";
-const DATA_DIR = path.join(ROOT, "data");
+const paths = require("./paths");
+
+const ROOT = paths.ROOT;
+const EXTERNAL_ROOT = paths.EXTERNAL_ROOT;
+const DATA_DIR = paths.DATA_DIR;
 const CONFIG_PATH = path.join(DATA_DIR, "buyin-live.json");
 const STATE_PATH = path.join(DATA_DIR, "buyin-live-metrics.json");
 const SESSION_STATE_PATH = path.join(DATA_DIR, "buyin-live-session.json");

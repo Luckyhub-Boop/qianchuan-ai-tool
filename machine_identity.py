@@ -23,10 +23,8 @@ from pathlib import Path
 from typing import Any
 
 PRIMARY_FILE_NAME = "primary-machine.json"
-
-# 采集主控机器名。只有这台机器在“主控文件缺失”时允许自我认领；
-# 其他机器即使同步没跟上、读不到主控文件，也只进只读模式，绝不自认领。
-PRIMARY_HOSTNAME = "WINDOWS-MT4H69T"
+ALLOWLIST_FILE_NAME = "primary-allowlist.json"
+ALLOWLIST_ENV = "QIANCHUAN_PRIMARY_HOSTNAME"
 
 ROLE_PRIMARY = "primary"
 ROLE_READONLY = "readonly"
@@ -107,9 +105,60 @@ def claim_primary(data_dir: Path) -> dict[str, Any]:
     return payload
 
 
-def can_self_claim() -> bool:
-    """只有 PRIMARY_HOSTNAME 指定的机器可以在主控文件缺失时自我认领。"""
-    return hostname().casefold() == PRIMARY_HOSTNAME.casefold()
+def allowlist_path(data_dir: Path) -> Path:
+    return data_dir / ALLOWLIST_FILE_NAME
+
+
+def allowed_hostnames(data_dir: Path) -> list[str]:
+    """允许自我认领的机器名清单：环境变量优先，其次 data 下的配置文件。
+
+    清单不在代码里写死：换机部署只需在配置文件里加一台机器名，
+    不需要改 Python 再发版。
+    """
+    env_value = (os.environ.get(ALLOWLIST_ENV) or "").strip()
+    if env_value:
+        names = [item.strip() for item in env_value.split(",")]
+        return [name for name in names if name]
+    try:
+        payload = json.loads(allowlist_path(data_dir).read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    if isinstance(payload, list):
+        raw = payload
+    elif isinstance(payload, dict):
+        raw = payload.get("allowedHostnames") or payload.get("hostnames") or []
+    else:
+        raw = []
+    return [str(item).strip() for item in raw if str(item).strip()]
+
+
+def claim_hint(data_dir: Path) -> str:
+    """说明本机当前的认领资格来自哪里，供启动日志原样打印。"""
+    names = allowed_hostnames(data_dir)
+    source = (
+        f"环境变量 {ALLOWLIST_ENV}"
+        if (os.environ.get(ALLOWLIST_ENV) or "").strip()
+        else str(allowlist_path(data_dir))
+    )
+    if not names:
+        return f"未配置可认领机器清单（{source} 不存在或为空），本机不会自我认领"
+    return (
+        f"可认领机器清单来自 {source}：{', '.join(names)}；"
+        f"本机 {hostname()} "
+        + ("在清单内，主控文件缺失时可自我认领" if can_self_claim(data_dir) else "不在清单内")
+    )
+
+
+def can_self_claim(data_dir: Path | None = None) -> bool:
+    """主控文件缺失时，本机是否允许自我认领。
+
+    只有出现在清单（环境变量或 data/primary-allowlist.json）里的机器才算。
+    清单为空时一律不允许——宁可停在只读，也不让第二台机器悄悄变成主控。
+    """
+    if data_dir is None:
+        return False
+    names = {name.casefold() for name in allowed_hostnames(data_dir)}
+    return hostname().casefold() in names
 
 
 def resolve_role(data_dir: Path, auto_claim: bool = True) -> tuple[str, dict[str, Any]]:
@@ -117,11 +166,11 @@ def resolve_role(data_dir: Path, auto_claim: bool = True) -> tuple[str, dict[str
 
     - 主控文件存在且是本机：primary
     - 主控文件存在但不是本机：readonly（永不改写该文件）
-    - 主控文件缺失：只有 PRIMARY_HOSTNAME 允许认领；其他机器返回 readonly/未认领
+    - 主控文件缺失：只有清单里的机器允许认领；其他机器返回 unclaimed（按只读处理）
     """
     primary = read_primary(data_dir)
     if not primary:
-        if auto_claim and can_self_claim():
+        if auto_claim and can_self_claim(data_dir):
             return ROLE_PRIMARY, claim_primary(data_dir)
         return ROLE_UNCLAIMED, {}
     owner_id = str(primary.get("machineId") or "")

@@ -11,13 +11,14 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+import paths
 import speaker_profile
 
 
 ROOT = Path(__file__).resolve().parent
-DEFAULT_RECORDINGS_DIR = Path(
-    os.getenv("QIANCHUAN_RECORDINGS_DIR", r"D:\DAI投放产品录屏备份")
-).expanduser()
+# 录屏根不再在本文件里写死：候选由 paths 给出（环境变量 > 与外部根并列的旧目录 > 外部根内 recordings）。
+DEFAULT_RECORDINGS_DIR = paths.recordings_candidates()[0]
+RECORDINGS_DIR_PROBLEM = ""
 
 
 def dir_is_writable(directory: Path) -> bool:
@@ -32,29 +33,37 @@ def dir_is_writable(directory: Path) -> bool:
         return False
 
 
-def resolve_recordings_dir() -> Path:
-    """Pick the first writable recordings directory.
+def recordings_dir_source(directory: Path) -> str:
+    """说明这个录屏目录是按哪条规则选出来的，供启动日志原样打印。"""
+    if (os.getenv("QIANCHUAN_RECORDINGS_DIR") or "").strip():
+        return "环境变量 QIANCHUAN_RECORDINGS_DIR"
+    if directory == paths.EXTERNAL_ROOT.parent / paths.LEGACY_RECORDINGS_NAME:
+        return "与外部根并列的旧录屏目录"
+    if directory == paths.EXTERNAL_ROOT / "recordings":
+        return "外部根内的 recordings"
+    return "自定义候选目录"
 
-    The primary location stays ``D:\\DAI投放产品录屏备份`` (outside the
-    Nutstore-synced project). If the running account loses write access there,
-    we transparently fall back to other local, non-synced directories so the
-    recording pipeline never silently stops. Every process imports this same
-    function, so the recorder, ASR, finalizer and server agree on one root.
+
+def resolve_recordings_dir() -> Path:
+    """按 paths 给出的候选顺序，挑第一个真正可写的目录。
+
+    不做任何静默兜底：既不会偷偷落到 C 盘根目录，也不会落到临时目录。
+    候选全部写不进时，返回第一个候选并把原因记进 RECORDINGS_DIR_PROBLEM，
+    由录制器启动日志大声报出来，让人立刻看到"录像其实没地方写"。
     """
-    candidates: list[Path] = [DEFAULT_RECORDINGS_DIR]
-    for fallback in (
-        Path(r"D:\QianchuanRecordings"),
-        Path(r"C:\QianchuanRecordings"),
-        Path(os.getenv("TEMP", r"C:\Windows\Temp")) / "QianchuanRecordings",
-    ):
-        if fallback != DEFAULT_RECORDINGS_DIR and fallback not in candidates:
-            candidates.append(fallback)
+    global RECORDINGS_DIR_PROBLEM
+    candidates = paths.recordings_candidates()
+    unwritable: list[str] = []
     for candidate in candidates:
         if dir_is_writable(candidate):
+            if candidate != candidates[0]:
+                RECORDINGS_DIR_PROBLEM = (
+                    f"首选目录 {candidates[0]} 不可写，已改用 {candidate}"
+                )
             return candidate
-    # Last resort: report the primary path so callers surface a clear error
-    # instead of silently recording into the wrong place.
-    return DEFAULT_RECORDINGS_DIR
+        unwritable.append(str(candidate))
+    RECORDINGS_DIR_PROBLEM = "所有候选录屏目录都不可写：" + ", ".join(unwritable)
+    return candidates[0]
 
 
 RECORDINGS_DIR = resolve_recordings_dir()
@@ -149,11 +158,78 @@ def manifest_directories(recordings_dir: Path = RECORDINGS_DIR) -> list[Path]:
     )
 
 
+def session_delete_readiness(
+    directory: Path,
+    manifest: dict[str, Any],
+    archive_dir: Path | None = None,
+) -> tuple[bool, list[str]]:
+    """判定某场次的原始媒体是否可以删除。
+
+    三条同时满足才可删：录制已 completed、全部分段已转写、复盘归档副本齐全。
+    任一不满足都返回 False 并列出原因，调用方必须保留原始媒体。
+    """
+    archive_root = Path(archive_dir or REVIEW_ARCHIVE_DIR)
+    missing: list[str] = []
+
+    if str(manifest.get("status") or "") != "completed":
+        missing.append(f"录制未完成（status={manifest.get('status') or 'unknown'}）")
+
+    segments = {
+        item.stem
+        for item in (directory / "segments").glob("part_*")
+        if item.is_file()
+        and item.stat().st_size > 0
+        and item.suffix.lower() in {".ts", ".wav", ".flac"}
+    }
+    if not segments:
+        missing.append("没有可用分段")
+    try:
+        transcript = json.loads(
+            (directory / "asr" / "transcript.json").read_text(encoding="utf-8")
+        )
+    except (OSError, ValueError):
+        transcript = {}
+    processed = {
+        str(item)
+        for item in (transcript.get("processedParts") or [])
+        if str(item).strip()
+    }
+    pending = segments - processed
+    if segments and pending:
+        missing.append(f"{len(pending)} 个分段未转写（如 {sorted(pending)[0]}）")
+
+    session_id = safe_component(manifest.get("id") or directory.name, directory.name)
+    archived = archive_root / "sessions" / session_id
+    for name in ("review.md", "review.json", "manifest.json"):
+        if not (archived / name).is_file():
+            missing.append(f"归档缺 sessions/{session_id}/{name}")
+    if not (archived / "asr" / "transcript.json").is_file():
+        missing.append(f"归档缺 sessions/{session_id}/asr/transcript.json")
+
+    account_id = safe_component(str(manifest.get("accountId") or "fashion"), "account")
+    day = str(manifest.get("date") or "")
+    if day:
+        for ext in ("json", "md"):
+            if not (archive_root / f"{account_id}_{day}.{ext}").is_file():
+                missing.append(f"归档缺每日文档 {account_id}_{day}.{ext}")
+    else:
+        missing.append("manifest 缺 date，无法定位每日文档")
+
+    return (not missing, missing)
+
+
 def cleanup_recordings(
     retention_days: int = RETENTION_DAYS,
     now: datetime | None = None,
     recordings_dir: Path = RECORDINGS_DIR,
+    skipped: list[str] | None = None,
+    archive_dir: Path | None = None,
 ) -> list[str]:
+    """删除过期且已归档完成的场次。
+
+    日期只是“什么时候可以清”的上限；是否真删由 session_delete_readiness 决定。
+    未转写完或未归档的场次一律保留，绝不因为日期到了就删。
+    """
     retention_days = max(1, int(retention_days))
     now = now or datetime.now().astimezone()
     cutoff = now.date() - timedelta(days=retention_days - 1)
@@ -171,6 +247,15 @@ def cleanup_recordings(
             continue
         resolved = directory.resolve()
         if resolved.parent != recordings_dir:
+            continue
+        ready, missing = session_delete_readiness(
+            resolved,
+            read_manifest(resolved),
+            archive_dir,
+        )
+        if not ready:
+            if skipped is not None:
+                skipped.append(f"{directory.name}（{missing[0]}）")
             continue
         shutil.rmtree(resolved)
         removed.append(directory.name)
