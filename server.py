@@ -8048,6 +8048,7 @@ class DashboardStore:
         self,
         account_id: str | None = None,
         day: str | None = None,
+        write_archive: bool = False,
     ) -> dict[str, Any]:
         history = self._load_live_history()
         account = self._account_for(account_id)
@@ -8122,8 +8123,12 @@ class DashboardStore:
         )
         for session in sessions:
             session["summary"] = recording_store.review_overview_summary(session)
-        if sessions:
-            recording_store.archive_daily_sessions(sessions, REVIEW_ARCHIVE_DIR)
+        if sessions and write_archive:
+            recording_store.archive_daily_sessions(
+                sessions,
+                REVIEW_ARCHIVE_DIR,
+                recordings_dir=RECORDINGS_DIR,
+            )
         mcp_time_series = copy.deepcopy(MCP_LIVE_15_MINUTE_CAPABILITY)
         for session in sessions:
             session["mcpTimeSeriesAttempted"] = True
@@ -8186,11 +8191,12 @@ class DashboardStore:
                 "按 roomId 与日期聚合千川直播大屏 5 分钟历史",
                 "用增量 ROI、有消耗无订单、在线回落规则生成问题/优势",
                 (
-                    "本地 Whisper tiny 转写后按约 5 秒指标窗口关联话术"
+                    f"本地 Whisper（{asr.get('model') or '转写引擎'}）转写后"
+                    "按约 5 秒指标窗口关联话术"
                     if asr.get("modelReady")
                     else "本地 Whisper 尚未就绪时话术留空，不补造"
                 ),
-                "复盘 JSON/Markdown 落盘成功后删除原始录像",
+                "盘点磁盘原始录像：按实际段数与体积标注“保留/已删除”，不写死文案",
             ],
             "syncedAt": now_iso(),
         }
@@ -8242,10 +8248,74 @@ class DashboardStore:
 
         json_path = archive_dir / f"fashion_{selected_day}.json"
         md_path = archive_dir / f"fashion_{selected_day}.md"
-        summary: dict[str, Any] | None = None
+        disk = recording_store.daily_disk_state(
+            "fashion",
+            selected_day,
+            RECORDINGS_DIR,
+        )
+        live_preview = bool(disk.get("anyRecording"))
+        archived_payload: dict[str, Any] | None = None
         if json_path.is_file():
+            candidate = load_json(json_path, None)
+            if isinstance(candidate, dict):
+                archived_payload = candidate
+        stale = live_preview or archived_payload is None
+        if isinstance(archived_payload, dict):
+            if str(disk.get("lastEndedAt") or "") > str(
+                archived_payload.get("endedAt") or ""
+            ):
+                stale = True
+            archive_meta = archived_payload.get("archiveMeta")
+            archived_disk_segments = (
+                int(archive_meta.get("diskSegmentCount") or 0)
+                if isinstance(archive_meta, dict)
+                else 0
+            )
+            if not archived_disk_segments:
+                try:
+                    archived_disk_segments = int(
+                        archived_payload.get("segmentCount") or 0
+                    )
+                except (TypeError, ValueError):
+                    archived_disk_segments = 0
             try:
-                data = load_json(json_path, None)
+                if int(disk.get("segmentCount") or 0) > archived_disk_segments:
+                    stale = True
+            except (TypeError, ValueError):
+                pass
+        live_payload: dict[str, Any] | None = None
+        if stale and int(disk.get("sessionCount") or 0) > 0:
+            try:
+                fresh = self.review_sessions(None, selected_day, write_archive=True)
+            except Exception:
+                fresh = None
+            items = (
+                fresh.get("sessions")
+                if isinstance(fresh, dict)
+                else fresh
+            )
+            if not isinstance(items, list):
+                items = []
+            live_payload = next(
+                (
+                    item
+                    for item in items
+                    if isinstance(item, dict)
+                    and str(item.get("accountId") or "") == "fashion"
+                    and str(item.get("date") or "") == selected_day
+                ),
+                None,
+            )
+        if isinstance(live_payload, dict):
+            live_preview = bool(disk.get("anyRecording"))
+        summary: dict[str, Any] | None = None
+        if live_payload is not None or json_path.is_file():
+            try:
+                data = (
+                    live_payload
+                    if isinstance(live_payload, dict)
+                    else load_json(json_path, None)
+                )
                 if isinstance(data, dict):
                     metrics = data.get("metrics")
                     if not isinstance(metrics, dict):
@@ -8332,13 +8402,47 @@ class DashboardStore:
             except ValueError:
                 summary = None
         markdown = ""
-        if md_path.is_file():
+        if live_preview and isinstance(live_payload, dict):
+            try:
+                markdown = recording_store.review_markdown(live_payload)
+            except Exception:
+                markdown = ""
+        if not markdown and md_path.is_file():
             try:
                 markdown = md_path.read_text(encoding="utf-8")
             except OSError:
                 markdown = ""
+        series = live_payload.get("series") if isinstance(live_payload, dict) else None
+        if not isinstance(series, list) and isinstance(archived_payload, dict):
+            series = archived_payload.get("series")
+        data_through = ""
+        if isinstance(series, list) and series:
+            last_point = series[-1] if isinstance(series[-1], dict) else {}
+            data_through = str(
+                last_point.get("syncedAt") or last_point.get("sourceAt") or ""
+            )
+        if not data_through:
+            source_payload = (
+                live_payload if isinstance(live_payload, dict) else archived_payload
+            )
+            if isinstance(source_payload, dict):
+                data_through = str(source_payload.get("endedAt") or "")
         result["summary"] = summary
         result["markdown"] = markdown
+        result["livePreview"] = bool(live_preview)
+        result["dataThrough"] = data_through
+        result["diskFacts"] = {
+            "anyRecording": bool(disk.get("anyRecording")),
+            "sessionCount": int(disk.get("sessionCount") or 0),
+            "segmentCount": int(disk.get("segmentCount") or 0),
+            "sizeBytes": int(disk.get("sizeBytes") or 0),
+            "lastEndedAt": str(disk.get("lastEndedAt") or ""),
+        }
+        result["archivedSegmentCount"] = (
+            int(archived_payload.get("segmentCount") or 0)
+            if isinstance(archived_payload, dict)
+            else 0
+        )
         return result
 
     def script_analysis(

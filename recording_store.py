@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import bisect
 import copy
+import hashlib
 import json
 import os
 import re
@@ -317,7 +318,9 @@ def _archived_manifest(
         else []
     )
     normalized["status"] = "archived_analysis"
-    normalized["recordingStatusLabel"] = "分析已归档 · 原始录像已删除"
+    normalized["recordingStatusLabel"] = archive_video_label(
+        archive_media_state(directory)
+    )
     normalized["videoExpired"] = True
     normalized["videoUrl"] = ""
     if not str(normalized.get("endedAt") or "").strip() and transcript_segments:
@@ -1121,7 +1124,7 @@ def analyze_speech(
     if not phrases:
         return {
             "available": False,
-            "engine": "faster-whisper-tiny",
+            "engine": str(transcript.get("model") or "本地 Whisper"),
             "phrases": [],
             "good": [],
             "bad": [],
@@ -1284,7 +1287,10 @@ def analyze_speech(
         "bad": bad[:8],
         "topOrders": top_orders[:5],
         "summary": f"效果较好：{good_summary}。效果较差：{bad_summary}。",
-        "source": "直播流音频 · 本地 faster-whisper-tiny",
+        "source": (
+            "直播流音频 · 本地 "
+            + str(transcript.get("model") or "Whisper 转写")
+        ),
         "speakerProfiles": speaker_profile.apply_speaker_map(
             speaker_profile.attach_speaker_metrics(
                 speaker_profile.build_speaker_profiles(transcript),
@@ -2151,7 +2157,7 @@ def review_sessions(
                 round(sum(values[i] for values in rhythms) / len(rhythms), 2)
                 for i in range(len(rhythms[0]))
             ]
-    archive_daily_sessions(daily_sessions, archive_dir)
+    archive_daily_sessions(daily_sessions, archive_dir, recordings_dir=recordings_dir)
     current_keys = {
         (str(item.get("accountId") or ""), str(item.get("date") or ""))
         for item in daily_sessions
@@ -2852,18 +2858,193 @@ def review_markdown(session: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _human_size(size: int | float) -> str:
+    value = float(size or 0)
+    if value <= 0:
+        return "0 B"
+    if value < 1024:
+        return f"{int(value)} B"
+    if value < 1024 * 1024:
+        return f"{value / 1024:.1f} KB"
+    if value < 1024 ** 3:
+        return f"{value / (1024 * 1024):.1f} MB"
+    return f"{value / (1024 ** 3):.2f} GB"
+
+
+def archive_media_state(directory: Path) -> dict[str, Any]:
+    """盘点磁盘上仍然存在的原始媒体。
+
+    归档文案必须由这份事实决定，不能写死“已删除”：录像删没删只有磁盘知道。
+    """
+    segments = 0
+    size = 0
+    segment_dir = Path(directory) / "segments"
+    if segment_dir.is_dir():
+        for item in segment_dir.glob("part_*"):
+            try:
+                if not item.is_file() or item.stat().st_size <= 0:
+                    continue
+            except OSError:
+                continue
+            if item.suffix.lower() not in {".ts", ".wav", ".flac"}:
+                continue
+            segments += 1
+            size += item.stat().st_size
+    session_mp4 = Path(directory) / "session.mp4"
+    try:
+        if session_mp4.is_file() and session_mp4.stat().st_size > 1024:
+            size += session_mp4.stat().st_size
+    except OSError:
+        pass
+    return {
+        "present": segments > 0 or size > 0,
+        "segmentCount": segments,
+        "sizeBytes": size,
+        "sizeText": _human_size(size),
+        "directory": str(directory),
+    }
+
+
+def archive_video_label(media: dict[str, Any] | None) -> str:
+    media = media or {}
+    if media.get("present"):
+        return (
+            "分析已归档 · 原始录像保留（"
+            f"{int(media.get('segmentCount') or 0)} 段 / "
+            f"{media.get('sizeText') or _human_size(media.get('sizeBytes'))}，待清理）"
+        )
+    return "分析已归档 · 原始录像已删除"
+
+
+def daily_disk_state(
+    account_id: str | None,
+    day: str,
+    recordings_dir: Path = RECORDINGS_DIR,
+) -> dict[str, Any]:
+    """某一天的磁盘事实：还有没有场次在录、最后结束时间、段数与体积。"""
+    state: dict[str, Any] = {
+        "date": str(day or ""),
+        "sessionCount": 0,
+        "anyRecording": False,
+        "lastEndedAt": "",
+        "segmentCount": 0,
+        "sizeBytes": 0,
+        "sessionIds": [],
+    }
+    if not day:
+        return state
+    for directory, manifest in list_manifests(recordings_dir):
+        if account_id and str(manifest.get("accountId") or "") != str(account_id):
+            continue
+        if str(manifest.get("date") or "") != str(day):
+            continue
+        state["sessionCount"] += 1
+        state["sessionIds"].append(str(manifest.get("id") or directory.name))
+        if str(manifest.get("status") or "") != "completed":
+            state["anyRecording"] = True
+        ended = str(manifest.get("endedAt") or manifest.get("lastHeartbeatAt") or "")
+        if ended and ended > state["lastEndedAt"]:
+            state["lastEndedAt"] = ended
+        media = archive_media_state(directory)
+        state["segmentCount"] += int(media.get("segmentCount") or 0)
+        state["sizeBytes"] += int(media.get("sizeBytes") or 0)
+    return state
+
+
+def archive_rank(payload: dict[str, Any] | None) -> tuple[str, int, int, str]:
+    """归档完整度排序值：结束时间、段数、曲线点数、开始时间。越大越完整。"""
+    payload = payload or {}
+    ended = str(payload.get("endedAt") or "")
+    try:
+        segments = int(payload.get("segmentCount") or 0)
+    except (TypeError, ValueError):
+        segments = 0
+    series = payload.get("series")
+    points = len(series) if isinstance(series, list) else 0
+    return (ended, segments, points, str(payload.get("startedAt") or ""))
+
+
+def _strip_volatile(value: Any) -> Any:
+    """去掉每次请求都会变的字段，剩下的才算“内容”。"""
+    volatile = {
+        "syncedAt",
+        "writtenAt",
+        "analysisArchivedAt",
+        "generatedAt",
+        "updatedAt",
+        "archiveMeta",
+        "mcpTimeSeries",
+        "mcpTimeSeriesAvailable",
+        "mcpTimeSeriesAttempted",
+        "mcpTimeSeriesError",
+        "mcpTimeSeriesProbeWindows",
+        "mcpTimeSeriesStatus",
+    }
+    if isinstance(value, dict):
+        return {
+            key: _strip_volatile(item)
+            for key, item in value.items()
+            if key not in volatile
+        }
+    if isinstance(value, list):
+        return [_strip_volatile(item) for item in value]
+    return value
+
+
+def archive_fingerprint(payload: dict[str, Any] | None) -> str:
+    """归档内容指纹。只有真实内容变化才允许重写，避免刷页面造成无意义改写。"""
+    data = _strip_volatile(payload or {})
+    raw = json.dumps(data, ensure_ascii=False, sort_keys=True, default=str)
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def archive_signature(payload: dict[str, Any] | None) -> tuple:
+    """归档内容指纹。指纹相同就不必重写文件，避免页面反复打开造成无意义改写。"""
+    payload = payload or {}
+    metrics = payload.get("metrics") if isinstance(payload.get("metrics"), dict) else {}
+    series = payload.get("series")
+    points = len(series) if isinstance(series, list) else 0
+    return (
+        archive_rank(payload),
+        str(metrics.get("spend") or ""),
+        str(metrics.get("gmv") or ""),
+        str(metrics.get("orders") or ""),
+        str(payload.get("recordingStatusLabel") or ""),
+        str(payload.get("summary") or "")[:64],
+    )
+
+
 def archive_session_review(
     directory: Path,
     manifest: dict[str, Any],
     session: dict[str, Any],
     archive_sessions_dir: Path = REVIEW_ARCHIVE_SESSIONS_DIR,
 ) -> Path:
+    """为单场次留一份分析归档。
+
+    只在场次录制结束后落盘；归档里“原始录像是否已删除”按磁盘事实写，
+    并且已有归档更完整时不再覆盖。
+    """
     session_id = safe_component(
         manifest.get("id") or directory.name,
         directory.name,
     )
     target = archive_sessions_dir / session_id
+    status = str(manifest.get("status") or "")
+    if status not in {"completed", "archived_analysis"}:
+        return target
+    existing_review = target / "review.json"
+    if status == "archived_analysis" and existing_review.is_file():
+        return target
+    if existing_review.is_file():
+        try:
+            existing = json.loads(existing_review.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            existing = None
+        if isinstance(existing, dict) and archive_rank(existing) > archive_rank(session):
+            return target
     target.mkdir(parents=True, exist_ok=True)
+    media = archive_media_state(directory)
     archived_session = copy.deepcopy(session)
     archived_session["videoUrl"] = ""
     archived_session["videoType"] = ""
@@ -2872,7 +3053,8 @@ def archive_session_review(
     archived_session["sizeBytes"] = 0
     archived_session["videoExpired"] = True
     archived_session["recordingStatus"] = "archived_analysis"
-    archived_session["recordingStatusLabel"] = "分析已归档 · 原始录像已删除"
+    archived_session["recordingStatusLabel"] = archive_video_label(media)
+    archived_session["rawVideo"] = media
     archived_session["analysisArchivedAt"] = now_iso()
     atomic_write_json(target / "review.json", archived_session)
     (target / "review.md").write_text(
@@ -2882,27 +3064,115 @@ def archive_session_review(
     return target
 
 
+def _audit_archive_write(archive_dir: Path, stem: str, decision: str) -> None:
+    """归档写入审计：谁在什么时候写了还是跳过了，出问题能直接查。"""
+    try:
+        path = Path(archive_dir) / "archive-write.log"
+        line = f"{now_iso()} pid={os.getpid()} {stem} {decision}\n"
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write(line)
+    except OSError:
+        pass
+
+
 def archive_daily_sessions(
     sessions: list[dict[str, Any]],
     archive_dir: Path = REVIEW_ARCHIVE_DIR,
-) -> None:
+    recordings_dir: Path = RECORDINGS_DIR,
+    finalized_only: bool = True,
+    skipped: list[str] | None = None,
+) -> list[str]:
+    """写入每日复盘文档。
+
+    两条硬规则：
+    1. 当天还有场次在录时不落档——复盘页被反复打开、刷新，不能把半场数据封成全天；
+    2. 已有归档更完整时（结束时间更晚/段数更多/曲线更长）不覆盖，避免用旧快照回退。
+    """
+    notes: list[str] = []
     for session in sessions:
         account_id = safe_component(session.get("accountId"), "account")
         day = str(session.get("date") or "")
         if not day:
             continue
+        stem = f"{account_id}_{day}"
+        disk = daily_disk_state(
+            str(session.get("accountId") or account_id),
+            day,
+            recordings_dir,
+        )
+        if finalized_only and disk.get("anyRecording"):
+            notes.append(f"{stem}: 跳过（当天仍有场次在录制）")
+            _audit_archive_write(archive_dir, stem, "skip=recording")
+            if skipped is not None:
+                skipped.append(stem)
+            continue
+        target = archive_dir / f"{stem}.json"
+        media = {
+            "present": bool(disk.get("segmentCount")),
+            "segmentCount": int(disk.get("segmentCount") or 0),
+            "sizeBytes": int(disk.get("sizeBytes") or 0),
+            "sizeText": _human_size(disk.get("sizeBytes")),
+            "sessionCount": int(disk.get("sessionCount") or 0),
+        }
         archive = copy.deepcopy(session)
         archive["videoUrl"] = ""
         archive["videoType"] = ""
         archive["videoExpired"] = True
         archive["recordingStatus"] = "archived_analysis"
-        archive["recordingStatusLabel"] = "分析已归档 · 原始录像已删除"
-        stem = f"{account_id}_{day}"
-        atomic_write_json(archive_dir / f"{stem}.json", archive)
+        archive["recordingStatusLabel"] = archive_video_label(media)
+        archive["rawVideo"] = media
+        archive["archiveMeta"] = {
+            "writtenAt": now_iso(),
+            "finalizedOnly": bool(finalized_only),
+            "anyRecordingAtWrite": bool(disk.get("anyRecording")),
+            "diskSegmentCount": int(disk.get("segmentCount") or 0),
+            "lastEndedAt": str(disk.get("lastEndedAt") or ""),
+        }
+        if target.is_file():
+            try:
+                existing = json.loads(target.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                existing = None
+            if isinstance(existing, dict):
+                existing_rank = archive_rank(existing)
+                candidate_rank = archive_rank(archive)
+                if existing_rank > candidate_rank:
+                    notes.append(
+                        f"{stem}: 跳过（已有归档更完整 {existing_rank} > {candidate_rank}）"
+                    )
+                    _audit_archive_write(
+                        archive_dir,
+                        stem,
+                        f"skip=more_complete existing={existing_rank} candidate={candidate_rank}",
+                    )
+                    if skipped is not None:
+                        skipped.append(stem)
+                    continue
+                if archive_fingerprint(existing) == archive_fingerprint(archive):
+                    notes.append(f"{stem}: 跳过（归档内容无变化）")
+                    _audit_archive_write(archive_dir, stem, "skip=unchanged")
+                    if skipped is not None:
+                        skipped.append(stem)
+                    continue
+                _audit_archive_write(
+                    archive_dir,
+                    stem,
+                    "write=updated existing="
+                    + archive_fingerprint(existing)[:12]
+                    + " candidate="
+                    + archive_fingerprint(archive)[:12],
+                )
+        _audit_archive_write(
+            archive_dir,
+            stem,
+            "commit=updated" if target.is_file() else "commit=new",
+        )
+        atomic_write_json(target, archive)
         (archive_dir / f"{stem}.md").write_text(
             review_markdown(archive),
             encoding="utf-8",
         )
+        notes.append(f"{stem}: 已归档（段数 {archive.get('segmentCount')}）")
 
 
 def load_archived_daily_sessions(

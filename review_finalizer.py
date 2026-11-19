@@ -103,7 +103,11 @@ def finalize_completed_sessions(
         recording_store.attach_buyin_audience(daily_sessions, audience_value)
         for daily in daily_sessions:
             daily["summary"] = recording_store.review_overview_summary(daily)
-        recording_store.archive_daily_sessions(daily_sessions, archive_dir)
+        recording_store.archive_daily_sessions(
+            daily_sessions,
+            archive_dir,
+            recordings_dir=recordings_dir,
+        )
         target = recording_store.archive_session_review(
             directory,
             manifest,
