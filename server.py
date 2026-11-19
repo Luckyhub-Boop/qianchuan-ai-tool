@@ -5984,14 +5984,15 @@ class DashboardStore:
         day = str(day or "")[:10]
         if not day:
             return {}
-        snapshot = self.dashboard()
+        with self.lock:
+            snapshot = self.snapshot if isinstance(self.snapshot, dict) else {}
         rows: list[dict[str, Any]] = []
         for account in snapshot.get("accounts") or []:
             if not isinstance(account, dict):
                 continue
             for row in account.get("data") or []:
                 if isinstance(row, dict) and str(row.get("date") or "")[:10] == day:
-                    rows.append(row)
+                    rows.append(copy.deepcopy(row))
         if not rows:
             return {}
         totals = {
