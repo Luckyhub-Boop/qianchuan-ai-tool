@@ -2647,6 +2647,10 @@ def aggregate_daily_session(items: list[dict[str, Any]]) -> dict[str, Any]:
             else "completed"
         ),
         "recordingParts": parts,
+        "segmentCount": sum(
+            int(_number(part.get("segmentCount")) or 0) for part in parts
+        )
+        or int(_number(latest.get("segmentCount")) or 0),
         "videoUrl": "",
         "videoType": "daily_hls",
         "videoExpired": False,
@@ -2767,6 +2771,9 @@ def review_markdown(session: dict[str, Any]) -> str:
         f"- 消耗：¥{_number(metrics.get('spend')) or 0:.2f}",
         f"- 净成交：¥{_number(metrics.get('gmv')) or 0:.2f}",
         f"- 净成交订单：{_number(metrics.get('orders')) or 0:.0f}",
+        f"- 支付成交金额：{money(metrics.get('grossGmv'))}",
+        f"- 支付订单：{money(metrics.get('grossOrders')) if _number(metrics.get('grossOrders')) is None else count(metrics.get('grossOrders'))}",
+        f"- 订单与成交口径：{metrics.get('ordersScopeLabel') or '订单=净成交订单（剔除 1 小时内退款）；支付订单=含退款前订单'}",
         f"- 净成交 ROI：{_number(metrics.get('roi')) or 0:.2f}",
         f"- GPM（千川直播大屏直抓）：{money(metrics.get('gpm'))}",
         f"- CPM（自定义推导：消耗 ÷ 曝光 × 1000）：{money(metrics.get('cpm'))}",

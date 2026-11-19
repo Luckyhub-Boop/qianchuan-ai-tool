@@ -522,6 +522,10 @@ class LiveRecorder:
             ])
             for pattern in ("part_*.wav", "part_*.flac", "part_*.ts")
         )
+        if not self.manifest["segmentCount"]:
+            # 空场次：画面流刚注册就消失或一直未落盘，标记出来，避免混进复盘列表
+            self.manifest["status"] = "empty"
+            self.manifest["emptyReason"] = "本次采集未产生任何分片"
         recording_store.write_manifest(self.directory, self.manifest)
         log(f"结束音频采集，等待后台分析归档后删除 session={self.directory.name}")
         self.directory = None

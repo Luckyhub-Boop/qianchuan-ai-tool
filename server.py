@@ -5841,6 +5841,75 @@ def daily_rows_have_activity(rows: list[dict[str, Any]]) -> bool:
     )
 
 
+def attach_day_order_scopes(
+    session: dict[str, Any],
+    backend: dict[str, Any],
+) -> None:
+    """把千川后台分日的双口径交易指标并入复盘 session。
+
+    - orders / netOrders：净成交订单（剔除 1 小时内退款）
+    - grossOrders：支付订单（含退款前）
+    - 大屏抓到的原值原样保存在 screenOrders / screenGmv，便于对账
+    """
+    if not isinstance(session, dict) or not isinstance(backend, dict):
+        return
+    metrics = session.get("metrics")
+    if not isinstance(metrics, dict):
+        metrics = {}
+        session["metrics"] = metrics
+    screen_orders = metrics.get("orders")
+    screen_gmv = metrics.get("gmv")
+    net_orders = to_number(backend.get("orders"))
+    gross_orders = to_number(backend.get("grossOrders"))
+    net_gmv = to_number(backend.get("gmv"))
+    gross_gmv = to_number(backend.get("grossGmv"))
+    spend = to_number(backend.get("spend"))
+    if net_orders is not None:
+        metrics["orders"] = net_orders
+    metrics["netOrders"] = metrics.get("orders")
+    if gross_orders is not None:
+        metrics["grossOrders"] = gross_orders
+    if net_gmv is not None:
+        metrics["gmv"] = net_gmv
+    metrics["netGmv"] = metrics.get("gmv")
+    if gross_gmv is not None:
+        metrics["grossGmv"] = gross_gmv
+    if spend is not None:
+        metrics["spend"] = spend
+    final_gmv = to_number(metrics.get("gmv"))
+    final_orders = to_number(metrics.get("orders"))
+    if spend and final_gmv is not None:
+        metrics["roi"] = round(final_gmv / spend, 4)
+    if spend and final_orders:
+        metrics["cpa"] = round(spend / final_orders, 2)
+    if gross_orders and spend:
+        metrics["grossOrderCost"] = round(spend / gross_orders, 2)
+    metrics["ordersScope"] = "net"
+    metrics["ordersScopeLabel"] = "订单=净成交订单（剔除 1 小时内退款）"
+    metrics["grossOrdersScopeLabel"] = "支付订单（含退款前）"
+    metrics["screenOrders"] = screen_orders
+    metrics["screenGmv"] = screen_gmv
+    session["orderScopes"] = {
+        "net": {
+            "orders": metrics.get("netOrders"),
+            "gmv": metrics.get("netGmv"),
+            "label": "净成交（剔除 1 小时内退款）",
+        },
+        "gross": {
+            "orders": metrics.get("grossOrders") if gross_orders is not None else None,
+            "gmv": metrics.get("grossGmv") if gross_gmv is not None else None,
+            "label": "支付口径（含退款前）",
+        },
+        "screenCapture": {
+            "orders": screen_orders,
+            "gmv": screen_gmv,
+            "label": "千川直播大屏抓取值（原样保留）",
+        },
+        "source": "千川后台分日报表 + 千川直播大屏",
+        "note": "净成交与支付订单并存，不再混用；对账以大屏原值为准。",
+    }
+
+
 class DashboardStore:
     def __init__(self, snapshot_path: Path = SNAPSHOT_PATH):
         self.snapshot_path = snapshot_path
@@ -5909,6 +5978,53 @@ class DashboardStore:
         with self.lock:
             snapshot = copy.deepcopy(self.snapshot)
         return self._apply_source_isolated_today(snapshot)
+
+    def daily_row_metrics(self, day: str) -> dict[str, Any]:
+        """千川后台某一天的双口径交易指标（净成交与支付口径并存）。"""
+        day = str(day or "")[:10]
+        if not day:
+            return {}
+        snapshot = self.dashboard()
+        rows: list[dict[str, Any]] = []
+        for account in snapshot.get("accounts") or []:
+            if not isinstance(account, dict):
+                continue
+            for row in account.get("data") or []:
+                if isinstance(row, dict) and str(row.get("date") or "")[:10] == day:
+                    rows.append(row)
+        if not rows:
+            return {}
+        totals = {
+            "date": day,
+            "spend": 0.0,
+            "gmv": 0.0,
+            "orders": 0.0,
+            "grossGmv": 0.0,
+            "grossOrders": 0.0,
+        }
+        has_gross = False
+        for row in rows:
+            totals["spend"] += to_number(row.get("spend")) or 0.0
+            totals["gmv"] += to_number(row.get("gmv")) or 0.0
+            totals["orders"] += to_number(row.get("orders")) or 0.0
+            gross_gmv = to_number(row.get("grossGmv"))
+            gross_orders = to_number(row.get("grossOrders"))
+            if gross_gmv is not None:
+                totals["grossGmv"] += gross_gmv
+                has_gross = True
+            if gross_orders is not None:
+                totals["grossOrders"] += gross_orders
+                has_gross = True
+        totals["spend"] = round(totals["spend"], 2)
+        totals["gmv"] = round(totals["gmv"], 2)
+        totals["orders"] = round(totals["orders"], 4)
+        totals["grossGmv"] = round(totals["grossGmv"], 2)
+        totals["grossOrders"] = round(totals["grossOrders"], 4)
+        if not has_gross:
+            totals.pop("grossGmv", None)
+            totals.pop("grossOrders", None)
+        totals["source"] = "千川后台分日报表"
+        return totals
 
     def _apply_source_isolated_today(
         self,
@@ -8121,6 +8237,11 @@ class DashboardStore:
             sessions,
             audience_history if isinstance(audience_history, dict) else {},
         )
+        backend_metrics = self.daily_row_metrics(selected_day) if selected_day else {}
+        if backend_metrics:
+            for session in sessions:
+                if str(session.get("date") or "")[:10] == selected_day:
+                    attach_day_order_scopes(session, backend_metrics)
         for session in sessions:
             session["summary"] = recording_store.review_overview_summary(session)
         if sessions and write_archive:
@@ -8356,10 +8477,59 @@ class DashboardStore:
                         ) or data.get("screenLastCumulative")
                         if isinstance(exposure_last_cumulative, dict):
                             exposure = exposure_last_cumulative.get("exposure")
+                    backend_scopes = self.daily_row_metrics(selected_day)
+                    net_orders = recording_store._number(metrics.get("netOrders"))
+                    if net_orders is None:
+                        net_orders = recording_store._number(metrics.get("orders"))
+                    net_gmv = recording_store._number(metrics.get("netGmv"))
+                    if net_gmv is None:
+                        net_gmv = recording_store._number(metrics.get("gmv"))
+                    gross_orders = recording_store._number(metrics.get("grossOrders"))
+                    gross_gmv = recording_store._number(metrics.get("grossGmv"))
+                    if backend_scopes:
+                        if net_orders is None:
+                            net_orders = recording_store._number(backend_scopes.get("orders"))
+                        if net_gmv is None:
+                            net_gmv = recording_store._number(backend_scopes.get("gmv"))
+                        if gross_orders is None:
+                            gross_orders = recording_store._number(
+                                backend_scopes.get("grossOrders")
+                            )
+                        if gross_gmv is None:
+                            gross_gmv = recording_store._number(
+                                backend_scopes.get("grossGmv")
+                            )
+                    order_scopes = (
+                        data.get("orderScopes")
+                        if isinstance(data.get("orderScopes"), dict)
+                        else {
+                            "net": {
+                                "orders": net_orders,
+                                "gmv": net_gmv,
+                                "label": "净成交（剔除 1 小时内退款）",
+                            },
+                            "gross": {
+                                "orders": gross_orders,
+                                "gmv": gross_gmv,
+                                "label": "支付口径（含退款前）",
+                            },
+                            "screenCapture": {
+                                "orders": metrics.get("screenOrders"),
+                                "gmv": metrics.get("screenGmv"),
+                                "label": "千川直播大屏抓取值（原样保留）",
+                            },
+                            "source": (
+                                "千川后台分日报表 + 千川直播大屏"
+                                if backend_scopes
+                                else "复盘归档"
+                            ),
+                            "note": "净成交与支付订单并存，不再混用。",
+                        }
+                    )
                     efficiency = recording_store._efficiency_metrics(
                         recording_store._number(metrics.get("spend")),
-                        recording_store._number(metrics.get("gmv")),
-                        recording_store._number(metrics.get("orders")),
+                        net_gmv,
+                        net_orders,
                         recording_store._number(exposure),
                         gpm=recording_store._number(metrics.get("gpm")),
                     )
@@ -8386,15 +8556,33 @@ class DashboardStore:
                         "recordingStatusLabel": data.get("recordingStatusLabel") or "",
                         "metrics": {
                             "spend": metrics.get("spend"),
-                            "gmv": metrics.get("gmv"),
-                            "orders": metrics.get("orders"),
-                            "roi": metrics.get("roi"),
+                            "gmv": net_gmv if net_gmv is not None else metrics.get("gmv"),
+                            "orders": (
+                                net_orders
+                                if net_orders is not None
+                                else metrics.get("orders")
+                            ),
+                            "netGmv": net_gmv,
+                            "netOrders": net_orders,
+                            "grossGmv": gross_gmv,
+                            "grossOrders": gross_orders,
+                            "ordersScope": "net",
+                            "ordersScopeLabel": "订单=净成交订单（剔除 1 小时内退款）",
+                            "grossOrdersScopeLabel": "支付订单（含退款前）",
+                            "screenOrders": metrics.get("screenOrders"),
+                            "screenGmv": metrics.get("screenGmv"),
+                            "roi": (
+                                round(net_gmv / metrics.get("spend"), 4)
+                                if metrics.get("spend") and net_gmv is not None
+                                else metrics.get("roi")
+                            ),
                             "viewers": viewers,
                             "exposure": exposure,
                             "gpm": efficiency["gpm"],
                             "cpm": efficiency["cpm"],
                             "cpa": efficiency["cpa"],
                         },
+                        "orderScopes": order_scopes,
                         "funnel": funnel if isinstance(funnel, dict) else {},
                         "summary": data.get("summary") or "",
                         "sourceNote": data.get("sourceNote") or "",
